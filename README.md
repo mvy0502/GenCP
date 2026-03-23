@@ -76,7 +76,7 @@ Demonstration data is available for [HR](GenCP_HR_demo/data/dataset) and [VHR](G
 
 ## Data
 
-For HR images, we provide a training dadaset of image pairs (S2 patches and correspond OSM rasters), avaible in [Zenodo]() (soon).
+For HR images, we provide a training dadaset of image pairs (S2 patches and correspond OSM rasters), avaible in [Zenodo](https://zenodo.org/records/15044428).
 
 To generate your own OSM rasters, here are some guidelines:
 * Use [osmnx library](https://osmnx.readthedocs.io/en/stable/getting-started.html) to download OSM vectors over your area of interest
