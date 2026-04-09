@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="fr" style="--accent: #0b76b8;"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GenCP</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --accent: #0b76b8; }
+
+    body {
+      width: 100%;
+      height: 500vh;        /* ← hauteur totale de défilement (ajustez si besoin) */
+      background: #000;
+      overflow-x: hidden;
+    }
+    #stage {
+      position: fixed; inset: 0;
+      width: 100vw; height: 100vh;
+      overflow: hidden;
+    }
+    #fd {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      background-image: url('fd.jpg');
+      background-size: cover;
+      background-position: center top;
+      z-index: 1;
+      transition: background-color 0.8s ease;
+    }
+    #fd.solid { background-image: none !important; background-color: var(--accent); }
+
+    #deg {
+      position: absolute; top: 0; left: 0;
+      width: 100%; height: 200%;
+      background-image: url('deg.png');
+      background-size: cover;
+      background-position: center top;
+      z-index: 2;
+      will-change: transform, opacity;
+    }
+    #terre {
+      position: absolute;
+      z-index: 3; opacity: 0;
+      pointer-events: none;
+      will-change: opacity, top, left, width, height;
+    }
+    #terre-titre {
+      position: absolute;
+      bottom: 100%;
+      left: 0; width: 100%;
+      padding-bottom: 22px;
+      text-align: center;
+      font-family: 'Courier New', 'Lucida Console', monospace;
+      font-size: clamp(2rem, 4.5vw, 3.2rem);
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #fff;
+      pointer-events: none;
+    }
+    #terre-caption {
+      position: absolute;
+      top: 100%;
+      left: 0; width: 100%;
+      padding-top: 10px;
+      text-align: center;
+      font-family: 'Courier New', 'Lucida Console', monospace;
+      font-size: clamp(0.6rem, 1vw, 0.75rem);
+      letter-spacing: 0.12em;
+      color: #fff;
+      pointer-events: none;
+    }
+    /* ── before/after slider ─────────────────────────────────────────────── */
+    .ba-slider {
+      position: relative;
+      width: 100%; height: 100%;
+      overflow: hidden;
+      cursor: col-resize;
+      user-select: none;
+      pointer-events: auto;
+    }
+    .ba-after, .ba-before {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+    }
+    .ba-after img, .ba-before img {
+      display: block;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      object-position: center;
+      pointer-events: none;
+    }
+    .ba-before { clip-path: inset(0 50% 0 0); }
+    .ba-handle {
+      position: absolute;
+      top: 0; bottom: 0; left: 50%;
+      transform: translateX(-50%);
+      display: flex; flex-direction: column; align-items: center;
+      z-index: 10; pointer-events: none;
+    }
+    .ba-handle-line { flex: 1; width: 2px; background: rgba(255,255,255,0.8); }
+    .ba-handle-circle {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: rgba(255,255,255,0.15);
+      border: 2px solid rgba(255,255,255,0.8);
+      backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .ba-handle-circle svg { width: 18px; height: 18px; }
+    .ba-label {
+      position: absolute; top: 12px;
+      font-family: 'Courier New', monospace;
+      font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
+      color: rgba(255,255,255,0.7);
+      background: rgba(0,0,0,0.35);
+      padding: 3px 8px; border-radius: 3px;
+      pointer-events: none; z-index: 11;
+      transition: opacity 0.3s ease;
+    }
+    .ba-label-left  { left: 10px; }
+    .ba-label-right { right: 10px; }
+
+    #logo {
+      position: absolute;
+      z-index: 5; opacity: 0;
+      pointer-events: none;
+      will-change: opacity, top, left, width, height;
+    }
+    #logo img { display: block; width: 100%; height: 100%; object-fit: contain; }
+
+    /* ── section contenu Markdown ───────────────────────────────────────── */
+    #md-section {
+      position: relative;
+      z-index: 20;
+      margin-top: 400vh;
+      background: var(--accent);
+      color: #fff;
+      font-family: 'Courier New', 'Lucida Console', monospace;
+      padding: 80px clamp(24px, 8vw, 160px) 100px;
+      min-height: 100vh;
+    }
+    #md-section::before {
+      content: '';
+      display: block;
+      width: 60px;
+      height: 3px;
+      background: rgba(255,255,255,0.4);
+      margin-bottom: 60px;
+    }
+    #md-content h1 {
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin-bottom: 0.5em;
+      color: #fff;
+    }
+    #md-content h2 {
+      font-size: clamp(1.1rem, 2.5vw, 1.5rem);
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.6);
+      margin: 2.5em 0 0.8em;
+      padding-bottom: 0.4em;
+      border-bottom: 1px solid rgba(255,255,255,0.15);
+    }
+    #md-content h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.5);
+      margin: 2em 0 0.5em;
+    }
+    #md-content p {
+      font-size: clamp(0.9rem, 1.5vw, 1rem);
+      line-height: 1.85;
+      color: rgba(255,255,255,0.75);
+      margin-bottom: 1.2em;
+      max-width: 680px;
+    }
+    #md-content strong { color: #fff; font-weight: 700; }
+    #md-content em    { color: rgba(255,255,255,0.55); font-style: italic; }
+    #md-content a {
+      color: #fff;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      text-decoration-color: rgba(255,255,255,0.4);
+    }
+    #md-content a:hover { text-decoration-color: #fff; }
+    #md-content blockquote {
+      border-left: 3px solid rgba(255,255,255,0.35);
+      margin: 1.5em 0;
+      padding: 0.5em 0 0.5em 1.5em;
+      color: rgba(255,255,255,0.55);
+      font-style: italic;
+    }
+    #md-content blockquote p { color: inherit; margin-bottom: 0; }
+    #md-content ul, #md-content ol {
+      margin: 1em 0 1.2em 1.2em;
+      max-width: 680px;
+    }
+    #md-content li {
+      font-size: clamp(0.9rem, 1.5vw, 1rem);
+      line-height: 1.8;
+      color: rgba(255,255,255,0.75);
+      margin-bottom: 0.3em;
+    }
+    #md-content li strong { color: #fff; }
+    #md-content hr {
+      border: none;
+      border-top: 1px solid rgba(255,255,255,0.15);
+      margin: 2.5em 0;
+    }
+    #md-content code {
+      background: rgba(255,255,255,0.12);
+      padding: 0.15em 0.45em;
+      border-radius: 3px;
+      font-size: 0.88em;
+    }
+    #md-content pre {
+      background: rgba(0,0,0,0.25);
+      padding: 1.2em 1.5em;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin: 1.2em 0;
+    }
+    #md-content pre code { background: none; padding: 0; }
+    #md-content img[alt="workflow"] {
+      display: block;
+      width: 70vw;
+      max-width: 100%;
+      margin: 1.5em auto;
+    }
+    #md-loading {
+      color: rgba(255,255,255,0.3);
+      font-size: 0.85rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+
+    /* ── onglets ─────────────────────────────────────────────────────────── */
+    .tabs { margin: 1.5em 0; }
+    .tab-bar { display: flex; gap: 0; border-bottom: 1px solid rgba(255,255,255,0.2); margin-bottom: 1.2em; }
+    .tab-btn {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      padding: 0.6em 1.2em;
+      color: rgba(255,255,255,0.45);
+      font-family: 'Courier New', monospace;
+      font-size: 0.85rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .tab-btn:hover { color: rgba(255,255,255,0.75); }
+    .tab-btn.active { color: #fff; border-bottom-color: #fff; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* ── image de référence (frère de #terre, positionnée par JS) ────────── */
+    #image-ref-wrap {
+      position: absolute;
+      z-index: 3;
+      opacity: 0;
+      pointer-events: none;
+      will-change: opacity, top, left, width, height;
+    }
+    #image-ref-wrap > img {
+      display: block;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      border-radius: 4px;
+    }
+    @media (max-width: 600px) {
+      #image-ref-wrap { display: none; }
+    }
+      position: absolute; bottom: 32px; left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      opacity: 1; transition: opacity 0.5s ease; pointer-events: none;
+    }
+    #scroll-hint span {
+      color: rgba(255,255,255,0.5);
+      font-family: 'Courier New', monospace;
+      font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase;
+    }
+    #scroll-hint .chevron {
+      width: 18px; height: 18px;
+      border-right: 2px solid rgba(255,255,255,0.35);
+      border-bottom: 2px solid rgba(255,255,255,0.35);
+      transform: rotate(45deg);
+      animation: chevron-bounce 1.6s ease-in-out infinite;
+    }
+    @keyframes chevron-bounce {
+      0%,100% { transform: rotate(45deg) translate(0,0);     opacity:0.5; }
+      50%      { transform: rotate(45deg) translate(4px,4px); opacity:1;   }
+    }
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <div id="fd"></div>
+    <div id="deg" style="transform: translateY(0%); opacity: 1;"></div>
+    <div id="terre" style="width: 250px; height: 250px; left: 461.5px; opacity: 1; top: 198.5px;">
+      <div id="terre-titre">GenCP</div>
+      <div class="ba-slider">
+        <div class="ba-after">
+          <img src="gencp_concept-sat.png" alt="Vue satellite" draggable="false">
+        </div>
+        <div class="ba-before">
+          <img src="gencp_concept-raster.png" alt="Carte raster" draggable="false">
+        </div>
+        <div class="ba-handle">
+          <div class="ba-handle-line"></div>
+          <div class="ba-handle-circle">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M8 5L3 12L8 19M16 5L21 12L16 19" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="ba-handle-line"></div>
+        </div>
+        <div class="ba-label ba-label-left">Rasterized <br> Vector layer</div>
+        <div class="ba-label ba-label-right">GENCP Simulated<br>  Sentinel-2<br>  Colour Composite<br>  Image (B02 B03 B04<br> 10-meter band)</div>
+      </div>
+      <div id="terre-caption">Image translation from map to synthetic satellite image</div>
+    </div>
+    <div id="image-ref-wrap">
+      <img id="image-ref" src="image_ref.png" alt="Image de référence">
+      <div class="ba-label ba-label-left">Corresponding<br> SENTINEL-2<br> 10-meter IMAGE<br>  (dated of xxxxxx )</div>
+    </div>
+    <div id="logo" style="width: 200px; height: 200px; left: 486.5px; opacity: 0; top: 223.5px;"><img src="logo.png" alt="GenCP"></div>
+    <div id="scroll-hint"><span>scroll</span><div class="chevron"></div></div>
+  </div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════════════════
+   ██████████████████████████████████████████████████████████████████████████
+   ██                                                                        ██
+   ██   TABLE DE CONFIGURATION  —  TOUS LES RÉGLAGES SONT ICI               ██
+   ██                                                                        ██
+   ██   scroll_%   :  0 = haut de page    /  100 = bas de page              ██
+   ██   alpha      :  0 = invisible       /    1 = totalement opaque        ██
+   ██   pos_x/y    :  px depuis coin haut-gauche  OU  'center'  OU 'bottom' ██
+   ██   parallax_px:  déplacement vertical total (négatif = monte)          ██
+   ██                                                                        ██
+   ██████████████████████████████████████████████████████████████████████████
+   ══════════════════════════════════════════════════════════════════════════ */
+
+const CFG = {
+
+/* ┌──────────────────────────────────────────────────────────────────────────┐
+   │  CALQUE  fd  —  fond pleine page (jpg → couleur unie)                   │
+   │                                                                          │
+   │  Le fond bascule vers couleur_finale quand deg.scroll_cover_pct         │
+   │  est atteint. Pas d'autres réglages nécessaires.                        │
+   └──────────────────────────────────────────────────────────────────────────┘ */
+  fd: {
+    couleur_finale:  '#0b76b8',   // ← couleur pleine après la disparition de deg
+  },
+
+
+/* ┌──────────────────────────────────────────────────────────────────────────┐
+   │  CALQUE  deg  —  image 200 % hauteur  (parallaxe + fondu sortant)       │
+   │                                                                          │
+   │  POSITION  (translateY, % de la hauteur de deg = 200 vh)                │
+   │    0 %  = calé en haut   → moitié supérieure visible                   │
+   │   -50 % = calé en bas    → moitié inférieure visible = plein écran      │
+   │                                                                          │
+   │  scroll %          │  translateY                                         │
+   │  ──────────────────┼────────────────────────────────────────────────     │
+   │  0 → repos_fin     │  0 %         (immobile)                            │
+   │  repos_fin → cover │  0 % → -50 % (monte — effet parallaxe)             │
+   │  cover → 100       │  -50 %       (bloqué en bas)                       │
+   │                                                                          │
+   │  OPACITÉ                                                                 │
+   │  scroll %              │  alpha                                          │
+   │  ──────────────────────┼──────────────────────────────────────────────   │
+   │  0 → fadeout_debut     │  1  (opaque)                                   │
+   │  fadeout_debut → fin   │  1 → 0  (fondu sortant)                        │
+   └──────────────────────────────────────────────────────────────────────────┘ */
+  deg: {
+    scroll_repos_fin_pct:      20,   // ← fin du repos avant parallaxe      (scroll %)
+    scroll_cover_pct:          80,   // ← deg a recouvert l'écran            (scroll %)
+    scroll_fadeout_debut_pct:  90,   // ← début du fondu sortant             (scroll %)
+    scroll_fadeout_fin_pct:   100,   // ← fin   du fondu sortant             (scroll %)
+  },
+
+
+/* ┌──────────────────────────────────────────────────────────────────────────┐
+   │  CALQUE  terre  —  slider before/after (raster / satellite)              │
+   │                                                                          │
+   │  TAILLE  largeur / hauteur :                                             │
+   │    • largeur_px / hauteur_px  → taille fixe en pixels                   │
+   │    • largeur_vw / hauteur_vh  → taille en % de l'écran (prioritaire)    │
+   │      ex : largeur_vw: 60  →  60 % de la largeur de l'écran             │
+   │           mettre null pour ignorer et utiliser la valeur en px          │
+   │                                                                          │
+   │  POSITION  pos_x_px / pos_y_px :                                        │
+   │    • nombre en px   → coin haut-gauche du calque à x px / y px          │
+   │    • 'center'       → centré sur cet axe                                │
+   │                                                                          │
+   │  OPACITÉ                                                                 │
+   │  scroll %                 │  alpha                                       │
+   │  ─────────────────────────┼───────────────────────────────────────────   │
+   │  0 → fadein_debut         │  0  (invisible)                             │
+   │  fadein_debut → fadein_fin│  0 → 1  (fondu entrant)                     │
+   │  fadein_fin → fadeout_deb │  1  (opaque)                                │
+   │  fadeout_deb → fadeout_fin│  1 → 0  (fondu sortant)                     │
+   │  fadeout_fin → 100        │  0  (invisible)                             │
+   │                                                                          │
+   │  PARALLAXE  (décalage vertical indépendant des fondus)                   │
+   │  scroll %                 │  position Y                                  │
+   │  ─────────────────────────┼───────────────────────────────────────────   │
+   │  0 → parallax_debut       │  pos_y_px  (position de base)               │
+   │  parallax_debut → fin     │  pos_y_px → pos_y_px + parallax_px          │
+   │  parallax_fin → 100       │  pos_y_px + parallax_px  (bloqué)           │
+   │                                                                          │
+   │  POSITION DU CURSEUR SLIDER (animée par le scroll)                       │
+   │  scroll %                 │  position du séparateur (% de largeur)       │
+   │  ─────────────────────────┼───────────────────────────────────────────   │
+   │  0 → slider_scroll_debut  │  slider_pos_debut_pct  (position initiale)  │
+   │  slider_scroll_debut→fin  │  debut_pct → fin_pct   (glisse vers droite) │
+   │  slider_scroll_fin → 100  │  slider_pos_fin_pct    (bloqué)             │
+   └──────────────────────────────────────────────────────────────────────────┘ */
+  terre: {
+    largeur_px:   350,       // ← largeur  fixe (px) — ignorée si largeur_vw est renseigné
+    hauteur_px:   350,       // ← hauteur  fixe (px) — ignorée si hauteur_vh est renseigné
+    largeur_vw:    null,       // ← largeur  en % de l'écran  (null = utiliser largeur_px)
+    hauteur_vh:    null,       // ← hauteur  en % de l'écran  (null = utiliser hauteur_px)
+    pos_x_px:   'center',    // ← position horizontale : px  OU  'center'
+    pos_y_px:   'center',    // ← position verticale   : px  OU  'center'
+    //  — opacité —
+    scroll_fadein_debut_pct:    -1,   // ← début du fondu entrant             (scroll %)
+    scroll_fadein_fin_pct:     0,   // ← fin   du fondu entrant             (scroll %)
+    scroll_fadeout_debut_pct:  40,   // ← début du fondu sortant             (scroll %)
+    scroll_fadeout_fin_pct:    50,   // ← fin   du fondu sortant             (scroll %)
+    //  — parallaxe —
+    scroll_parallax_debut_pct:  0,   // ← début du mouvement parallaxe       (scroll %)
+    scroll_parallax_fin_pct:   90,   // ← fin   du mouvement parallaxe       (scroll %)
+    parallax_px:                0,   // ← déplacement vertical total (- = monte, + = descend)
+    //  — curseur slider animé par le scroll —
+    slider_pos_debut_pct:      75,   // ← position initiale du séparateur    (% largeur slider)
+    slider_scroll_debut_pct:    0,   // ← scroll auquel l'animation commence (scroll %)
+    slider_pos_fin_pct:        10,   // ← position finale du séparateur      (% largeur slider)
+    slider_scroll_fin_pct:     35,   // ← scroll auquel l'animation se fige  (scroll %)
+  },
+
+
+/* ┌──────────────────────────────────────────────────────────────────────────┐
+   │  CALQUE  logo                                                            │
+   │                                                                          │
+   │  Taille fixe en pixels (pas de responsive).                              │
+   │                                                                          │
+   │  POSITION  pos_x_px / pos_y_px :                                        │
+   │    • nombre en px   → coin haut-gauche du calque                        │
+   │    • 'center'       → centré sur cet axe                                │
+   │                                                                          │
+   │  OPACITÉ                                                                 │
+   │  scroll %                 │  alpha                                       │
+   │  ─────────────────────────┼───────────────────────────────────────────   │
+   │  0 → fadein_debut         │  0  (invisible)                             │
+   │  fadein_debut → fadein_fin│  0 → 1  (fondu entrant)                     │
+   │  fadein_fin → fadeout_deb │  1  (opaque)                                │
+   │  fadeout_deb → fadeout_fin│  1 → 0  (fondu sortant)                     │
+   │  fadeout_fin → 100        │  0  (invisible)                             │
+   │                                                                          │
+   │  PARALLAXE                                                               │
+   │  scroll %                 │  position Y                                  │
+   │  ─────────────────────────┼───────────────────────────────────────────   │
+   │  0 → parallax_debut       │  pos_y de base                              │
+   │  parallax_debut → fin     │  base → base + parallax_px                  │
+   └──────────────────────────────────────────────────────────────────────────┘ */
+  logo: {
+    largeur_px:   350,       // ← largeur  fixe du logo                      (px)
+    hauteur_px:   350,       // ← hauteur  fixe du logo                      (px)
+    pos_x_px:   'center',    // ← position horizontale : px  OU  'center'
+    pos_y_px:   'center',    // ← position verticale   : px  OU  'center'
+    //  — opacité —
+    scroll_fadein_debut_pct:   35,   // ← début du fondu entrant             (scroll %)
+    scroll_fadein_fin_pct:     50,   // ← fin   du fondu entrant             (scroll %)
+    scroll_fadeout_debut_pct:  65,   // ← début du fondu sortant             (scroll %)
+    scroll_fadeout_fin_pct:    80,   // ← fin   du fondu sortant             (scroll %)
+    //  — parallaxe —
+    scroll_parallax_debut_pct: 65,   // ← début du mouvement parallaxe       (scroll %)
+    scroll_parallax_fin_pct:   80,   // ← fin   du mouvement parallaxe       (scroll %)
+    parallax_px:                -100,   // ← déplacement vertical total (- = monte, + = descend)
+  },
+
+}; /* ══ fin CFG ══ */
+
+/* ██████████████████████████████████████████████████████████████████████████
+   FIN DE LA TABLE DE CONFIGURATION
+   ██████████████████████████████████████████████████████████████████████████ */
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   MOTEUR  —  ne pas modifier sauf si vous savez ce que vous faites
+   ════════════════════════════════════════════════════════════════════════════ */
+
+  const elFd       = document.getElementById('fd');
+  const elDeg      = document.getElementById('deg');
+  const elTerre    = document.getElementById('terre');
+  const elImageRef = document.getElementById('image-ref-wrap');
+  const elLogo     = document.getElementById('logo');
+  const elHint     = document.getElementById('scroll-hint');
+
+  /* couleur finale du fond */
+  document.documentElement.style.setProperty('--accent', CFG.fd.couleur_finale);
+
+  /* ── helpers ─────────────────────────────────────────────────────────── */
+  function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+  function map(v, a, b, c, d) { return c + (d - c) * clamp((v - a) / (b - a), 0, 1); }
+
+  /**
+   * Résout une valeur de position en pixels absolus.
+   * @param {number|'center'|'bottom'} pos   valeur de config
+   * @param {number} size                     largeur ou hauteur du calque (px)
+   * @param {'x'|'y'} axis                   axe concerné
+   * @param {number} [bottomOffset=0]         offset si pos === 'bottom'
+   */
+  function resolvePos(pos, size, axis, bottomOffset) {
+    const vp = axis === 'x' ? window.innerWidth : window.innerHeight;
+    if (pos === 'center') return (vp - size) / 2;
+    if (pos === 'bottom') return vp - size - (bottomOffset || 0);
+    return Number(pos);
+  }
+
+  /**
+   * Calcule l'alpha d'un calque selon sa config fade-in / fade-out.
+   * @param {number} p   progression scroll 0→1
+   * @param {object} c   objet CFG du calque (doit avoir les 4 clés scroll_fadein/out_…_pct)
+   */
+  function fadeAlpha(p, c) {
+    const iSt = c.scroll_fadein_debut_pct  / 100;
+    const iEn = c.scroll_fadein_fin_pct    / 100;
+    const oSt = c.scroll_fadeout_debut_pct / 100;
+    const oEn = c.scroll_fadeout_fin_pct   / 100;
+    if      (p <= iSt) return 0;
+    else if (p <  iEn) return map(p, iSt, iEn, 0, 1);
+    else if (p <  oSt) return 1;
+    else if (p <  oEn) return map(p, oSt, oEn, 1, 0);
+    else               return 0;
+  }
+
+  /**
+   * Calcule le décalage parallaxe (px) d'un calque selon sa config parallax.
+   * @param {number} p   progression scroll 0→1
+   * @param {object} c   objet CFG du calque (doit avoir parallax_px + scroll_parallax_…_pct)
+   */
+  function parallaxShift(p, c) {
+    return map(p,
+      c.scroll_parallax_debut_pct / 100,
+      c.scroll_parallax_fin_pct   / 100,
+      0, c.parallax_px
+    );
+  }
+
+  /* ── mise en page : positionne et dimensionne chaque calque ─────────── */
+  function applyLayout() {
+    /* terre — taille : vw/vh prioritaire sur px */
+    const tw = CFG.terre.largeur_vw != null
+               ? window.innerWidth  * CFG.terre.largeur_vw / 100
+               : CFG.terre.largeur_px;
+    const th = CFG.terre.hauteur_vh != null
+               ? window.innerHeight * CFG.terre.hauteur_vh / 100
+               : CFG.terre.hauteur_px;
+    elTerre.style.width  = tw + 'px';
+    elTerre.style.height = th + 'px';
+
+    const IMG_GAP = 12; // espace entre slider et image (px)
+    const isMobile = window.innerWidth <= 600;
+
+    if (isMobile) {
+      /* ── smartphone : image en dessous, ensemble centré horizontalement ── */
+      const gLeft = (window.innerWidth - tw) / 2;
+
+      elTerre._baseX = gLeft;
+      elTerre.style.left = gLeft + 'px';
+      elTerre._baseY = resolvePos(CFG.terre.pos_y_px, th, 'y');
+
+      elImageRef.style.width  = tw + 'px';
+      elImageRef.style.height = th + 'px';
+      elImageRef.style.left   = gLeft + 'px';
+      elImageRef._offsetY     = th + IMG_GAP;   // décalage sous #terre
+    } else {
+      /* ── desktop : image à droite, même taille que le slider ── */
+      const groupW = tw + IMG_GAP + tw;
+      const gLeft  = (window.innerWidth - groupW) / 2;
+
+      elTerre._baseX = gLeft;
+      elTerre.style.left = gLeft + 'px';
+      elTerre._baseY = resolvePos(CFG.terre.pos_y_px, th, 'y');
+
+      elImageRef.style.width  = tw + 'px';
+      elImageRef.style.height = th + 'px';
+      elImageRef.style.left   = (gLeft + tw + IMG_GAP) + 'px';
+      elImageRef._offsetY     = 0;              // même ligne que #terre
+    }
+    elImageRef._baseY = elTerre._baseY;
+
+    /* logo */
+    const lw = CFG.logo.largeur_px, lh = CFG.logo.hauteur_px;
+    elLogo.style.width   = lw + 'px';
+    elLogo.style.height  = lh + 'px';
+    elLogo.style.left    = resolvePos(CFG.logo.pos_x_px, lw, 'x') + 'px';
+    elLogo._baseY        = resolvePos(CFG.logo.pos_y_px, lh, 'y');
+  }
+
+  applyLayout();
+  window.addEventListener('resize', () => { applyLayout(); tick(); });
+
+  /* ── boucle de scroll ────────────────────────────────────────────────── */
+  let hintHidden = false;
+
+  function tick() {
+    const scrollY   = window.scrollY;
+    const maxScroll = document.body.scrollHeight - window.innerHeight;
+    const p         = maxScroll > 0 ? scrollY / maxScroll : 0;
+
+    /* hint */
+    if (!hintHidden && scrollY > 5) { elHint.style.opacity = '0'; hintHidden = true; }
+
+    /* ── deg : position ── */
+    const dRe = CFG.deg.scroll_repos_fin_pct / 100;
+    const dCo = CFG.deg.scroll_cover_pct     / 100;
+    let degTY = 0;
+    if      (p <= dRe) degTY = 0;
+    else if (p <  dCo) degTY = map(p, dRe, dCo, 0, -50);
+    else               degTY = -50;
+    elDeg.style.transform = `translateY(${degTY.toFixed(3)}%)`;
+
+    /* ── deg : alpha ── */
+    const dFSt = CFG.deg.scroll_fadeout_debut_pct / 100;
+    const dFEn = CFG.deg.scroll_fadeout_fin_pct   / 100;
+    elDeg.style.opacity = (p < dFSt ? 1 : map(p, dFSt, dFEn, 1, 0)).toFixed(4);
+
+    /* ── fd : couleur unie ── */
+    if (p > dCo) elFd.classList.add('solid');
+    else         elFd.classList.remove('solid');
+
+    /* ── terre : alpha + parallaxe ── */
+    const terreAlpha = fadeAlpha(p, CFG.terre);
+    const terreTop   = (elTerre._baseY + parallaxShift(p, CFG.terre)).toFixed(1);
+    elTerre.style.opacity = terreAlpha.toFixed(4);
+    elTerre.style.top     = terreTop + 'px';
+
+    /* ── image-ref : suit #terre (même alpha + parallaxe) ── */
+    elImageRef.style.opacity = terreAlpha.toFixed(4);
+    elImageRef.style.top     = (elImageRef._baseY + elImageRef._offsetY + parallaxShift(p, CFG.terre)).toFixed(1) + 'px';
+
+    /* ── slider : position du curseur animée par le scroll ── */
+    if (!sliderDragging) {
+      const sc = CFG.terre;
+      const sliderPct = map(p,
+        sc.slider_scroll_debut_pct / 100,
+        sc.slider_scroll_fin_pct   / 100,
+        sc.slider_pos_debut_pct,
+        sc.slider_pos_fin_pct
+      );
+      sliderSetPos(sliderPct);
+    }
+
+    /* ── logo : alpha + parallaxe ── */
+    elLogo.style.opacity = fadeAlpha(p, CFG.logo).toFixed(4);
+    elLogo.style.top     = (elLogo._baseY + parallaxShift(p, CFG.logo)).toFixed(1) + 'px';
+  }
+
+  /* ── Before / After slider ──────────────────────────────────────────────── */
+  const sliderEl     = document.querySelector('.ba-slider');
+  const sliderBefore = sliderEl.querySelector('.ba-before');
+  const sliderHandle = sliderEl.querySelector('.ba-handle');
+  const sliderLabelL = sliderEl.querySelector('.ba-label-left');
+  const sliderLabelR = sliderEl.querySelector('.ba-label-right');
+  let   sliderDragging = false;
+
+  const CFG_LABEL_HIDE_THRESHOLD = 5; // ← seuil (%) sous lequel la légende est masquée
+
+  function sliderSetPos(pct) {
+    pct = Math.max(0, Math.min(100, pct));
+    sliderBefore.style.clipPath = 'inset(0 ' + (100 - pct).toFixed(2) + '% 0 0)';
+    sliderHandle.style.left     = pct.toFixed(2) + '%';
+    /* masquage des légendes aux extrémités */
+    sliderLabelL.style.opacity = pct <= CFG_LABEL_HIDE_THRESHOLD ? '0' : '1';
+    sliderLabelR.style.opacity = pct >= (100 - CFG_LABEL_HIDE_THRESHOLD) ? '0' : '1';
+  }
+
+  function sliderSetPosFromClient(clientX) {
+    const rect = sliderEl.getBoundingClientRect();
+    const pct  = (clientX - rect.left) / rect.width * 100;
+    sliderSetPos(pct);
+  }
+
+  sliderEl.addEventListener('mousedown', function(e) { sliderDragging = true; sliderSetPosFromClient(e.clientX); e.preventDefault(); });
+  document.addEventListener('mousemove', function(e) { if (sliderDragging) sliderSetPosFromClient(e.clientX); });
+  document.addEventListener('mouseup',   function()  { sliderDragging = false; });
+
+  sliderEl.addEventListener('touchstart', function(e) { sliderDragging = true; sliderSetPosFromClient(e.touches[0].clientX); }, { passive: true });
+  document.addEventListener('touchmove',  function(e) { if (sliderDragging) sliderSetPosFromClient(e.touches[0].clientX); }, { passive: true });
+  document.addEventListener('touchend',   function()  { sliderDragging = false; });
+
+  window.addEventListener('scroll', tick, { passive: true });
+  tick();
+</script>
+  <!-- ══ Section contenu Markdown ══════════════════════════════════════════ -->
+  <section id="md-section">
+    <div id="md-content">
+      <p id="md-loading">Chargement…</p>
+    </div>
+  </section>
+
+  <!-- marked.js — parser Markdown léger (pas de dépendance serveur) -->
+  <script src="marked.min.js"></script>
+  <script>
+  /* ══ Extension marked : syntaxe :::tabs ════════════════════════════════════
+     Usage dans content.md :
+
+     :::tabs
+     ### Titre onglet 1
+     Contenu avec du **markdown** normal
+
+     ### Titre onglet 2
+     Autre contenu
+     :::
+     ══════════════════════════════════════════════════════════════════════════ */
+  const tabsExtension = {
+    name: 'tabs',
+    level: 'block',
+    start(src) { return src.indexOf(':::tabs'); },
+    tokenizer(src) {
+      const match = src.match(/^:::tabs\n([\s\S]*?)\n:::/);
+      if (match) return { type: 'tabs', raw: match[0], content: match[1] };
+    },
+    renderer(token) {
+      const sections = token.content.split(/(?=^### )/m).filter(Boolean);
+      let buttons = '', panels = '';
+      sections.forEach(function(section, i) {
+        const lines = section.split('\n');
+        const title = marked.parseInline(lines[0].replace(/^### /, '').trim());
+        const body  = marked.parse(lines.slice(1).join('\n'));
+        const id    = 'tab-' + i;
+        buttons += '<button class="tab-btn' + (i === 0 ? ' active' : '') + '" onclick="switchTab(this,\'' + id + '\')">' + title + '</button>';
+        panels  += '<div class="tab-content' + (i === 0 ? ' active' : '') + '" id="' + id + '">' + body + '</div>';
+      });
+      return '<div class="tabs"><div class="tab-bar">' + buttons + '</div>' + panels + '</div>';
+    }
+  };
+  marked.use({ extensions: [tabsExtension] });
+
+  function switchTab(btn, id) {
+    const tabs = btn.closest('.tabs');
+    tabs.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+    tabs.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+    btn.classList.add('active');
+    document.getElementById(id).classList.add('active');
+  }
+
+  /* ══ Chargement du fichier content.md ══════════════════════════════════════
+     Pour modifier le contenu de la page, éditez uniquement content.md
+     Le fichier doit se trouver dans le même dossier que index_accueil.html
+     ══════════════════════════════════════════════════════════════════════════ */
+  (function loadMarkdown() {
+    const MARKDOWN_FILE = './content.md'; // ← chemin du fichier Markdown
+
+    fetch(MARKDOWN_FILE, { cache: 'no-cache' })
+      .then(function(res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.text();
+      })
+      .then(function(md) {
+        document.getElementById('md-content').innerHTML = marked.parse(md);
+      })
+      .catch(function(err) {
+        document.getElementById('md-content').innerHTML =
+          '<p style="color:rgba(255,255,255,0.4);font-size:0.85rem;letter-spacing:0.1em;">' +
+          '⚠ Impossible de charger <code>content.md</code> — ' +
+          'vérifiez que le fichier est bien dans le même dossier que la page.<br>' +
+          '<small>' + err.message + '</small></p>';
+      });
+  })();
+  </script>
+
+
+</body></html>
