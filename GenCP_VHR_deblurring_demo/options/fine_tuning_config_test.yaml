@@ -1,0 +1,64 @@
+
+Defocus:
+  test_status: ['train_on_dpdd_s']
+  eval_data: ['Test_sets']
+  net_configs: ['network_s']
+  # test_status: ['train_on_dpdd_s','train_on_lfdof_s','train_on_lfdpdd_s','train_on_dpdd_dual_s','train_on_dpdd_l','train_on_dpdd_dual_l']
+  # eval_data: ['Test_sets', 'Test_sets', 'Test_sets', 'Test_sets', 'Test_sets', 'Test_sets']
+  # net_configs: ['network_s','network_s','network_s','network_s_dual','network_l','network_l_dual']
+
+  Test_sets:
+    dataroot_gt: ./Test_sets/
+    dataroot_lq: ./Test_sets/
+
+  network_s:
+    inp_channels: 3
+    out_channels: 3
+    dim: 32
+    num_blocks: [8, 12, 12, 16]
+    mix_kernel_size: [9, 9, 9, 9]
+    
+  # network_l:
+  #   inp_channels: 3
+  #   out_channels: 3
+  #   dim: 48
+  #   num_blocks: [8, 12, 12, 16]
+  #   mix_kernel_size: [9, 9, 9, 9]
+    
+
+  # network_s_dual:
+  #   inp_channels: 9
+  #   out_channels: 3
+  #   dim: 32
+  #   num_blocks: [8, 12, 12, 16]
+  #   mix_kernel_size: [9, 9, 9, 9]  
+  #   dual_pixel_task: True
+    
+  # network_l_dual:
+  #   inp_channels: 9
+  #   out_channels: 3
+  #   dim: 48
+  #   num_blocks: [8, 12, 12, 16]
+  #   mix_kernel_size: [9, 9, 9, 9]
+  #   dual_pixel_task: True
+
+
+
+Motion:
+
+  test_status: ['train_on_realr_s']
+  eval_data: ['Test_sets']
+  net_configs: ['network_s']
+
+  Test_sets:
+    dataroot_gt: ./Test_sets/
+    dataroot_lq: ./Test_sets/
+
+  network_s:
+    inp_channels: 3
+    out_channels: 3
+    dim: 32
+    num_blocks: [8, 12, 12, 16]
+    mix_kernel_size: [7, 7, 7, 7]
+
+
