@@ -47,8 +47,6 @@ Note: image patches used for training and generated images are 8 bits images.
 
 ### Examples of generated images
 
-TODO: add links to zenodo and QGISCloud if available
-
 Below are some examples of HR generated images along with the corresponding reference S2 patches and OSM rasters.
 
 OSM raster            |  Reference Image            |  Generated Image
@@ -71,9 +69,11 @@ OSM raster            |  Reference Image            |  Generated Image
 
 ## Demo Notebooks
 
-Two notebooks are available to demonstrates how to generate synthetic [HR](GenCP_HR_demo/GenCP_demo_HR.ipynb) and [VHR](GenCP_VHR_demo/GenCP_demo_VHR.ipynb) images from OSM rasters. 
+Notebooks are available to demonstrates how to generate synthetic [HR](GenCP_HR_demo/GenCP_demo_HR.ipynb) / [HR with topography](GenCP_HR_demo/GenCP_demo_HR_topography.ipynb) and [VHR](GenCP_VHR_demo/GenCP_demo_VHR.ipynb) images from OSM rasters (and topography). 
 
-Demonstration data is available for [HR](GenCP_HR_demo/data/dataset) and [VHR](GenCP_VHR_demo/gencp_VHR_data_test). The notebooks can also be used on users' OSM rasters. Please refer to the [data section](#data) to see guidelines on how to generate OSM rasters compatible with the models' weights provided.
+Demonstration data is available for [HR](GenCP_HR_demo/data) and [VHR](GenCP_VHR_demo/gencp_VHR_data_test). The notebooks can also be used on users' OSM rasters. Please refer to the [data section](#data) to see guidelines on how to generate OSM rasters compatible with the models' weights provided.
+
+A demonstration notebook specific to VHR deblurring is also avaible [VHR deblurring](GenCP_VHR_deblurring_demo/GenCP_VHR_Deblurring.ipynb). It includes test data and guidelines.
 
 
 ## Data
@@ -85,12 +85,26 @@ To generate your own OSM rasters, here are some guidelines:
 * Define OSM feature's color for the rasterization based on the colors used in this project. [HR colors](GenCP_HR_demo/genCP_HR_osm_colors.py) and [VHR colors and width](GenCP_VHR_demo/genCP_VHR_osm_colors_and_width.py) describe the OSM features used in the GenCP project and their assigned colors (and width) to create OSM rasters. Note: for HR case, [CLC 10m raster](https://land.copernicus.eu/en/products/clc-backbone/clc-backbone-2021) was used in addition to OSM to fill missing values in OSM rasters, colors used are also defined in [HR colors](GenCP_HR_demo/genCP_HR_osm_colors.py).
 * Use [GDAL](https://gdal.org/en/stable/programs/gdal_rasterize.html) to rasterize OSM vectors
 
+**Topography**
 
-## Training
+To use topography with the HR prototype, here are some guidelines:
+* Download DEM (Digital Elevation Model) files interpolated at 10m from [DEM4S2](https://visioterra.org/DEM4S2/)
+* Convert DEM rasters to uint8 and extract patches matching OSM raster patches extents
+* Use [GDAL](https://visioterra.org/DEM4S2/) to convert DEM files to hillshades: both DEM or hillshades can be used
 
-Please refer to the original [README](#original-readme-from-cyclegan-and-pix2pix-in-pytorch) for guidelines on training.
+For training / testing HR prototype with topography, the dataset must have the following structure:
+* Folder A: contains RGB map raster chips
+* Folder TOPO: contains topography raster chips (from DEM or hillshades)
+* Folder B: contains RGB reference chips
 
-For training on an aligned dataset, such as the HR dataset available in Zenodo, the following options and command can be used:
+
+### Training
+
+The script train.py allows to launch the training given certains parameters.
+
+## RGB mode
+
+For training on an aligned dataset, meaning a dataset that contains images pairs saved as 1 images, the following options and command can be used:
 
 * Use `--dataroot` to indicate path to training dataset
 * Use `--name` to name the experiment
@@ -101,19 +115,55 @@ For training on an aligned dataset, such as the HR dataset available in Zenodo, 
 
 Set `--model` option to "pix2pix" to indicate that a Pix2Pix architecture is used.
 
-```
-   python train.py  --dataroot path/to/dataset  --name experiment_name --model pix2pix --LPIPS  --checkpoints_dir path/to/checkpoint_dir --direction BtoA
-   
-```
-
 All options to select parameters and hyperparameters values are described in the [options folder](options).
 
-
-## Testing
+```
+   python train.py  --dataroot path/to/dataset  --name experiment_name --model pix2pix  --checkpoints_dir path/to/checkpoint_dir --direction BtoA
    
-Please refer to the original [README](#original-readme-from-cyclegan-and-pix2pix-in-pytorch) for guidelines on testing.
+```
+## RGB + Topography mode
 
-For testing on source images only (map rasters) with the trained GenCP HR model, run the following command:
+For training on an unaligned dataset containing RGB map rasters and grayscale a DEM or Hillshades layer as inputs, the same options as for RGB mode are available. Required values for this mode are listed below:
+
+* Option `--dataset_mode` should be set to "topo" to indicate that topography dataloader should be used. 
+* Option `--direction` default setting should be used ("AtoB").
+* Option `--input_nc` should be set to "4" (RGB map raster are concatenated with topography layer (DEM or Hillshades)).
+* Option `--output_nc` should be set to "3" (generated images are RGB images).
+
+If visualization issues are encountered, set option `--display_id` tp "0" to disable visualization during training.
+
+```
+   python train.py  --dataroot path/to/dataset  --name experiment_name --model pix2pix --checkpoints_dir path/to/checkpoint_dir --dataset_mode topo --input_nc 4 --output_nc 3
+   
+```
+
+
+### Testing
+
+The script test.py allows to test the model. 
+
+## RGB mode
+
+For testing on test image pairs the following options and command can be used:
+
+* Use `--dataroot` to indicate path to test dataset
+* Use `--name` to indicate the name of the AI model to use
+* Use `--checkpoints_dir` to indicate path to checkpoints folder
+* Use `--results_dir` to indicate path to output folder for saving generated images
+* Use `--direction BtoA` to change input and output domain from B to A (A to B by default)
+* use `--num_test` to specify number of test images to process
+* use `--dataset_mode` to specify the dataset mode: aligned or unaligned
+
+Set `--model` option to "pix2pix" to indicate that a Pix2Pix architecture is used.
+
+All options are described in the [options folder](options).
+
+```
+   python test.py  --dataroot path/to/dataset --name experiment_name --model pix2pix --direction BtoA --results_dir /path/to/result_dir --checkpoints_dir path/to/checkpoint_dir
+   
+```
+
+For testing on source images only (map rasters), run the following command:
 
 * Set `--model` to "test" to indicate testing mode
 * Set `--dataset_mode` to "single" to indicate that only OSM rasters will be provided as inputs
@@ -124,6 +174,24 @@ For testing on source images only (map rasters) with the trained GenCP HR model,
    python test.py  --dataroot path/to/dataset --name experiment_name --model test --results_dir /path/to/result_dir --checkpoints_dir path/to/checkpoint_dir --dataset_mode single --norm batch --netG unet_256
    
 ```
+
+## RGB + Topography mode
+
+For testing on an unaligned dataset containing RGB map rasters and grayscale a DEM or Hillshades layer as inputs, the same options as for RGB testing mode are available. Required values for this mode are listed below:
+
+* Option `--model` should be set to "test" to indicate testing mode.
+* Option `--dataset_mode` should be set to "topo_single" to indicate that topography dataloader single mode should be used. 
+* Option `--direction` default setting should be used ("AtoB").
+* Option `--input_nc` should be set to "4" (RGB map raster are concatenated with topography layer (DEM or Hillshades)).
+* Option `--output_nc` should be set to "3" (generated images are RGB images).
+* Option `--norm` should be set to "batch" to indicate that batch normalization has been used during training.
+* Option `--netG` should be set to "unet_256" to indicate that U-Net 256 was used as backbone for the generator during training.
+
+```
+   python test.py  --dataroot path/to/dataset --name experiment_name --model test --dataset_mode topo_single --results_dir /path/to/result_dir --checkpoints_dir path/to/checkpoint_dir --norm batch --netG unet_256 --input_nc 4 --output-nc 3
+   
+```
+
 
 
 ## Geo-referencing
