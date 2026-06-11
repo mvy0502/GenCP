@@ -129,11 +129,12 @@ For training on an unaligned dataset containing RGB map rasters and grayscale a 
 * Option `--direction` default setting should be used ("AtoB").
 * Option `--input_nc` should be set to "4" (RGB map raster are concatenated with topography layer (DEM or Hillshades)).
 * Option `--output_nc` should be set to "3" (generated images are RGB images).
+* Option `--netG` should be set to "unet_256" or "resnet_9blocks" to indicate which backbone should be used for the generator (resnet_9blocks was used for the topography mode).
 
 If visualization issues are encountered, set option `--display_id` tp "0" to disable visualization during training.
 
 ```
-   python train.py  --dataroot path/to/dataset  --name experiment_name --model pix2pix --checkpoints_dir path/to/checkpoint_dir --dataset_mode topo --input_nc 4 --output_nc 3
+   python train.py  --dataroot path/to/dataset  --name experiment_name --model pix2pix --checkpoints_dir path/to/checkpoint_dir --dataset_mode topo --input_nc 4 --output_nc 3  --netG resnet_9blocks
    
 ```
 
@@ -185,7 +186,7 @@ For testing on an unaligned dataset containing RGB map rasters and grayscale a D
 * Option `--input_nc` should be set to "4" (RGB map raster are concatenated with topography layer (DEM or Hillshades)).
 * Option `--output_nc` should be set to "3" (generated images are RGB images).
 * Option `--norm` should be set to "batch" to indicate that batch normalization has been used during training.
-* Option `--netG` should be set to "unet_256" to indicate that U-Net 256 was used as backbone for the generator during training.
+* Option `--netG` should be set to "unet_256" or "resnet_9blocks" to indicate which backbone was used for the generator during training.
 
 ```
    python test.py  --dataroot path/to/dataset --name experiment_name --model test --dataset_mode topo_single --results_dir /path/to/result_dir --checkpoints_dir path/to/checkpoint_dir --norm batch --netG unet_256 --input_nc 4 --output-nc 3
