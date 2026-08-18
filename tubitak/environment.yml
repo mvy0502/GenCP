@@ -1,0 +1,19 @@
+name: gencp
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - osmnx
+  - jupyterlab
+  - geopandas
+  - rasterio
+  - matplotlib
+  - visdom
+  - pip
+  - pip:
+      # Not captured by `conda env export --from-history` (conda-only).
+      # Installed via pip; versions as verified 2026-08-18.
+      - torch
+      - torchvision
+      - dominate
+      - wandb
