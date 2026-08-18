@@ -273,3 +273,63 @@ No tuning was attempted. The fix is structural, not parametric: composite the OS
 low vegetation, bare, snow). Candidates exist with global coverage including Turkey (e.g. ESA
 WorldCover 10 m, public S3, no registration), which would also supply the speckle texture the
 reference exhibits. **Whether to add that layer is the next decision, not this pass's action.**
+
+---
+
+## 5. WorldCover base layer — second acceptance attempt (partial) and the base-product identification
+
+### 5.1 What was added
+
+ESA WorldCover 10 m as a per-pixel base layer under the OSM render (window-read from the public
+COGs, nearest-neighbour so the speckle survives), with the WC→palette mapping **derived from
+evidence** on 40 chips disjoint from every scored set (`osm-palette.md` §9) — which corrected two
+classes the inspected guess got wrong (90 wetland → water at 85.4 %; 50 built → light_purple by an
+ambiguous plurality).
+
+### 5.2 Partial gate result (n = 21 rendered / 13 scoreable; 9 chips blocked by Overpass rate-bans)
+
+| | v1 (OSM only) | v2 (OSM + WorldCover) |
+|---|---|---|
+| paired Δ residual | +0.549 ± 0.210 px | **+0.457 ± 0.223 px** |
+| point-count change | −24.4 % | −16.7 % |
+| zero-key-point chips | 11/30 | 8/21 |
+| forest_green recall | 76.7 % | **87.2 %** |
+| water recall | 19.8 % | **25.1 %** |
+
+**Still FAIL.** Vegetation is substantially repaired; water is not, and water drives the failures.
+
+### 5.3 Why water did not improve — measured
+
+At reference-water pixels across the 21 v2 chips (124,894 px), WorldCover 2021 says:
+
+> **crop 49.0 % · water 23.9 % · grass 14.7 % · tree 8.9 %**
+
+The reference's water simply is not water in WorldCover — consistent with flooded rice/marsh
+systems (the corpus is heavy in Ebro-delta and Guadalquivir chips) that WC classifies as cropland,
+plus vintage differences. **This is a base-product mismatch, not a compositing or mapping bug.**
+
+### 5.4 The base product, identified
+
+`CLC_color_mapping` in the released colour file has key set {0, 1…11, 253, 254}. That is a
+**one-to-one match to the CLC+ Backbone 2021 (10 m) raster legend**: 1 sealed → gray, 2/3/4 woody →
+forest_green, 5–8 herbaceous → light_green, 9 non-vegetated → no_vegetation, 10 water → water,
+11 snow/ice → snow, 253/254 (marine/outside) → water, 0 nodata → black.
+
+**The upstream base layer is CLC+ Backbone 2021**, which explains every residual at once: the 10 m
+per-pixel speckle, sea present without OSM polygons, paddy/marsh water, and the black/snow classes.
+CLC+ Backbone covers EEA-39 — **including Turkey** — but is distributed via the Copernicus Land
+Monitoring Service, which requires a (free) EU login the user must create; it is not on an open
+bucket like WorldCover.
+
+### 5.5 Options from here
+
+1. **Use CLC+ Backbone as the base** (requires user registration at CLMS) — reproduces the actual
+   upstream input; expected to close the water gap and most of the remainder.
+2. **Augment WorldCover with OSM water heuristics** (paddies via `landuse=farmland`+wetness tags is
+   unreliable) — partial at best; the 49 % crop-at-water figure caps what any heuristic can recover.
+3. **Accept the gap for Turkey**: Anatolian steppe has far less paddy/marsh ambiguity than the
+   Ebro/Guadalquivir chips, so the WC water gap may matter much less at the actual target site —
+   but that is an argument, not a measurement.
+
+Pending to complete the record once Overpass unbans this IP: the 9 remaining v2 chips, the full
+n = 30 gate, and the 25-chip held-out gate that no fitting ever touched.
