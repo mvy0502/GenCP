@@ -5,8 +5,9 @@
 **Verdict:** the 0.39 % scale error is **real, and exactly as predicted** — not larger, not smaller.
 The HR training set has since been measured (§6): 257x257 is the project-wide convention, not a
 demo artefact, which resolves the last material uncertainty and leaves the verdict unchanged.
-The network's own input->output alignment is now **certified to 0.008 px (8 cm)** by a
-translation-equivariance test (§11), superseding the earlier ~0.9 px bound.
+The network's own input->output alignment is settled in §11: **equivariance** is certified
+empirically to 0.008 px, and the **absolute** offset is shown analytically to be exactly zero.
+These are two different claims and §11.6 states which argument supports which.
 The train/inference scale mismatch first noted in §6.1 has outgrown this document and moved to
 [`train-test-scale-mismatch.md`](train-test-scale-mismatch.md), which is now the **principal open
 technical question** — larger in effect than the georeferencing arithmetic recorded here.
@@ -456,7 +457,7 @@ No pipeline file was modified and no output was regenerated at any point in this
 
 ---
 
-## 11. Does the network preserve spatial alignment? — certified to 0.008 px
+## 11. Does the network preserve spatial alignment?
 
 ### 11.1 Why this needed measuring
 
@@ -525,17 +526,175 @@ rejection rule (|residual| >= 1 px) is applied in code and its count printed on 
 
 **95 % bound on any systematic shift (|mean| + 2 x SE): 0.00797 px = 0.0797 m = 8 cm.**
 
-### 11.5 Verdict
+### 11.5 Equivariance is not absolute alignment
 
-**YES — the network's spatial alignment is certified to better than 0.1 px.** The achieved bound is
-**0.008 px (8 cm)**, an order of magnitude tighter than the question asked for, and 33 of 34 chips
-show a residual of 0.05 px or less with a median of exactly zero.
+The equivariance test certifies that translating the input translates the output identically. It
+**cannot detect a constant offset**: if the network displaced every output by a fixed amount,
+`output(shift(X)) == shift(output(X))` would still hold exactly. A constant half-pixel offset from
+mismatched conv/deconv geometry is a known failure mode, so it was settled separately — and
+analytically, since the empirical probe turned out to be unusable (§11.5.2).
 
-For KARIOS this means the generator contributes **nothing measurable** to the geometric error
+#### 11.5.1 The arithmetic
+
+Every downsample in `UnetSkipConnectionBlock` is `nn.Conv2d(kernel_size=4, stride=2, padding=1)`
+and every upsample is `nn.ConvTranspose2d(kernel_size=4, stride=2, padding=1)` with
+`output_padding` left at its default of **0**. There are no exceptions across the eight levels.
+(The `output_padding=1` visible at `models/networks.py:362` belongs to `ResnetGenerator`, which
+`unet_256` does not use.)
+
+A strided convolution samples on a grid aligned with its input — no half-pixel shift — exactly when
+
+    p == (k - s) / 2
+
+Here (4 − 2)/2 = 1 = p, an integer, so the condition holds exactly. The classic failure mode
+`k=3, s=2, p=1` gives (3−2)/2 = 0.5, which is not an integer: no padding can centre it, and a
+half-pixel offset is unavoidable. This architecture is not in that family.
+
+Propagating receptive-field centres, with
+`start_out = start_in + ((k-1)/2 - p) * jump_in` and `jump_out = jump_in * s`:
+
+| level | size | jump | centre of pixel 0, in input coordinates |
+|---|---|---|---|
+| input | 256 | 1 | 0.0 |
+| down 1 | 128 | 2 | 0.5 |
+| down 2 | 64 | 4 | 1.5 |
+| down 3 | 32 | 8 | 3.5 |
+| down 4 | 16 | 16 | 7.5 |
+| down 5 | 8 | 32 | 15.5 |
+| down 6 | 4 | 64 | 31.5 |
+| down 7 | 2 | 128 | 63.5 |
+| down 8 | 1 | 256 | **127.5** |
+
+The 1x1 bottleneck lands at input coordinate **127.5**, which is exactly the geometric centre of a
+256x256 image (pixel centres 0..255). The encoder is centred at every level and accumulates no
+drift.
+
+For the decoder, `ConvTranspose2d(k=4, s=2, p=1)` is the exact adjoint of `Conv2d` with the same
+parameters. Its output size is `(N-1)*s - 2p + k = 2N` exactly with `output_padding=0`, so the
+upsampled grid coincides cell-for-cell with the grid the matching convolution consumed: coarse
+pixel c spreads to fine pixels [2c−1 .. 2c+2] with centre 2c+0.5, the exact inverse of the
+encoder's map. Each down/up pair is therefore an exact geometric inverse, and the composition over
+eight levels is the identity on pixel indices.
+
+**Conclusion: the absolute offset is exactly 0.000 px, by construction of the sampling geometry and
+independent of what the weights learned.**
+
+#### 11.5.2 The empirical probe, and why it is inconclusive
+
+An attempt was made to confirm this by differentiating an output pixel with respect to the input
+and locating the peak of the sensitivity map (the receptive-field centre of the trained network).
+Over 72 interior probes it gave a mean offset of dy +0.300 ± 0.048, dx +0.070 ± 0.038 px — the dy
+figure being 6 standard errors from zero, apparently contradicting the analytic result.
+
+A control settled it. Running the identical probe on **random weights**, where the architecture and
+therefore any geometric offset are unchanged, gave dy −0.472, dx −0.509 px. The two readings
+disagree by 0.77 px on identical geometry, so the probe is measuring the *weights*, not the
+sampling grid: a trained kernel can bias the centre of mass of its response within its 4x4
+footprint without moving the sampling grid at all.
+
+**The Jacobian probe is therefore weight-dependent and inconclusive below ~1 px.** It excludes a
+constant offset larger than about 1 px and nothing finer. Reported here rather than dropped,
+because on its own it would have looked like evidence of a +0.3 px offset.
+
+(The first version of this probe used the *centroid* of the whole sensitivity map, which is worse
+still: with a 1x1 bottleneck every output pixel depends on the entire input, so the centroid simply
+drifts toward the image centre — an output pixel at (64,64) gave a centroid at (104.6, 93.1).)
+
+### 11.6 Verdict (corrected)
+
+Two distinct claims, established by two different arguments:
+
+| claim | value | established by | strength |
+|---|---|---|---|
+| **equivariance** — a shift in equals the same shift out | **0.008 px (8 cm)** | measurement, 33 chips (§11.4) | empirical, tight |
+| **absolute offset** — output pixel (i,j) depicts input pixel (i,j) | **exactly 0** | conv/deconv arithmetic (§11.5.1) | analytic, exact |
+
+The empirical bounds on the *absolute* offset are much looser than the analytic result: ~0.9 px
+from the cross-modal measurement (§11.2) and ~1 px from the Jacobian probe (§11.5.2). Neither
+contradicts zero; neither is tight enough to certify it. **The analytic argument is what certifies
+absolute alignment**, and it is exact rather than statistical.
+
+For KARIOS this means the generator contributes **nothing measurable** to the *geometric* error
 budget. The 0-14.1 m scale ramp of §5 is the whole of the geometric error, and it is fully
-deterministic.
+deterministic. This says nothing about whether generated chips *match* well — that is a separate
+question, addressed in [`hallucinated-structure.md`](hallucinated-structure.md).
 
 Note the contrast with §11.2: the two "obvious" measurements — compare to the input, compare to
 truth — both failed, one at 0.9 px and one at 1.9 px, because both compared images whose content
 differs. Removing ground truth from the question improved the bound by more than two orders of
 magnitude.
+
+
+---
+
+## 12. Dataset observations
+
+Defects in the published data rather than in the code, collected here so an upstream issue can be
+written from one place. Neither affects the geometry findings above; both affect how results
+should be interpreted.
+
+### 12.1 The published train/test splits overlap
+
+**9 of the 577 chips in `GenCP_HR_DB/image_pairs/test/` also appear in
+`GenCP_HR_DB/image_pairs/train/`** (1.6 %). The published test split is therefore not strictly
+held out.
+
+```
+30UYC_0352_00   31TGH_0086_00   31TGH_0216_00   31TGH_0226_00
+30UYC_1132_00   31TGH_0207_00   31TGH_0220_00   31TGH_0240_00
+31TGH_0082_00
+```
+
+Concentrated in two MGRS tiles (30UYC, 31TGH), which suggests a tiling or de-duplication slip
+rather than random contamination. All 9 were excluded from every measurement in this work.
+
+### 12.2 The demo dataset partially overlaps the training corpus
+
+**25 of the 630 chips in `GenCP_HR_demo/data/dataset/test/` appear in the training corpus** (4 %) —
+24 in `train`, 1 in the DB `test` split.
+
+```
+31TFH_0030_00  31TFJ_1114_00  31TFJ_1361_00  31TFJ_1413_00  31TFJ_1428_00
+31TFH_0031_00  31TFJ_1346_00* 31TFJ_1363_00  31TFJ_1415_00  31TFJ_1433_00
+31TFJ_0389_00  31TFJ_1352_00  31TFJ_1368_00  31TFJ_1416_00  31TFJ_1435_00
+31TFJ_0410_00  31TFJ_1353_00  31TFJ_1372_00  31TFJ_1418_00  31TFJ_1446_00
+31TFJ_1356_00  31TFJ_1408_00  31TFJ_1423_00  31TFK_1475_00  31TFK_1484_00
+                                                    (* in the DB test split)
+```
+
+The demo folder is presented as a test set, so anyone processing all 630 chips is silently mixing
+seen and unseen data. **This does not affect the results in this repository:** the 50 chips
+actually processed are all `31TEJ`, and no `31TEJ` chip appears anywhere in the corpus — those
+results are fully held out.
+
+### 12.3 Suggested wording for an upstream issue
+
+Three items, in descending order of consequence:
+
+1. **`gencp_georeferencing.py` writes a 256-px raster with a 257-px source transform**, giving a
+   +0.39 % scale error, 0 m at the NW corner and 14.1 m at the SE corner (§1-§5). The published
+   KARIOS figures are consistent with this being a large part of the reported mean error — see
+   §12.4.
+2. **Training and inference use different `load_size`** (286 vs 256), an 11.7 % scale difference,
+   with no `train_opt.txt` released to confirm what was actually used
+   ([`train-test-scale-mismatch.md`](train-test-scale-mismatch.md)).
+3. **The dataset defects in §12.1 and §12.2.**
+
+### 12.4 The published KARIOS figures are consistent with the scale error
+
+The upstream README reports KARIOS results on a held-out site: *mean error around 0.7 pixel (7 m)
+and RMSE around 2.5 pixels (24 m) due to outliers, mostly in rural areas.*
+
+The mean radial displacement predicted by the scale error of §5, averaged over the chip area, is
+
+    0.0390625 m/px x mean(sqrt(u^2+v^2)) over [0,256]^2  =  0.0390625 x 195.9  =  7.65 m
+
+**7.65 m predicted versus ~7 m reported.** That is close enough to be worth stating and too close
+to ignore, though it is not proof: their test site, chip set and matching configuration all differ
+from ours, and we have not reproduced their KARIOS run. If it holds, most of the published mean
+geometric error is not model error at all but the georeferencing defect, and would disappear under
+Option A.
+
+The reported RMSE tail — *"outliers, mostly in rural areas"* — is a separate effect and matches the
+independent finding in [`hallucinated-structure.md`](hallucinated-structure.md): local match
+failure rises as OSM information content falls.

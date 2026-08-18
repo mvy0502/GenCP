@@ -31,12 +31,15 @@ tubitak/
 │   ├── paired_alignment.py      # alignment vs real satellite (superseded)
 │   ├── equivariance_test.py     # alignment certification (0.008 px)
 │   ├── corpus_overlap.py        # is the demo site in the training corpus?
+│   ├── receptive_field_check.py # absolute alignment: conv/deconv arithmetic
+│   ├── hallucination_analysis.py# invented structure vs OSM information content
 │   └── scale_experiment.py      # train/inference scale comparison
 ├── configs/
 ├── notebooks/
 ├── docs/
 │   ├── geometry-finding.md      # 257->256 georeferencing scale error
 │   ├── train-test-scale-mismatch.md  # 286-vs-256 domain shift (principal open question)
+│   ├── hallucinated-structure.md     # invented detail and GCP chip selection
 │   └── figures/
 ├── data/               # gitignored
 └── outputs/            # gitignored
@@ -353,6 +356,26 @@ appear **nowhere** in the corpus, so demo results are held out.
 
 ```bash
 python tubitak/scripts/corpus_overlap.py
+```
+
+### `receptive_field_check.py` — absolute alignment
+
+Equivariance (0.008 px) does not exclude a *constant* offset. This settles it from the conv/deconv
+arithmetic, and includes a random-weight control that shows why the empirical Jacobian probe is
+inconclusive below ~1 px.
+
+```bash
+python tubitak/scripts/receptive_field_check.py --quiet
+```
+
+### `hallucination_analysis.py` — invented structure and chip selection
+
+Measures how much structure the generator invents and whether it degrades local matching. Directly
+informs site selection — see [`docs/hallucinated-structure.md`](docs/hallucinated-structure.md).
+
+```bash
+python tubitak/scripts/hallucination_analysis.py \
+    --figure tubitak/docs/figures/hallucination-analysis.png
 ```
 
 ### `scale_experiment.py` — train/inference scale comparison
