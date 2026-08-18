@@ -609,3 +609,66 @@ it removes roughly a quarter of each correlation. **But the effect survives comf
 against a p<0.01 critical value of 0.241 at n = 116.
 
 **The relationship is not an artefact of having fewer points to average over.**
+
+### 10.2 Ceiling control — what the chip permits when the monitored image is perfect (2026-08-18 12:55:51 UTC)
+
+Each **real** satellite half was matched against a copy of itself displaced by exactly 3 px. The
+shifted copy was produced by warping the original 257 px raster onto an offset grid, so there is no
+wraparound — the 145 m inset leaves real data on every side. 116 chips, same KARIOS config.
+
+| quantity | value |
+|---|---|
+| median residual error (deviation of the measured shift from the injected 3 px) | **0.0010 px** |
+| bias x / y | −0.0000 / −0.0000 px |
+| points per chip | median **1452** (min 1139, max 1873) |
+
+For comparison, generated-vs-real on the same chips gives ~2 px residual and ~73 points per chip.
+**When the monitored image is perfect, KARIOS recovers the shift to one thousandth of a pixel and
+finds 20x as many points.**
+
+| correlation with OSM information | rho vs POINT COUNT | rho vs RESIDUAL |
+|---|---|---|
+| edge density | +0.267 | **+0.036** |
+| class count | +0.163 | **+0.086** |
+| non-dominant fraction | +0.355 | **+0.087** |
+
+(critical |rho| for p<0.01 at n=116 is 0.241)
+
+**The two channels separate exactly as the hypothesis required.** Intrinsic matchability affects
+**how many** points a chip yields — rho 0.27 and 0.35 for edge density and non-dominant fraction,
+weakly significant — but it has **no effect at all on how accurate those points are** (rho 0.04-0.09,
+all below the critical value, i.e. indistinguishable from zero).
+
+### 10.3 Verdict: the chip-selection guidance is GenCP-specific
+
+| | ceiling (real vs real) | generated vs real |
+|---|---|---|
+| residual | 0.001 px | ~2 px |
+| points per chip | 1452 | 73 |
+| **rho(OSM, residual)** | **+0.04 to +0.09 — null** | **−0.59 to −0.79 raw, −0.40 to −0.61 partial** |
+| rho(OSM, point count) | +0.16 to +0.35 | +0.49 to +0.68 |
+
+**Residual accuracy: the effect is entirely GenCP-specific.** The generic channel is measurably
+null — a sparse chip is no less *accurate* than a rich one when the monitored image is real. So the
+−0.61 partial correlation observed with generated chips cannot be generic texture-dependent
+matchability; it comes from the generated content. This is the claim the report should make.
+
+**Point count: the effect is roughly half generic.** rho(OSM, points) is +0.27/+0.35 in the ceiling
+against +0.49/+0.68 with generated imagery. Part of "sparse chips yield fewer control points" is
+ordinary image matching and would apply to any reference chip.
+
+So the two halves of the finding carry different claims and must not be stated as one:
+
+* *"Sparse OSM chips yield fewer control points"* — **partly generic**, true of reference chips too.
+* *"Sparse OSM chips yield less accurate control points"* — **GenCP-specific**, with no counterpart
+  in real imagery. This is the finding that justifies site selection, and it is consistent with the
+  mechanism measured in [`hallucinated-structure.md`](hallucinated-structure.md): where OSM
+  specifies little, the generator invents structure to a learned target (busy ratio ~1.0 regardless
+  of input), and invented edges cannot land in real places.
+
+### 10.4 Consequence for site selection
+
+The guidance in `hallucinated-structure.md` §7 stands, and its justification is now sharper: rank
+candidate AOIs by OSM information content because **generated chips lose positional accuracy where
+the input is sparse**, not merely because sparse scenes are harder to match. Edge density remains
+the strongest single predictor (partial rho −0.61 after controlling for point count).

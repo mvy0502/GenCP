@@ -12,8 +12,14 @@
 > (non-dominant fraction) and −0.59 (class count) against residual magnitude, plus **+0.49 to +0.68**
 > against surviving key-point count. The proxy was not measuring its own noise. **The site-selection
 > guidance in §7 stands and is strengthened**, with edge density now the strongest single predictor.
-> KARIOS also shows this lever matters more than the geometry corrections: chip choice spans a far
-> wider range of outcomes than the 6 % gained by fixing the affine.
+> KARIOS also shows this lever matters more than the geometry corrections.
+>
+> **A ceiling control now separates the two possible causes.** Matching each REAL satellite half
+> against a shifted copy of itself gives a residual of 0.0010 px with rho = +0.04 to +0.09 against
+> the OSM scores — i.e. **generic matchability affects how MANY points a chip yields, but not how
+> ACCURATE they are**. The accuracy correlation is therefore GenCP-specific, and survives
+> controlling for point count (partial rho −0.61). See
+> [`karios-validation.md`](karios-validation.md) §10.
 
 ---
 
