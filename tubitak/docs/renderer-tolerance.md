@@ -211,3 +211,65 @@ building conventions, or reproducing the CORINE classes.
 Expected penalty from a competent reimplementation: **≈0.2 px (2 m)** against a 2.16 px baseline —
 about 1.5× the georeferencing affine correction we already judged worth making, and well inside the
 range where the site-selection lever (rho −0.61) dominates.
+
+---
+
+## 4. ACCEPTANCE TEST OF THE BUILT RASTERISER
+
+The rasteriser (`osm_to_raster.py`) hit its fitted edge target — measured erf σ 0.703 vs the 0.68
+reference, residual 0.023 px — and the graded diagnostics pass cleanly where the sensitivity
+experiment said precision matters:
+
+* **GEOMETRY:** 30/30 chips byte-identical transform/CRS/size to the reference.
+* **PALETTE:** interior colours are an **exact subset** of the reference palette — zero foreign colours.
+
+### 4.1 The gate: FAIL
+
+Same 30 corpus test chips as the sensitivity run, each rendered from its own footprint via
+Overpass, generated, warped to the affine-corrected grid, KARIOS against the real satellite half.
+
+| | baseline (reference rasters) | ours |
+|---|---|---|
+| mean of per-chip median residuals | 2.1245 px | 2.6731 px |
+| points per chip (median) | 66 | 54 |
+| **chips with ZERO surviving key points** | 0 | **11 of 30** |
+
+Paired difference over the 19 scoreable chips: **+0.5486 ± 0.2097 px** (t = 2.62), 13/19 chips
+worse, point count **−24.4 %**. Against the 0.15 px pass band: **FAIL** — and the headline
+understates it, because the 11 zero-point chips cannot even enter the paired statistic.
+
+Subgroups: sparse-OSM chips +0.251 px / −21 % points; dense-OSM chips **+0.880 px / −28 %** —
+dense chips fail worst, the direction P3 predicted.
+
+### 4.2 The responsible axis, with the measurements that point there
+
+**Not** the axes this document swept. Palette: exact. Edge profile: fitted to 0.023 px. Geometry:
+identical. Road/building/draw-order axes: all previously measured LOOSE.
+
+The failure is a **missing input layer**, visible three ways:
+
+1. **Water.** Reference water recall is **19.8 %**, with 74 % of reference water pixels rendered as
+   background. On the 11 zero-point chips the reference is 10.3 % water and our render is 1.6 % —
+   **85 % of their water is missing**. Sea bounded by coastline ways is not an OSM area feature at
+   all, and the released `CLC_color_mapping` maps **three** land-cover codes (10, 253, 254) to
+   water — large water in the reference comes substantially from a raster land-cover source, not
+   from OSM polygons.
+2. **Vegetation texture.** The reference's forest parcels carry per-pixel speckle that vector
+   rasterisation cannot produce (single-pixel holes, ragged classified edges). 18 % of reference
+   forest is rendered as background by OSM-only data, and dense chips — the ones with the most
+   parcel structure to lose — degrade three times worse than sparse ones.
+3. **The released colour file predicted this.** `CLC_color_mapping` in `genCP_HR_osm_colors.py`
+   maps land-cover class codes to the same palette. It was read too narrowly in `osm-palette.md`
+   §6 as explaining only black/snow; it is the base layer of the whole composition:
+   **reference = per-pixel land-cover raster, with OSM vectors drawn on top.**
+
+Water is the highest-contrast, most matchable feature in the imagery; chips that lose their sea or
+lakes lose their strongest control points outright, which is exactly the zero-point signature.
+
+### 4.3 Stopped here, per instruction
+
+No tuning was attempted. The fix is structural, not parametric: composite the OSM render over a
+10 m per-pixel land-cover product mapped through `CLC_color_mapping`'s classes (water, forest,
+low vegetation, bare, snow). Candidates exist with global coverage including Turkey (e.g. ESA
+WorldCover 10 m, public S3, no registration), which would also supply the speckle texture the
+reference exhibits. **Whether to add that layer is the next decision, not this pass's action.**

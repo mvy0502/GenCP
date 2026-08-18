@@ -42,7 +42,15 @@ unimplemented and `GenCP_DB` is untouched.
 Turkey is in zones 35-38, ~520 km further east. Running the pretrained model on Turkish data is
 therefore a **genuine geographic generalisation test**, which is the stronger experiment.
 
-The OSM rasteriser is **not built**. The palette is pinned down from data (11 colours, closed), but
+The OSM rasteriser is **built and fitted** (edge profile matched to 0.023 px; palette an exact
+subset; geometry identical) but **FAILED its KARIOS acceptance gate** (+0.55 px, −24 % points,
+11/30 chips with zero key points). Diagnosis: the reference rasters are OSM vectors composited
+over a **per-pixel land-cover base layer** (the released `CLC_color_mapping`'s purpose) — sea and
+large water (74 % of reference water) and forest speckle texture come from that raster, not from
+OSM. See [renderer-tolerance.md](docs/renderer-tolerance.md) §4. Adding a land-cover base
+(e.g. ESA WorldCover 10 m) is the identified fix, deliberately not implemented pending decision.
+
+Ankara acquisition is complete and verified: see [ankara-acquisition.md](docs/ankara-acquisition.md). The palette is pinned down from data (11 colours, closed), but
 the renderer is not: the one released colour table is demonstrably not the one used (buildings
 missing, three colours never rendered), and 45 % of every raster is anti-aliasing from unknown
 tooling. See [osm-palette.md](docs/osm-palette.md) §7 for the recommended next step.
