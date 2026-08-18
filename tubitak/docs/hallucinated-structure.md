@@ -3,7 +3,17 @@
 **Status:** measurement only. No pipeline file modified, no chip filter implemented.
 **Date:** 2026-08-18
 **Companions:** [`geometry-finding.md`](geometry-finding.md) ·
-[`train-test-scale-mismatch.md`](train-test-scale-mismatch.md)
+[`train-test-scale-mismatch.md`](train-test-scale-mismatch.md) ·
+[`karios-validation.md`](karios-validation.md)
+
+> **UPDATE — confirmed and strengthened by KARIOS.** The proxy metric below gave Spearman
+> rho = −0.41 to −0.48. Measured with the real instrument on the geometrically corrected arm
+> (n = 116 chips), the relationship is **stronger**: rho = **−0.79** (edge density), −0.71
+> (non-dominant fraction) and −0.59 (class count) against residual magnitude, plus **+0.49 to +0.68**
+> against surviving key-point count. The proxy was not measuring its own noise. **The site-selection
+> guidance in §7 stands and is strengthened**, with edge density now the strongest single predictor.
+> KARIOS also shows this lever matters more than the geometry corrections: chip choice spans a far
+> wider range of outcomes than the 6 % gained by fixing the affine.
 
 ---
 

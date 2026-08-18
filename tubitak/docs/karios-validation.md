@@ -184,3 +184,157 @@ discriminator, and the **mean error** comparison (P4) secondary.
 
 ---
 
+## 4. RESULTS
+
+**Run completed 2026-08-18 12:13:14 UTC.** 116 chips x 3 arms = 348 KARIOS runs, 25,574 surviving key points.
+The pre-registration above was committed in `6a9c4e8` before any arm was run.
+
+### 4.1 Arm comparison
+
+| arm | chips | points | mean \|d\| (px) | mean \|d\| (m) | RMSE (px) | RMSE (m) | median dx | median dy |
+|---|---|---|---|---|---|---|---|---|
+| **A** stock | 116 | 8353 | 2.2274 | 22.27 | 2.7131 | 27.13 | −0.2462 | −0.4441 |
+| **B** affine-corrected | 116 | 8500 | 2.0908 | 20.91 | 2.5958 | 25.96 | +0.1891 | +0.0024 |
+| **C** scale-matched | 116 | 8721 | 2.0480 | 20.48 | 2.5809 | 25.81 | +0.2108 | +0.0394 |
+
+Paired per-chip comparison (same 116 chips, median residual per chip):
+
+| comparison | mean difference (px) | SE | t | chips improved |
+|---|---|---|---|---|
+| A → B | **−0.0992** | 0.0390 | **−2.54** | 75/116 |
+| A → C | −0.0713 | 0.0513 | −1.39 | 71/116 |
+| B → C | +0.0279 | 0.0475 | +0.59 | 61/116 |
+
+### 4.2 The primary test — residual slope against position
+
+Predicted slope for an uncorrected arm: **+0.003891 px per px**.
+
+| arm | dx vs column | dy vs row | significance |
+|---|---|---|---|
+| **A** | **−0.003276 ± 0.000330** | **−0.002208 ± 0.000328** | 9.9σ, 6.7σ |
+| **B** | −0.001067 ± 0.000321 | +0.000260 ± 0.000312 | 3.3σ, 0.8σ |
+| **C** | +0.000326 ± 0.000313 | +0.000312 ± 0.000303 | 1.0σ, 1.0σ |
+
+Figure: [`figures/karios-residuals.png`](figures/karios-residuals.png). Arm A shows a visibly
+coherent field with residuals reaching 14 m; arm B's field is incoherent and reaches 7.5 m.
+
+### 4.3 Scorecard against the pre-registration
+
+| # | prediction | outcome | evidence |
+|---|---|---|---|
+| **P1** | Arm A shows a ramp, slope ≈ 0.0039 px/px | **CONFIRMED** | 9.9σ (dx), 6.7σ (dy); dx magnitude 0.00328 = 84 % of predicted, dy 0.00221 = 57 % |
+| **P2** | Arm A mean radial ≈ 0.7 px (7 m) | **FALSIFIED** | actual 2.23 px (22.3 m), 3x larger |
+| **P3** | Arm B shows no ramp | **PARTLY CONFIRMED** | dy fully corrected (6.7σ → 0.8σ); dx reduced 67 % but a 3.3σ residual slope remains |
+| **P4** | Arm B mean error < arm A | **CONFIRMED** | 2.091 vs 2.227 px; paired t = −2.54, 75/116 chips improved |
+| **P5** | A and B have similar point counts | **CONFIRMED** | 8353 vs 8500; +1.3 ± 1.0 per chip, not significant |
+| **P6** | Arm C shows no ramp | **CONFIRMED** (strongest) | 1.0σ in both axes — the cleanest arm geometrically |
+| **P7** | Arm C point count ≥ arm B | **CONFIRMED** (weakly) | +1.9 ± 1.3 per chip |
+| **P8** | Arm C not significantly better than B | **CONFIRMED** | paired B→C t = +0.59, i.e. C is if anything marginally *worse* in median residual; far below the 30 % falsification threshold |
+| **P9** | rho(points, OSM info) > 0 | **CONFIRMED** | +0.675, +0.485, +0.665 |
+| **P10** | rho(residual, OSM info) < 0 | **CONFIRMED** | −0.794, −0.588, −0.705 |
+| **P11** | \|rho\| in the 0.3-0.5 band | **EXCEEDED** | actual 0.485-0.794 — the effect is *stronger* than predicted, not weaker |
+
+### 4.4 Per-chip outcome vs OSM information content (arm B, n = 116)
+
+| OSM score | rho vs surviving points | rho vs median residual |
+|---|---|---|
+| edge density | **+0.675** | **−0.794** |
+| class count | +0.485 | −0.588 |
+| non-dominant fraction | +0.665 | −0.705 |
+
+**The proxy did not disappear — it strengthened.** The proxy metric in
+[`hallucinated-structure.md`](hallucinated-structure.md) gave rho = −0.41 to −0.48; the real
+instrument gives **−0.59 to −0.79** against residual magnitude and **+0.49 to +0.68** against
+surviving point count. Measured on the geometrically correct arm, so scale is not confounding it.
+
+**The chip-selection guidance stands and is strengthened.** Edge density is now the strongest single
+predictor (rho = −0.794 against residual), displacing non-dominant fraction.
+
+---
+
+## 5. What this changes
+
+### 5.1 The scale error is real and visible to the instrument — but it is not the dominant error
+
+The ramp is unambiguous: **9.9σ in arm A, and it is removed by correcting the affine**. That is the
+scale finding confirmed by an independent tool, and arm A's residual field is visibly coherent
+where arm B's is not.
+
+But **P2 was falsified and that matters more than P1 being confirmed.** Absolute errors are ~2.2 px
+(22 m), roughly 3x what the scale error alone predicts, so **matching noise dominates**. Correcting
+the affine improves mean error by only **6.1 %** (0.137 px). Errors add in quadrature: against a
+~2.1 px noise floor, removing a ~0.5 px systematic contributes very little.
+
+**This refutes the hypothesis in [`geometry-finding.md`](geometry-finding.md) §12.4** that the
+published ~7 m mean error is largely the georeferencing defect. Our arm A RMSE (27.1 m) is close to
+upstream's reported 24 m, but our mean radial (22.3 m) is far above their reported 7 m, and
+correcting the scale moves our number by only 1.4 m. Either their "mean error" is a different
+statistic from mean radial, or their matching is substantially cleaner than ours. §12.4 should be
+read as **not supported by this run**.
+
+### 5.2 Arm C is geometrically the cleanest, but no better at matching
+
+Arm C is the only arm whose residual slope is consistent with zero in **both** axes (1.0σ, 1.0σ),
+better even than arm B. Yet its matching performance is statistically indistinguishable from arm B
+(paired t = +0.59, marginally worse in median). This is exactly P8, and it is consistent with the
+pixel-metric finding: the training-matched scale recovers detail but does not make outputs match
+reality better. **The scale-mismatch decision remains "not worth changing the inference path"**, now
+on a task-based metric rather than a proxy.
+
+### 5.3 Chip selection is the highest-value lever
+
+With rho up to −0.79 between OSM edge density and residual magnitude, **input information content
+predicts match quality far more strongly than any of the geometry corrections do**. Correcting the
+affine buys 6 %; choosing well-covered sites moves residuals across a much wider range. For Turkish
+site selection this reorders the priorities: site choice first, affine correction second, inference
+scale not at all.
+
+### 5.4 Unexplained: arm B's residual dx slope
+
+Arm B retains a −0.00107 ± 0.00032 px/px slope in dx (3.3σ) after correction, while dy is fully
+corrected and arm C is clean in both axes. Candidate explanations, none tested: a sub-pixel bias in
+the warp resampling; imperfect co-registration between the satellite and OSM halves of the corpus
+pairs themselves; or an artefact of the common-grid inset. It is a third of the uncorrected slope
+and does not affect the conclusions, but it is not understood and is recorded rather than smoothed
+over.
+
+---
+
+## 6. Limitations
+
+1. **116 chips, 228x228 px each.** KARIOS is designed for large scenes; these are small crops, which
+   limits the number of key points per chip (median 70) and inflates per-chip variance.
+2. **Warping resamples.** Every arm passes through one bilinear reprojection onto the common grid.
+   All arms are treated identically, but the noise floor is raised for all of them.
+3. **Generated-vs-real matching is intrinsically hard**, as established independently: the generator
+   synthesises plausible rather than actual scenes. The ~2 px noise floor is a property of the task,
+   not of KARIOS.
+4. **Not upstream's test site or chip set**, so the comparison with their published figures in §5.1
+   is indicative only.
+5. **`maxCorners` deviates** from the published config (20000 vs 0) as recorded in §1.
+6. **One config only.** No sensitivity analysis over `qualityLevel`, `matching_winsize` or
+   `outliers_filtering`.
+
+---
+
+## 7. Reproducing
+
+```bash
+# ground truth (gencp env)
+conda activate gencp
+python tubitak/scripts/build_reference_set.py --out tubitak/data/karios/reference
+python tubitak/scripts/build_karios_arms.py \
+    --gen-a tubitak/data/karios/gen/out_a/genCP_HR_RGB_model/test_latest/images \
+    --gen-c tubitak/data/karios/gen/out_b/genCP_HR_RGB_model/test_latest/images
+
+# the runs (karios env)
+conda activate karios
+python tubitak/scripts/run_karios_arms.py --arms A B C
+
+# analysis (gencp env)
+conda activate gencp
+python tubitak/scripts/analyse_karios.py --figure tubitak/docs/figures/karios-residuals.png
+```
+
+All imagery and results live under `tubitak/data/`, which is gitignored.
+KARIOS itself is installed at `~/tools/karios` outside this repository.

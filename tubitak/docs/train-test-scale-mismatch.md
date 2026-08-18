@@ -3,7 +3,16 @@
 **Status:** investigation only. No pipeline file modified, no existing output regenerated,
 none of Options A-E implemented.
 **Date:** 2026-08-18
-**Companion document:** [`geometry-finding.md`](geometry-finding.md) (georeferencing scale error)
+**Companion documents:** [`geometry-finding.md`](geometry-finding.md) ·
+[`karios-validation.md`](karios-validation.md)
+
+> **UPDATE — settled by the KARIOS run.** Arm C (the training-matched path) was evaluated as a third
+> arm against real satellite ground truth. It is geometrically the *cleanest* arm (residual slope
+> consistent with zero in both axes, 1.0 sigma) and yields marginally more key points, but its
+> matching accuracy is **statistically indistinguishable from the affine-corrected stock path**
+> (paired t = +0.59 over 116 chips, if anything marginally worse). This confirms the pre-registered
+> prediction P8 on a task-based metric. **The conclusion below stands: not worth changing the
+> inference path.**
 
 > **Why this is a separate document.** This began as §6.1 of the geometry finding, but it is a
 > different question with a larger effect. The georeferencing error is a 0.39 % metadata defect

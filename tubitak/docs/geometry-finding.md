@@ -3,6 +3,9 @@
 **Status:** investigation only. No pipeline code was modified, no outputs were regenerated.
 **Date:** 2026-08-18
 **Verdict:** the 0.39 % scale error is **real, and exactly as predicted** — not larger, not smaller.
+**Confirmed independently by KARIOS** ([`karios-validation.md`](karios-validation.md)): arm A shows
+the predicted residual ramp at 9.9 sigma, removed by correcting the affine. But correcting it
+improves total error by only 6 %, because matching noise dominates — see §12.4.
 The HR training set has since been measured (§6): 257x257 is the project-wide convention, not a
 demo artefact, which resolves the last material uncertainty and leaves the verdict unchanged.
 The network's own input->output alignment is settled in §11: **equivariance** is certified
@@ -680,7 +683,7 @@ Three items, in descending order of consequence:
    ([`train-test-scale-mismatch.md`](train-test-scale-mismatch.md)).
 3. **The dataset defects in §12.1 and §12.2.**
 
-### 12.4 The published KARIOS figures are consistent with the scale error
+### 12.4 The published KARIOS figures — hypothesis NOT supported by the KARIOS run
 
 The upstream README reports KARIOS results on a held-out site: *mean error around 0.7 pixel (7 m)
 and RMSE around 2.5 pixels (24 m) due to outliers, mostly in rural areas.*
@@ -689,12 +692,18 @@ The mean radial displacement predicted by the scale error of §5, averaged over 
 
     0.0390625 m/px x mean(sqrt(u^2+v^2)) over [0,256]^2  =  0.0390625 x 195.9  =  7.65 m
 
-**7.65 m predicted versus ~7 m reported.** That is close enough to be worth stating and too close
-to ignore, though it is not proof: their test site, chip set and matching configuration all differ
-from ours, and we have not reproduced their KARIOS run. If it holds, most of the published mean
-geometric error is not model error at all but the georeferencing defect, and would disappear under
-Option A.
+**7.65 m predicted versus ~7 m reported.** That looked close enough to be worth stating.
 
-The reported RMSE tail — *"outliers, mostly in rural areas"* — is a separate effect and matches the
-independent finding in [`hallucinated-structure.md`](hallucinated-structure.md): local match
-failure rises as OSM information content falls.
+> **UPDATE — this hypothesis is not supported.** The KARIOS run in
+> [`karios-validation.md`](karios-validation.md) measured it directly. The scale ramp is real and
+> highly significant (9.9 sigma) and correcting the affine does reduce error — but only by **6.1 %**
+> (0.137 px), because matching noise of ~2.1 px dominates and errors add in quadrature. Our arm A
+> RMSE (27.1 m) is close to upstream's 24 m, but our mean radial (22.3 m) is far above their
+> reported 7 m. Either their "mean error" is a different statistic, or their matching is much
+> cleaner than ours. **The scale defect is not the main component of the published mean error.**
+> Option A remains worth doing for correctness, not as a large accuracy win.
+
+The reported RMSE tail — *"outliers, mostly in rural areas"* — is a separate effect, and it is
+**confirmed by the KARIOS run**: residual magnitude correlates with OSM edge density at
+rho = −0.794 (n = 116). See [`hallucinated-structure.md`](hallucinated-structure.md) and
+[`karios-validation.md`](karios-validation.md) §4.4.

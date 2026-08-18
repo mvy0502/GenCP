@@ -33,13 +33,18 @@ tubitak/
 │   ├── corpus_overlap.py        # is the demo site in the training corpus?
 │   ├── receptive_field_check.py # absolute alignment: conv/deconv arithmetic
 │   ├── hallucination_analysis.py# invented structure vs OSM information content
-│   └── scale_experiment.py      # train/inference scale comparison
+│   ├── scale_experiment.py      # train/inference scale comparison
+│   ├── build_reference_set.py   # georeferenced ground truth from the corpus pairs
+│   ├── build_karios_arms.py     # the three KARIOS arms on a common grid
+│   ├── run_karios_arms.py       # drive KARIOS (runs in the `karios` env)
+│   └── analyse_karios.py        # arm comparison + residual figure
 ├── configs/
 ├── notebooks/
 ├── docs/
 │   ├── geometry-finding.md      # 257->256 georeferencing scale error
 │   ├── train-test-scale-mismatch.md  # 286-vs-256 domain shift (principal open question)
 │   ├── hallucinated-structure.md     # invented detail and GCP chip selection
+│   ├── karios-validation.md          # 3-arm KARIOS run against real ground truth
 │   └── figures/
 ├── data/               # gitignored
 └── outputs/            # gitignored
@@ -390,6 +395,24 @@ python tubitak/scripts/scale_experiment.py --figure tubitak/docs/figures/scale-c
 > **Note on the training set.** `docs/geometry-finding.md` §6 measures `GenCP_HR_DB.zip` (1.71 GB)
 > from Zenodo. It is **not** in the repository — it lives in `tubitak/data/`, which is gitignored.
 > Re-download it from <https://zenodo.org/records/15044428> if those measurements need repeating.
+
+## KARIOS validation
+
+KARIOS runs in its **own** conda environment (`karios`, Python 3.12 + GDAL 3.8), installed at
+`~/tools/karios` — never in `gencp`. See
+[`docs/karios-validation.md`](docs/karios-validation.md) for the pre-registered three-arm run.
+
+```bash
+conda activate gencp
+python tubitak/scripts/build_reference_set.py --out tubitak/data/karios/reference
+python tubitak/scripts/build_karios_arms.py
+
+conda activate karios
+python tubitak/scripts/run_karios_arms.py --arms A B C
+
+conda activate gencp
+python tubitak/scripts/analyse_karios.py --figure tubitak/docs/figures/karios-residuals.png
+```
 
 ## Visualisation
 
