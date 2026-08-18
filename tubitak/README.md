@@ -1,17 +1,17 @@
-# GenCP — TÜBİTAK UZAY çalışma alanı
+# GenCP — TÜBİTAK UZAY workspace
 
-OpenStreetMap vektör verisinden **pix2pix** (koşullu GAN) ile sentetik uydu
-görüntüsü üretimi. Bu klasör (`tubitak/`) staj kapsamındaki çalışmalar içindir ve
-upstream (`telespazio-tim/GenCP`) dosyalarıyla çakışmayacak şekilde ayrı tutulur.
+Generating synthetic satellite imagery from OpenStreetMap vector data with **pix2pix**
+(a conditional GAN). This folder (`tubitak/`) holds the internship work and is kept
+separate so it never collides with upstream (`telespazio-tim/GenCP`) files.
 
-- **Kurulum tarihi:** 18 Ağustos 2026
-- **Depo kökü:** `~/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap`
-- **Çalışma dalı:** `tubitak-tr` (upstream varsayılan dalı `master`)
-- **Donanım:** MacBook Pro, Apple M4 Max (arm64), 36 GB RAM — CUDA yok, CPU ile çalışır
+- **Setup date:** 18 August 2026
+- **Repository root:** `~/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap`
+- **Working branch:** `tubitak-tr` (upstream's default branch is `master`)
+- **Hardware:** MacBook Pro, Apple M4 Max (arm64), 36 GB RAM — no CUDA, runs on CPU
 
-## Depo yapısı
+## Repository layout
 
-| Uzaktaki | URL |
+| Remote | URL |
 |---|---|
 | `origin` | https://github.com/mvy0502/GenCP.git (fork) |
 | `upstream` | https://github.com/telespazio-tim/GenCP.git |
@@ -19,21 +19,23 @@ upstream (`telespazio-tim/GenCP`) dosyalarıyla çakışmayacak şekilde ayrı t
 ```
 tubitak/
 ├── README.md
-├── environment.yml     # conda ortamı (from-history + pip bölümü)
+├── environment.yml     # conda environment (from-history + pip section)
 ├── scripts/
-│   ├── fix_openmp.sh            # OpenMP çakışması düzeltmesi (kurulumdan sonra şart)
-│   ├── verify_georeferencing.py # coğrafi referanslama doğrulaması
-│   └── visualize.py             # görsel karşılaştırma / doğrulama ızgarası
+│   ├── fix_openmp.sh            # OpenMP conflict fix (required after setup)
+│   ├── verify_georeferencing.py # georeferencing verification
+│   └── visualize.py             # visual comparison / verification grid
 ├── configs/
 ├── notebooks/
 ├── docs/
-├── data/               # .gitignore'da
-└── outputs/            # .gitignore'da
+│   ├── geometri-bulgusu.md      # 257->256 geometry scale-error investigation
+│   └── figures/
+├── data/               # gitignored
+└── outputs/            # gitignored
 ```
 
-## Ortam kurulumu
+## Environment setup
 
-Miniforge (conda-forge, Apple Silicon native) kuruldu; Anaconda **değil**.
+Miniforge was installed (conda-forge, native Apple Silicon) — **not** Anaconda.
 
 ```bash
 brew install --cask miniforge
@@ -44,7 +46,7 @@ conda install -c conda-forge rasterio osmnx geopandas matplotlib jupyterlab visd
 pip install torch torchvision dominate wandb
 ```
 
-### Ortamı sıfırdan kurma (İKİ adım — ikincisi zorunlu)
+### Recreating the environment from scratch (TWO steps — the second is mandatory)
 
 ```bash
 conda env create -f tubitak/environment.yml
@@ -52,14 +54,14 @@ conda activate gencp
 bash tubitak/scripts/fix_openmp.sh
 ```
 
-İkinci adım **atlanamaz**. `environment.yml` tek başına çalışan bir ortam üretmez:
-kurulum biter, ancak `import torch` OpenMP çakışması nedeniyle çöker
-(bkz. [Bilinen sorunlar](#bilinen-sorunlar--ortam-tuzakları)). `fix_openmp.sh`
-idempotenttir; zaten düzeltilmiş bir ortamda hiçbir şey yapmadan çıkar.
+The second step **cannot be skipped**. `environment.yml` alone does not produce a working
+environment: installation completes, but `import torch` crashes because of an OpenMP
+conflict (see [Known issues](#known-issues--environment-gotchas)). `fix_openmp.sh` is
+idempotent — on an already-fixed environment it exits without doing anything.
 
-### Doğrulanmış sürümler
+### Verified versions
 
-| Paket | Sürüm |
+| Package | Version |
 |---|---|
 | Python | 3.11.15 |
 | torch | 2.13.0 |
@@ -69,95 +71,94 @@ idempotenttir; zaten düzeltilmiş bir ortamda hiçbir şey yapmadan çıkar.
 | geopandas | 1.1.4 |
 | numpy | 2.4.6 |
 
-`torch.backends.mps.is_available()` → **True**. `torch.cuda.is_available()` → `False` (beklenen).
+`torch.backends.mps.is_available()` → **True**. `torch.cuda.is_available()` → `False` (expected).
 
-## Bilinen sorunlar / ortam tuzakları
+## Known issues / environment gotchas
 
-Bu bölüm, kurulum sırasında karşılaşılan ve **tekrar karşılaşılacak** sorunları
-belgeler. Her ikisi de referans ortamda görülmemişti; bu makineye özgüdür.
+This section documents problems hit during setup that **will be hit again**. Neither one
+appeared in the reference environment; both are specific to this machine.
 
-### 1. OpenMP çakışması — `OMP: Error #15`
+### 1. OpenMP conflict — `OMP: Error #15`
 
-**Belirti.** Bir şey yapmadan, yalnızca:
+**Symptom.** Without doing anything else, just:
 
 ```
 OMP: Error #15: Initializing libomp.dylib, but found libomp.dylib already initialized.
 ```
 
-Süreç `abort` ile ölür (exit 134). `import torch` **tek başına** yeterlidir;
-`test.py` dahil torch kullanan her şey çalışmaz.
+The process dies with `abort` (exit 134). `import torch` **on its own** is enough; nothing
+that uses torch works, including `test.py`.
 
-**Kök neden.** İki ayrı OpenMP runtime aynı sürece yükleniyor:
+**Root cause.** Two separate OpenMP runtimes are loaded into the same process:
 
-| Kaynak | Getirdiği runtime |
+| Source | Runtime it brings |
 |---|---|
 | conda-forge (`numpy`, `rasterio`, `libopenblas`) | `$CONDA_PREFIX/lib/libomp.dylib` (`llvm-openmp`) |
-| pip `torch` wheel | `.../site-packages/torch/lib/libomp.dylib` (paket içinde gömülü) |
+| pip `torch` wheel | `.../site-packages/torch/lib/libomp.dylib` (bundled inside the package) |
 
-conda-forge numpy önce conda'nın libomp'unu yüklüyor; ardından torch kendi
-kopyasını başlatmaya çalışıyor ve OpenMP guard süreci durduruyor. Tek bir kaynaktan
-gelen paketlerle bu olmaz — sorun conda ve pip'i karıştırmaktan doğuyor.
+conda-forge numpy loads conda's libomp first; torch then tries to initialise its own copy
+and the OpenMP guard halts the process. This does not happen when all packages come from a
+single source — the problem is created by mixing conda and pip.
 
-**Çözüm.** Torch'un gömülü kopyası yedeklenip conda'nınkine sembolik bağ yapılır,
-böylece süreçte **tek** OpenMP runtime kalır:
+**Fix.** Torch's bundled copy is backed up and symlinked to conda's, leaving exactly **one**
+OpenMP runtime in the process:
 
 ```bash
 conda activate gencp
 bash tubitak/scripts/fix_openmp.sh
 ```
 
-**Neden `KMP_DUPLICATE_LIB_OK=TRUE` KULLANILMADI.** Bu değişken bir çözüm değil,
-guard'ı susturmadır: iki runtime'ın yan yana yaşamasına izin verir. OpenMP'nin kendi
-uyarısının dediği gibi bu "crash" veya **sessizce hatalı sonuç** üretebilir. Bir GAN
-çıkarım hattında sessizce yanlış sayı, gürültülü çökmeden çok daha kötüdür — çıktı
-makul görünür ama yanlış olur. Sembolik bağ ise tek runtime bırakarak sorunu ortadan
-kaldırır. Doğrulandı: bağ sonrası torch↔numpy matmul farkı `0.0`.
+**Why `KMP_DUPLICATE_LIB_OK=TRUE` was NOT used.** That variable is not a fix — it silences
+the guard and permits two runtimes to coexist. As OpenMP's own warning says, this can crash
+or **silently produce incorrect results**. In a GAN inference pipeline a silently wrong
+number is far worse than a noisy crash: the output still looks plausible but is wrong. The
+symlink instead eliminates the problem by leaving a single runtime. Verified: after linking,
+the torch↔numpy matmul difference is `0.0`.
 
-**⚠️ Kalıcı değildir.** Sembolik bağ `site-packages` içinde yaşar; ne
-`environment.yml` ne de git bunu yakalar. Torch'u yeniden kuran/yükselten **her**
-işlem (`pip install -U torch`, `pip install --force-reinstall`, ortamı silip yeniden
-kurma) gömülü kopyayı geri getirir ve çökme geri döner. Bu durumda betiği tekrar
-çalıştırın — idempotenttir, gereksiz yere çalıştırmak zararsızdır.
+**⚠️ It is not permanent.** The symlink lives inside `site-packages`; neither
+`environment.yml` nor git captures it. **Any** operation that reinstalls or upgrades torch
+(`pip install -U torch`, `pip install --force-reinstall`, deleting and recreating the
+environment) restores the bundled copy and brings the crash back. Just run the script again —
+it is idempotent, so running it unnecessarily is harmless.
 
-### 2. `visdom` pip ile kurulamıyor — `pkg_resources`
+### 2. `visdom` cannot be installed with pip — `pkg_resources`
 
-**Belirti.**
+**Symptom.**
 
 ```
 ModuleNotFoundError: No module named 'pkg_resources'
 ERROR: Failed to build 'visdom' when getting requirements to build wheel
 ```
 
-**Kök neden.** `visdom`'un `setup.py` dosyası `pkg_resources` import ediyor;
-setuptools 82 bu modülü kaldırdı. pip'in build isolation ortamı güncel setuptools
-kurduğu için build daha başlamadan patlıyor.
+**Root cause.** `visdom`'s `setup.py` imports `pkg_resources`, which setuptools 82 removed.
+pip's build-isolation environment installs a current setuptools, so the build fails before
+it starts.
 
-**Dikkat — sessiz yan etki.** pip önce tüm bağımlılıkları çözdüğü için bu hata
-komutun **tamamını** iptal eder. Yani
+**Careful — silent side effect.** pip resolves all dependencies first, so this error aborts
+the **entire** command. That means:
 
 ```bash
-pip install torch torchvision dominate visdom wandb   # ← visdom yüzünden hiçbiri kurulmaz
+pip install torch torchvision dominate visdom wandb   # ← nothing installs, because of visdom
 ```
 
-çalıştırıldığında torch da kurulmaz. Hata mesajı yalnızca visdom'dan söz ettiği için
-bu kolayca gözden kaçar.
+leaves torch uninstalled too. It is easy to miss, because the error message mentions only visdom.
 
-**Çözüm.** visdom'u conda-forge'dan, kalanını pip'ten kurun:
+**Fix.** Install visdom from conda-forge and the rest from pip:
 
 ```bash
 conda install -c conda-forge visdom      # 0.2.4
 pip install torch torchvision dominate wandb
 ```
 
-### 3. VHR demo kurulmadı
+### 3. The VHR demo was not installed
 
-`GenCP_VHR_demo/requirements_VHR.txt` `tensorflow==2.10.1` ve `gdal==3.6.4` pinliyor.
-TensorFlow 2.10.1'in macOS arm64 wheel'i yok. Kapsam dışı bırakıldı.
-GDAL ayrıca kurulmadı — `rasterio` kendi GDAL'ını getiriyor.
+`GenCP_VHR_demo/requirements_VHR.txt` pins `tensorflow==2.10.1` and `gdal==3.6.4`.
+There is no macOS arm64 wheel for TensorFlow 2.10.1, so it was left out of scope.
+GDAL was not installed separately either — `rasterio` ships its own.
 
-## Ağırlıklar
+## Model weights
 
-405 MB, Zenodo'dan indirilir; `.gitignore` ile depo dışında tutulur.
+405 MB, downloaded from Zenodo; kept out of the repository by `.gitignore`.
 
 ```bash
 cd GenCP_HR_demo
@@ -169,16 +170,16 @@ cp -r HR_Model_Weights/* checkpoints/
 rm -rf HR_weights.zip HR_Model_Weights
 ```
 
-Sonuç: `checkpoints/genCP_HR_RGB_model/latest_net_G.pth` ve
-`checkpoints/genCP_HR_B04_model/latest_net_G.pth` (her biri ~218 MB).
+Result: `checkpoints/genCP_HR_RGB_model/latest_net_G.pth` and
+`checkpoints/genCP_HR_B04_model/latest_net_G.pth` (~218 MB each).
 
-## Pipeline çalıştırma
+## Running the pipeline
 
-Tüm komutlar `GenCP_HR_demo/` içinden, `gencp` ortamı aktifken çalıştırılır.
+All commands are run from inside `GenCP_HR_demo/` with the `gencp` environment active.
 
-### 1. Görüntü üretimi (CPU)
+### 1. Image generation (CPU)
 
-`--gpu_ids -1` CPU modunu açar; kodda değişiklik gerekmez.
+`--gpu_ids -1` enables CPU mode; no code changes are needed.
 
 ```bash
 python ../test.py \
@@ -193,16 +194,16 @@ python ../test.py \
   --gpu_ids -1
 ```
 
-Beklenen: `[Network G] Total number of parameters : 54.414 M`.
-Bu sayı farklıysa yanlış model yüklenmiştir — durdurun.
+Expected: `[Network G] Total number of parameters : 54.414 M`.
+If this number differs, the wrong model was loaded — stop.
 
-Çıktı: `data/fake_images/genCP_HR_RGB_model/test_latest/images/` altında 100 dosya
+Output: 100 files under `data/fake_images/genCP_HR_RGB_model/test_latest/images/`
 (50 `_real.png` + 50 `_fake.png`).
 
-> Test klasöründe 630 `.tif` var; `test.py`'nin `--num_test` varsayılanı 50 olduğu için
-> yalnızca 50 karo işlenir. Daha fazlası için `--num_test` değerini artırın.
+> The test folder contains 630 `.tif` files; only 50 tiles are processed because
+> `test.py`'s `--num_test` defaults to 50. Raise `--num_test` for more.
 
-### 2. Coğrafi referanslama
+### 2. Georeferencing
 
 ```bash
 python gencp_georeferencing.py \
@@ -211,12 +212,12 @@ python gencp_georeferencing.py \
   -o "./data/GenCP_DB"
 ```
 
-Çıktı: `data/GenCP_DB/` içinde 50 adet coğrafi referanslı GeoTIFF.
+Output: 50 georeferenced GeoTIFFs in `data/GenCP_DB/`.
 
-`NotGeoreferencedWarning` **normaldir** — üretilen PNG'lerde coğrafi meta veri yoktur;
-betik bu bilgiyi girdi rasterlarından alır.
+`NotGeoreferencedWarning` is **normal** — the generated PNGs carry no geospatial metadata;
+the script takes that information from the input rasters.
 
-### 3. Doğrulama
+### 3. Verification
 
 ```python
 import rasterio
@@ -224,64 +225,69 @@ with rasterio.open('data/GenCP_DB/31TEJ_0451_00.tif') as s:
     print('CRS:', s.crs, '| size:', s.width, 'x', s.height, '| resolution:', s.res)
 ```
 
-Beklenen: `CRS: EPSG:32631 | size: 256 x 256 | resolution: (10.0, 10.0)`
-(50 dosyanın tamamı bu değerlerde doğrulandı.)
+Expected: `CRS: EPSG:32631 | size: 256 x 256 | resolution: (10.0, 10.0)`
+(all 50 files were verified to carry these values).
 
-> **Bu kontrol tek başına yeterli DEĞİLDİR.** `gencp_georeferencing.py`, `crs` ve
-> `transform` alanlarını referans rasterdan **olduğu gibi** kopyalar. Dolayısıyla
-> yanlış PNG yazılmış olsa bile bu üç alan doğru görünür. Gerçek doğrulama için
-> [Doğrulama betikleri](#doğrulama-betikleri) bölümüne bakın.
+> **This check alone is NOT sufficient.** `gencp_georeferencing.py` copies the `crs` and
+> `transform` fields from the reference raster **verbatim**, so all three fields look correct
+> even if the wrong PNG was written. For real verification see
+> [Verification scripts](#verification-scripts).
 
-## Doğrulama betikleri
+> **Known geometry caveat.** The declared 10.0 m pixel size is not exact: inputs are 257×257
+> and are resampled to 256×256, so the true ground sample distance is 10.0390625 m — a
+> +0.39 % scale error reaching ~14 m at the far corner. Measured and quantified in
+> [`docs/geometri-bulgusu.md`](docs/geometri-bulgusu.md). Nothing in the pipeline was changed.
+
+## Verification scripts
 
 ### `verify_georeferencing.py`
 
-CRS/boyut/çözünürlük kontrolünün kapatamadığı boşluğu kapatır. `data/GenCP_DB/`
-içindeki her dosya için üç kontrol yapar:
+Closes the gap the CRS/size/resolution check cannot. For every file in `data/GenCP_DB/` it
+runs three checks:
 
-1. **Kimlik** — GeoTIFF piksel dizisi `_fake.png` ile mi yoksa `_real.png` ile mi
-   birebir eşleşiyor? Doğru cevap `_fake`. `_real` eşleşmesi ağır hatadır
-   (üretilen görüntü yerine girdi görüntüsü yazılmış demektir).
-2. **Transform** — çıktının affine dönüşümü, aynı adlı girdi rasterınınkiyle
-   eleman eleman aynı mı?
-3. **Eşleşme** — dosya adı eşlemesi 1:1 mi; hiçbir çıktı farklı adlı bir girdiden
-   türetilmiş mi?
+1. **Identity** — does the GeoTIFF pixel array match `_fake.png` or `_real.png` exactly?
+   The correct answer is `_fake`. A `_real` match is a hard failure (it would mean the input
+   image was written instead of the generated one).
+2. **Transform** — is the output's affine transform element-by-element identical to that of
+   the same-named input raster?
+3. **Pairing** — is the filename mapping 1:1, and was any output derived from a
+   differently-named input?
 
 ```bash
 python tubitak/scripts/verify_georeferencing.py
 ```
 
-Salt-okunur; hiçbir şey yazmaz. Başarısızlıkta sıfırdan farklı kod döner.
-Son çalıştırma: **50/50 PASS** (üç kontrolün üçünde de).
+Read-only; it writes nothing. Returns a non-zero exit code on failure.
+Last run: **50/50 PASS** on all three checks.
 
 ### `visualize.py --verify`
 
-Yukarıdaki kimlik kontrolünün görsel karşılığı. Üç satırlı ızgara üretir:
-satır 1 OSM girdisi, satır 2 üretilen `_fake.png`, satır 3 `GenCP_DB/` içinden
-geri okunan GeoTIFF. **Satır 2 ile satır 3 piksel piksel aynı olmalıdır**; betik
-bunu dizi karşılaştırmasıyla da doğrular ve farklıysa hata verir.
+The visual counterpart of the identity check above. Produces a three-row grid: row 1 the OSM
+input, row 2 the generated `_fake.png`, row 3 the GeoTIFF read back from `GenCP_DB/`.
+**Rows 2 and 3 must be pixel-identical**; the script also verifies this by array comparison
+and errors out if they differ.
 
 ```bash
 python tubitak/scripts/visualize.py --verify -n 6 --seed 7
 ```
 
-Çıktı: `tubitak/outputs/verification_grid.png`. Son çalıştırma: 6/6 birebir aynı.
+Output: `tubitak/outputs/verification_grid.png`. Last run: 6/6 identical.
 
-## Görselleştirme
+## Visualisation
 
 ```bash
 python tubitak/scripts/visualize.py --seed 42 -n 4
 ```
 
-Rastgele 4 karo seçip üst satırda OSM girdisini, alt satırda üretilen görüntüyü
-`tubitak/outputs/sample_output.png` dosyasına yazar.
+Picks 4 random tiles and writes the OSM input on the top row and the generated image on the
+bottom row to `tubitak/outputs/sample_output.png`.
 
-> `tubitak/outputs/` ve `tubitak/data/` `.gitignore` kapsamındadır; üretilen
-> figürler depoya girmez, yalnızca betikler izlenir.
+> `tubitak/outputs/` and `tubitak/data/` are covered by `.gitignore`; generated figures do
+> not enter the repository, only the scripts are tracked.
 
 ## VS Code
 
-Yorumlayıcı olarak `gencp` conda ortamını seçin:
+Select the `gencp` conda environment as the interpreter:
 
 ```
 /opt/homebrew/Caskroom/miniforge/base/envs/gencp/bin/python
