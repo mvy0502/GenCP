@@ -217,3 +217,34 @@ Transverse road crossings (flanks equal, interior nearest a road colour): **medi
 2. Area-area boundaries: erf-like transition, **σ = 0.68 ± 0.15 px**, isotropic.
 3. Roads: 2 px core width before smoothing.
 4. If the target cannot be hit exactly, err toward **harder** edges (renderer-tolerance.md: over-smoothing measured 1.7× worse).
+
+---
+
+## 9. WorldCover → palette class mapping, derived from evidence
+
+The base layer requires a mapping from ESA WorldCover v200 classes to the 11-colour palette. It is
+written down nowhere (`CLC_color_mapping` maps CORINE codes, a different scheme), and an initial
+mapping chosen by inspection proved wrong in two places when checked — the confusion below is the
+authority.
+
+**Method:** 40 fitting chips **disjoint from every scored set** (not in the 30 sensitivity chips,
+not in the 116 arm chips). Per pixel: reference raster colour (nearest-palette) × WorldCover class
+at the same location. OSM overlay features contaminate the matrix from above (roads, buildings,
+mapped landuse), which is why plurality rather than purity is the read-out.
+
+| WC class | pixels | reference distribution (top 3) | mapping | status |
+|---|---|---|---|---|
+| 10 tree | 979,638 | forest_green 69.8 · light_green 17.0 · light_purple 6.3 | **forest_green** | confirmed |
+| 20 shrub | 44,625 | light_green 54.5 · forest_green 39.1 · no_veg 2.1 | **light_green** | confirmed (noisy) |
+| 30 grass | 554,275 | light_green 76.0 · forest_green 5.8 | **light_green** | confirmed |
+| 40 crop | 819,976 | light_green 89.9 · water 3.8 | **light_green** | confirmed |
+| 50 built | 166,029 | light_purple 29.2 · building 24.5 · gray 13.3 | **light_purple** | **AMBIGUOUS** — plurality; inspected guess (gray) was 3rd |
+| 60 bare | 13,625 | light_green 44.7 · no_veg 41.2 | **no_vegetation** | **AMBIGUOUS** — near-tie, kept on semantics |
+| 70 snow | 0 | absent from fitting chips | snow | unverified default |
+| 80 water | 58,077 | water 94.6 | **water** | confirmed |
+| 90 wetland | 5,715 | **water 85.4** · light_green 11.3 | **water** | **corrected** — inspected guess (light_green) was wrong |
+| 95/100 | 0 | absent | forest_green / light_green | unverified defaults |
+
+Two corrections against inspection (50, 90) on 4 % of pixels — exactly the "looks obvious and is
+wrong" failure the evidence check exists to catch. WorldCover vintage is 2021; reference imagery
+vintage is unknown; class drift between them is a residual, unquantified error source.

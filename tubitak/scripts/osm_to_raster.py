@@ -10,12 +10,18 @@ edges at SUPERSAMPLE x resolution -> box-average down -> Gaussian blend fitted t
 the measured profile. Constant regions are preserved exactly by both steps, so
 interiors stay byte-exact; only boundaries blend.
 
+Base layer: **ESA WorldCover 10 m (v200, 2021)**, window-read remotely from the
+public COGs and reprojected nearest-neighbour so its per-pixel speckle survives —
+the acceptance-test diagnosis showed the reference composites OSM vectors over a
+per-pixel land-cover raster (sea/lakes and vegetation texture come from it).
+OSM vectors are painted on top; the shared box+Gaussian stage then applies the
+fitted edge profile to base and vectors alike.
+
 Choices for the axes the sensitivity experiment showed are cheap (all LOOSE):
-  draw order   background -> landuse/natural (large polygons first) -> water ->
-               roads -> buildings on top
+  draw order   WorldCover base -> landuse/natural (large polygons first) ->
+               water -> roads -> buildings on top
   buildings    #a52a2a fill, no outline
-  black/snow   not rendered (CORINE-derived upstream; measured cost ~0)
-  background   light_green (the corpus-dominant class)
+  black/snow   snow from WorldCover class 70; black only where WC has nodata
 
 Usage
 -----
@@ -49,6 +55,61 @@ RGB["building"] = (165, 42, 42)
 ROAD_W = {"motorway":3,"trunk":2,"primary":2,"secondary":2,"tertiary":2,
           "residential":2,"living_street":2,"service":2,"unclassified":2,
           "road":2,"track":2,"footway":1,"path":1,"cycleway":1,"pedestrian":2}
+
+# ESA WorldCover v200 class -> palette class (semantics follow CLC_color_mapping:
+# trees->forest_green, low vegetation->light_green, built->gray, bare->no_vegetation,
+# snow->snow, water->water, nodata->black)
+# Derived from evidence (confusion vs 40 fitting chips disjoint from all scored
+# sets — see osm-palette.md §9), not inspection. Two classes corrected from the
+# initial inspected guess: 50 built -> light_purple (was gray; evidence 29% purple /
+# 25% building / 13% gray, AMBIGUOUS plurality), 90 wetland -> water (85.4%, was
+# light_green). 60 bare kept as no_vegetation on semantics (near-tie 45/41 with
+# light_green). 70/95/100 absent from the fitting data: semantic defaults, unverified.
+WC_MAP = {10:"forest_green", 20:"light_green", 30:"light_green", 40:"light_green",
+          50:"light_purple", 60:"no_vegetation", 70:"snow", 80:"water", 90:"water",
+          95:"forest_green", 100:"light_green", 0:"black"}
+WC_URL = ("https://esa-worldcover.s3.eu-central-1.amazonaws.com/v200/2021/map/"
+          "ESA_WorldCover_10m_2021_v200_{lat}{lon}_Map.tif")
+
+def wc_tiles(lonlat_bounds):
+    """SW-corner names of the 3-degree WorldCover tiles covering a WGS84 bbox."""
+    import math
+    w, s_, e, n = lonlat_bounds
+    tiles = set()
+    for lon in range(int(math.floor(w/3))*3, int(math.floor(e/3))*3+1, 3):
+        for lat in range(int(math.floor(s_/3))*3, int(math.floor(n/3))*3+1, 3):
+            tiles.add(("N%02d"%lat if lat >= 0 else "S%02d"%-lat,
+                       "E%03d"%lon if lon >= 0 else "W%03d"%-lon))
+    return sorted(tiles)
+
+def fetch_worldcover(bounds_utm, crs):
+    """WorldCover classes on the SUPERSAMPLE grid (nearest -> speckle preserved)."""
+    import rasterio
+    from rasterio.transform import from_origin
+    from rasterio.warp import reproject, Resampling, transform_bounds
+    n = SIZE * SUPERSAMPLE
+    x0, y0, x1, y1 = bounds_utm
+    tgt = from_origin(x0, y1, GSD/SUPERSAMPLE, GSD/SUPERSAMPLE)
+    dst = np.zeros((n, n), np.uint8)
+    ll = transform_bounds(crs, "EPSG:4326", x0-200, y0-200, x1+200, y1+200)
+    for lat, lon in wc_tiles(ll):
+        url = WC_URL.format(lat=lat, lon=lon)
+        try:
+            with rasterio.open(url) as src:
+                from rasterio.windows import from_bounds as wfb
+                win = wfb(ll[0], ll[1], ll[2], ll[3], src.transform)
+                win = win.round_offsets().round_lengths()
+                if win.width <= 0 or win.height <= 0: continue
+                arr = src.read(1, window=win)
+                wtr = src.window_transform(win)
+            tmp = np.zeros_like(dst)
+            reproject(source=arr, destination=tmp, src_transform=wtr,
+                      src_crs="EPSG:4326", dst_transform=tgt, dst_crs=crs,
+                      resampling=Resampling.nearest)
+            dst = np.where(tmp > 0, tmp, dst)
+        except rasterio.errors.RasterioIOError:
+            continue                      # ocean-only tiles are not published
+    return dst
 
 def fetch(bounds_utm, crs):
     """Fetch OSM features for a UTM footprint (+margin), reprojected to that CRS."""
@@ -109,16 +170,21 @@ def classify(g):
             if cls: addl(cls, geom, ROAD_W.get(hw, 2))
     return polys, lines
 
-def render(bounds_utm, crs, polys, lines):
+def render(bounds_utm, crs, polys, lines, base=None):
     from rasterio import features as rfeat
     from rasterio.transform import from_origin
-    from scipy.ndimage import gaussian_filter, zoom
+    from scipy.ndimage import gaussian_filter
     S = SUPERSAMPLE
     n = SIZE * S
     x0, y0, x1, y1 = bounds_utm
     t_hi = from_origin(x0, y1, GSD/S, GSD/S)
     img = np.zeros((n, n, 3), np.float64)
-    img[:] = RGB["light_green"]                                    # background
+    img[:] = RGB["light_green"]                                    # fallback background
+    if base is not None:                                           # WorldCover base layer
+        for code, cls in WC_MAP.items():
+            if code == 0: continue
+            m = (base == code)
+            if m.any(): img[m] = RGB[cls]
 
     def paint(cls, geoms):
         m = rfeat.rasterize(((gm, 1) for gm in geoms), out_shape=(n, n),
@@ -157,11 +223,12 @@ def write(path, arr, bounds_utm, crs):
     with rasterio.open(path, "w", **prof) as d:
         d.write(np.transpose(arr, (2, 0, 1)))
 
-def make_chip(bounds_utm, crs, out_path, gdf=None):
+def make_chip(bounds_utm, crs, out_path, gdf=None, use_worldcover=True):
     if gdf is None:
         gdf = fetch(bounds_utm, crs)
     polys, lines = classify(gdf)
-    arr = render(bounds_utm, crs, polys, lines)
+    base = fetch_worldcover(bounds_utm, crs) if use_worldcover else None
+    arr = render(bounds_utm, crs, polys, lines, base=base)
     write(out_path, arr, bounds_utm, crs)
     return arr
 

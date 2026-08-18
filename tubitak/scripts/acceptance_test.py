@@ -13,10 +13,12 @@ import argparse, glob, sys, warnings
 from pathlib import Path
 import numpy as np
 
+import os
 ROOT = Path(__file__).resolve().parents[2]
-CH   = ROOT/"tubitak/data/rasteriser/chips"
+_TAG = os.environ.get("ACC_TAG", "")
+CH   = ROOT/f"tubitak/data/rasteriser/chips{_TAG}"
 SENS = ROOT/"tubitak/data/sensitivity"
-ACC  = ROOT/"tubitak/data/rasteriser/acc"
+ACC  = ROOT/f"tubitak/data/rasteriser/acc{_TAG}"
 REFS = ROOT/"tubitak/data/karios/reference"
 GRID_N, INSET, PX = 228, 145.0, 10.0
 GSD_B = 257*10.0/256
@@ -73,14 +75,19 @@ def score():
         if len(d): rows.append(dict(stem=st,n=len(d),
                                     med=float(np.median(np.hypot(d.dx,d.dy)))))
     ours=pd.DataFrame(rows).set_index("stem")
-    base_rows=[]
-    for f in glob.glob(str(SENS/"results/base/*/*/KLT_matcher_*.csv")):
-        st=f.split("/")[-3]
-        try: d=pd.read_csv(f,sep=None,engine="python")
-        except Exception: continue
-        if len(d): base_rows.append(dict(stem=st,n=len(d),
-                                         med=float(np.median(np.hypot(d.dx,d.dy)))))
-    base=pd.DataFrame(base_rows).set_index("stem")
+    if os.environ.get("ACC_BASE") == "armB":
+        ap_=pd.read_csv(ROOT/"tubitak/data/karios/results/all_points.csv")
+        ap_=ap_[ap_.arm=="B"]; ap_["r"]=np.hypot(ap_.dx,ap_.dy)
+        base=ap_.groupby("stem").agg(n=("dx","size"),med=("r","median"))
+    else:
+        base_rows=[]
+        for f in glob.glob(str(SENS/"results/base/*/*/KLT_matcher_*.csv")):
+            st=f.split("/")[-3]
+            try: d=pd.read_csv(f,sep=None,engine="python")
+            except Exception: continue
+            if len(d): base_rows.append(dict(stem=st,n=len(d),
+                                             med=float(np.median(np.hypot(d.dx,d.dy)))))
+        base=pd.DataFrame(base_rows).set_index("stem")
     common=ours.index.intersection(base.index)
     o,b=ours.loc[common],base.loc[common]
     d=o.med-b.med
