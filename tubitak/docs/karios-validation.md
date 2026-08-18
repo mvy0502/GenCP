@@ -519,3 +519,93 @@ but not confirmed**:
 **Correct status: plausible and numerically consistent, not demonstrated.** It should not be
 asserted in an upstream issue as established; it should be offered as a hypothesis with the
 arithmetic shown.
+
+---
+
+## 9. Where the noise floor comes from — variance decomposition (2026-08-18 12:47:51 UTC)
+
+The question: is the ~2 px scatter our own reference construction (each chip displaced as a unit),
+or the task's local matching floor? Decomposed on arm B, the geometrically correct arm.
+
+### 9.1 Between-chip vs within-chip
+
+| point set | axis | total var | mean within-chip var | var of chip means | **between share** |
+|---|---|---|---|---|---|
+| all points (8500, ~73/chip) | dx | 3.4288 | 3.9595 | 0.2532 | **6.0 %** |
+| all points | dy | 3.2805 | 3.8978 | 0.2128 | **5.2 %** |
+| confidence ≥ 0.8 (363, ~3/chip) | dx | 3.2939 | 3.2577 | 2.0794 | 39.0 % |
+| confidence ≥ 0.8 | dy | 2.7349 | 2.6126 | 1.3820 | 34.6 % |
+
+**The all-points row is the trustworthy one and the confidence-filtered row is an artefact.** With
+only ~3 surviving points per chip, the *mean* of those 3 points carries a sampling variance of
+σ²/3 ≈ 1.1 px², which is counted as "between-chip" variance even when no real per-chip offset
+exists. The 39 % is therefore mostly sampling noise, not structure.
+
+Correcting the all-points figure for the same effect: the observed variance of chip means (0.2532)
+includes a sampling term of σ²_within/n̄ ≈ 3.96/73 = 0.054, leaving a true between-chip component of
+≈ 0.199, i.e.
+
+> **between-chip ≈ 4.8 % of the total; within-chip ≈ 95 %.**
+
+### 9.2 WITHIN-chip dominates — the answer
+
+**The noise floor is local matching, not our reference construction.** Chips are not being displaced
+as a unit: 95 % of the variance is scatter *inside* each chip.
+
+This is the reassuring branch of the two you set out. Our georeferencing of the satellite half by
+inheriting the OSM raster's transform is **not** inflating the measurements, and no
+reference-registration test is needed. The ~2 px floor is a property of matching generated imagery
+against reality — consistent with the independent finding that the generator synthesises plausible
+rather than actual scenes.
+
+### 9.3 The per-chip component that does exist
+
+A small coherent per-chip offset is present, and it is worth stating rather than rounding to zero:
+
+| statistic | median dx | median dy | magnitude |
+|---|---|---|---|
+| mean over chips | +0.180 | +0.036 | 0.611 |
+| median over chips | +0.146 | −0.028 | 0.553 |
+| std over chips | 0.495 | 0.496 | 0.385 |
+| range | −1.695 … +1.988 | −1.103 … +1.627 | 0.049 … 2.107 |
+
+**18 of 116 chips (16 %) carry a median shift above 1 px**, one above 2 px. So per-chip offsets are
+real but small against the ~2 px within-chip scatter — they cannot be the main story.
+
+### 9.4 Structure in the per-chip offsets
+
+* **Per-tile:** of chips in MGRS tiles with ≥3 members (15 tiles, 85 chips), between-tile variance is
+  **24 %** of the per-chip shift variance. Some clustering by tile exists — plausible if OSM
+  vintage or rendering differs by region — but three quarters of the variation is chip-to-chip
+  within a tile.
+* **Spatial:** correlations of per-chip shift with easting and northing are all |r| ≤ 0.17, i.e.
+  no continental-scale gradient.
+
+### 9.5 A caveat on KARIOS's own std
+
+`self.std_x = np.std(vx)` uses numpy's default `ddof=0`, which is biased low for small samples. With
+the 0.8 confidence threshold leaving ~3 points per chip, KARIOS's reported per-chip std
+underestimates σ by roughly sqrt(2/3) ≈ 0.82. This affects the §8.3 std and RMSE columns for our
+small chips. It would not matter on a large scene with thousands of points, so it does not affect
+the comparison with upstream's figures — but our own absolute std/RMSE are slightly optimistic.
+
+---
+
+## 10. Is the chip-selection effect GenCP-specific, or generic matchability?
+
+### 10.1 Partial correlation, controlling for surviving point count
+
+The confound: richer OSM means more real structure, more corners, more points — so the residual
+correlation might be nothing but "more points average better".
+
+| OSM score | raw rho vs residual | partial rho (controlling for point count) | change |
+|---|---|---|---|
+| edge density | −0.7936 | **−0.6060** | +0.1876 |
+| class count | −0.5883 | **−0.3972** | +0.1912 |
+| non-dominant fraction | −0.7048 | **−0.4435** | +0.2613 |
+
+rho(OSM edge density, point count) = +0.6749, so the confound is genuinely present — controlling for
+it removes roughly a quarter of each correlation. **But the effect survives comfortably:** −0.61
+against a p<0.01 critical value of 0.241 at n = 116.
+
+**The relationship is not an artefact of having fewer points to average over.**
