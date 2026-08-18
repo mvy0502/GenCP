@@ -53,6 +53,7 @@ ROAD_W = {"motorway":3,"trunk":2,"primary":2,"secondary":2,"tertiary":2,
 def fetch(bounds_utm, crs):
     """Fetch OSM features for a UTM footprint (+margin), reprojected to that CRS."""
     import osmnx as ox
+    ox.settings.cache_folder = str(ROOT / "tubitak" / "data" / "osmnx_cache")
     from pyproj import Transformer
     tr = Transformer.from_crs(crs, "EPSG:4326", always_xy=True)
     x0, y0, x1, y1 = bounds_utm
