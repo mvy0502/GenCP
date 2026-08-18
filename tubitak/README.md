@@ -9,6 +9,46 @@ separate so it never collides with upstream (`telespazio-tim/GenCP`) files.
 - **Working branch:** `tubitak-tr` (upstream's default branch is `master`)
 - **Hardware:** MacBook Pro, Apple M4 Max (arm64), 36 GB RAM — no CUDA, runs on CPU
 
+## Findings summary
+
+Six findings, each measured rather than asserted, and each written up with its method, numbers and
+falsification criteria. Nothing below has been fixed in the pipeline — Options A-E remain
+unimplemented and `GenCP_DB` is untouched.
+
+| # | finding | status | where |
+|---|---|---|---|
+| 1 | **Georeferencing scale error.** `gencp_georeferencing.py` pairs a 256-px grid with a 257-px source transform: true GSD 10.0390625 m vs 10.0 declared, **+0.390625 % = exactly 1/256**. Zero at the NW corner, **14.1 m at the SE corner**. | **Confirmed 4 ways**, including KARIOS at **9.9σ** | [geometry-finding.md](docs/geometry-finding.md) |
+| 2 | **Network alignment is not a contributor.** Equivariance certified to **0.008 px (8 cm)**; the absolute offset is **exactly 0** analytically, since `p == (k−s)/2` holds at every layer. | Settled | [geometry-finding.md §11](docs/geometry-finding.md) |
+| 3 | **Train/inference scale mismatch.** Training resizes 257→286 + random crop, inference 257→256 — the model sees content **11.7 % coarser** at inference. | Real but **not worth acting on**: arm C is geometrically cleanest yet matches no better (paired t = +0.59) | [train-test-scale-mismatch.md](docs/train-test-scale-mismatch.md) |
+| 4 | **The generator invents structure.** It emits **2.1× the edge density of its OSM input** and matches the real satellite's busyness (ratio 0.996) *regardless* of what the input specifies. | Confirmed; **no usable threshold** — rank sites, don't filter them | [hallucinated-structure.md](docs/hallucinated-structure.md) |
+| 5 | **Sparse OSM chips lose positional accuracy — and this is GenCP-specific.** rho = **−0.61** (partial, controlling for point count) between OSM edge density and residual. A ceiling control on *real* imagery gives **rho ≈ +0.06, null** — so it is not generic matchability. | Confirmed with the real instrument | [karios-validation.md §10](docs/karios-validation.md) |
+| 6 | **Dataset defects** for an upstream report: 9 leaked test chips, 25 demo/train overlaps, 323 of 566 OSM halves not byte-identical to their georeferenced raster. | Recorded | [geometry-finding.md §12](docs/geometry-finding.md) |
+
+### What the KARIOS run established
+
+* **On upstream's own statistic we are 4.5× better**, not worse. Their "mean error 0.7 px" is
+  KARIOS's `mean_x`/`mean_y` — the *global systematic shift* — not a per-point error magnitude. Our
+  arm B gives **0.155 px** against their 0.70 px, and per-axis RMSE 1.03/0.91 px against their 2.50.
+  An earlier claim that we were "3× worse" was based on comparing two different quantities and has
+  been withdrawn.
+* **Correcting the affine reduces the global shift by 40.3 %** (against 6.1 % on the per-point mean),
+  because a scale error is systematic and a signed mean is what captures it.
+* **The ~2 px noise floor is local matching, not our setup.** Variance decomposition puts **~95 %
+  within-chip**; our ground-truth construction is not inflating the measurements.
+
+### Priority order this implies
+
+1. **Site selection** — the largest lever by a wide margin. Rank AOIs by OSM information content.
+2. **Affine correction** (Option A) — worth doing for correctness; a 40 % improvement on the
+   systematic-shift statistic, but small against total error.
+3. **Inference scale** — leave alone; measured and rejected on a task-based metric.
+
+### Practical note
+
+KARIOS is **single-threaded** (measured: 19.7 s per chip, `user` ≈ `real`). On this 14-core machine
+the runs are embarrassingly parallel — running 8-wide cut a 25-minute batch to about 3 minutes.
+Worth doing for any full campaign.
+
 ## Repository layout
 
 | Remote | URL |
