@@ -139,8 +139,8 @@ Baseline: median residual **2.157 px**, median **66 points/chip**.
 | colour shift ONE CLASS 10 DN | −0.0934 | 0.0534 | −1.75 | −0.6 % | LOOSE |
 
 † **The global-shift axis is confounded and should not be read as a clean colour test.** Adding a
-constant to every channel clips at 255, and  (B=255), , ,  and
- all saturate at **any** positive δ. So "global shift" is really
+constant to every channel clips at 255, and `water` (B=255), `snow`, `sand`, `light_purple` and
+`residential_road` all saturate at **any** positive δ. So "global shift" is really
 "shift plus differential distortion of the bright end", which is exactly the non-uniform kind of
 change BatchNorm cannot remove. Its degradation is an upper bound on a true uniform shift, not a
 measurement of one. This is a flaw in my perturbation design, recorded rather than papered over.
@@ -160,7 +160,7 @@ measurement of one. This is a flaw in my perturbation design, recorded rather th
 My §1.0 reasoning was that BatchNorm at inference (train mode, batch 1) removes a constant offset. The
 mechanism is right; I attached it to the wrong axis.
 
-**Shifting one dominant class *is* approximately a global shift.**  covers ~48 % of the
+**Shifting one dominant class *is* approximately a global shift.** `light_green` covers ~48 % of the
 average chip, so moving it moves the image mean substantially — and BatchNorm subtracts most of it.
 That is why a 40 DN shift of the dominant vegetation colour costs nothing measurable.
 
@@ -187,7 +187,7 @@ loses more than 17 % of key points.
 Two practical points fall out of the asymmetry:
 
 * **Over-smoothing is 1.7× worse than under-smoothing.** If we must err, err toward hard edges.
-* A default  produces hard edges with **no** anti-aliasing — that is
+* A default `rasterio.features.rasterize` produces hard edges with **no** anti-aliasing — that is
   the +0.199 px case, and it is the likely naive outcome. Rendering through a vector engine with
   anti-aliasing (matplotlib/Agg, Cairo) is closer to the reference, but must not be blurred further.
 
@@ -196,7 +196,7 @@ Two practical points fall out of the asymmetry:
 Road width ±1 px, draw order, the missing black/snow class, building treatment, and per-class colour
 error up to 40 DN are **all within the LOOSE bound**. Notably:
 
-* **The unresolved questions from  mostly do not matter.** Draw order (+0.112 px),
+* **The unresolved questions from `osm-palette.md` mostly do not matter.** Draw order (+0.112 px),
   building rendering (+0.022 px) and the CORINE-derived black/snow class we cannot reproduce
   (−0.047 px, i.e. nothing) were the three biggest open gaps, and all three are cheap to get wrong.
 * **The palette values matter far less than expected.** A 40 DN error in the dominant class — the
@@ -204,7 +204,7 @@ error up to 40 DN are **all within the LOOSE bound**. Notably:
 
 ### 3.3 What this means for the Turkish pipeline
 
-Build the rasteriser. Match the palette from  §2 (it is known exactly, and cheap to
+Build the rasteriser. Match the palette from `osm-palette.md` §2 (it is known exactly, and cheap to
 match), spend the engineering effort on **edge rendering**, and do not spend it on draw order,
 building conventions, or reproducing the CORINE classes.
 
