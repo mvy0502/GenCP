@@ -683,7 +683,7 @@ Three items, in descending order of consequence:
    ([`train-test-scale-mismatch.md`](train-test-scale-mismatch.md)).
 3. **The dataset defects in §12.1 and §12.2.**
 
-### 12.4 The published KARIOS figures — hypothesis NOT supported by the KARIOS run
+### 12.4 The published KARIOS figures — plausible, not demonstrated
 
 The upstream README reports KARIOS results on a held-out site: *mean error around 0.7 pixel (7 m)
 and RMSE around 2.5 pixels (24 m) due to outliers, mostly in rural areas.*
@@ -694,14 +694,21 @@ The mean radial displacement predicted by the scale error of §5, averaged over 
 
 **7.65 m predicted versus ~7 m reported.** That looked close enough to be worth stating.
 
-> **UPDATE — this hypothesis is not supported.** The KARIOS run in
-> [`karios-validation.md`](karios-validation.md) measured it directly. The scale ramp is real and
-> highly significant (9.9 sigma) and correcting the affine does reduce error — but only by **6.1 %**
-> (0.137 px), because matching noise of ~2.1 px dominates and errors add in quadrature. Our arm A
-> RMSE (27.1 m) is close to upstream's 24 m, but our mean radial (22.3 m) is far above their
-> reported 7 m. Either their "mean error" is a different statistic, or their matching is much
-> cleaner than ours. **The scale defect is not the main component of the published mean error.**
-> Option A remains worth doing for correctness, not as a large accuracy win.
+> **UPDATE 2 — the earlier retraction was itself based on an invalid comparison, and is withdrawn.**
+> KARIOS's `mean_x`/`mean_y` are the signed means of per-point displacements, i.e. the GLOBAL
+> SYSTEMATIC SHIFT, not a per-point error magnitude (source quoted in
+> [`karios-validation.md`](karios-validation.md) §8.1). The first update compared our per-point mean
+> radial against upstream's global shift — different quantities — and over a point set 23x larger,
+> because KARIOS's own summary applies a 0.8 confidence threshold that keeps only ~4 % of points.
+>
+> On the statistic upstream actually reports we are **better, not worse**: global shift 0.155 px
+> versus their 0.70 px, per-axis RMSE 1.03/0.91 px versus their 2.50 px. Correcting the affine
+> reduces the global shift by **40.3 %**, not 6.1 %.
+>
+> **Current status: plausible, not demonstrated.** For it — the ramp predicts a 0.707 px mean radial
+> displacement, matching their 0.70 px almost exactly. Against it — our own arm A global shift is
+> only 0.2595 px, so we do not directly measure a 0.7 px bias. Offer it upstream as a hypothesis
+> with the arithmetic, not as an established finding.
 
 The reported RMSE tail — *"outliers, mostly in rural areas"* — is a separate effect, and it is
 **confirmed by the KARIOS run**: residual magnitude correlates with OSM edge density at

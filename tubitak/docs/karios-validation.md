@@ -429,3 +429,93 @@ A partial outcome is possible and must be reported as such: better on bias, wors
 that case the honest statement is that we are better on the statistic upstream reports and worse on
 one they also report, and §12.4 stays retracted.
 
+### 8.3 RESULTS (2026-08-18 12:33:58 UTC)
+
+All 348 `correl_res.txt` files parsed (116 chips x 3 arms). Every value below is a statistic
+**KARIOS itself wrote**, averaged over chips.
+
+| arm | chips | mean_x | mean_y | global shift (radial) | std_x | std_y | RMSE_x | RMSE_y |
+|---|---|---|---|---|---|---|---|---|
+| **A** stock | 116 | −0.1177 | +0.2313 | **0.2595** | 0.8973 | 0.9015 | 0.9050 | 0.9307 |
+| **B** affine-corrected | 116 | +0.0532 | +0.1455 | **0.1549** | 1.0280 | 0.9018 | 1.0294 | 0.9135 |
+| **C** scale-matched | 116 | +0.2347 | +0.1344 | 0.2705 | 1.0175 | 1.1057 | 1.0442 | 1.1139 |
+
+RMSE columns use KARIOS's own per-axis formula sqrt(mean² + std²).
+
+### 8.4 The second invalidity: we were also using a different POINT SET
+
+`correl_res.txt` applies `confidence_threshold` = 0.8. That is far more aggressive than assumed:
+
+| arm | points in the raw CSV (used in §4) | points KARIOS actually reports on | kept |
+|---|---|---|---|
+| A | 8353 | **327** | 3.9 % |
+| B | 8500 | **363** | 4.3 % |
+| C | 8721 | **372** | 4.3 % |
+
+So §4's per-point statistics were computed over a point set **23x larger and much noisier** than the
+one KARIOS's own summary uses. Two independent errors therefore made the §4 comparison invalid: the
+wrong statistic *and* the wrong point set.
+
+Every distinct "error" quantity for arm B, side by side:
+
+| quantity | n | value |
+|---|---|---|
+| global shift, all raw points | 8500 | 0.1718 px |
+| global shift, confidence ≥ 0.8 | 363 | 0.1499 px |
+| **global shift, KARIOS `correl_res.txt`** | **363** | **0.1549 px** |
+| mean radial, all raw points (**the §4 number**) | 8500 | 2.0908 px |
+| mean radial, confidence ≥ 0.8 | 363 | 1.9968 px |
+| RMSE radial, all raw points | 8500 | 2.5958 px |
+| RMSE radial, confidence ≥ 0.8 | 363 | 2.4565 px |
+| pooled std_x / std_y, confidence ≥ 0.8 | 363 | 1.8149 / 1.6537 px |
+| **KARIOS mean per-chip std_x / std_y** | 363 | **1.0280 / 0.9018 px** |
+
+KARIOS reports **no** radial statistic in `correl_res.txt`, which is why upstream quote only a mean
+and an RMSE. Note also that KARIOS's std is a **per-chip** scatter averaged over chips (1.03 px),
+while the pooled std across all chips is 1.81 px — the difference is between-chip variance, which
+§9 decomposes.
+
+### 8.5 Scorecard
+
+| Q | prediction | outcome |
+|---|---|---|
+| **Q2** | arm B global shift 0.10-0.40 px, likely ≈0.20, smaller than 0.70 | **CONFIRMED** — 0.1549 px, within range, 4.5x smaller than upstream's 0.70 |
+| **Q3** | arm A ≈0.45-0.60, arm B ≈0.15-0.25, reduction ≥50 % | **PARTLY CONFIRMED** — arm B 0.1549 within range; **arm A 0.2595 is below the predicted range**, and the reduction is **40.3 %**, short of the predicted ≥50 %. The qualitative claim holds decisively: 40.3 % on the global shift versus 6.1 % on the per-point mean, a 6.6x difference |
+| **Q4** | fails if arm B global ≥0.70, or per-axis std ≫2.40 | **NOT FAILED** — 0.1549 px, and per-axis std 0.90-1.03 px against upstream's implied ≈2.40 px |
+
+### 8.6 Answer: on the statistic upstream reports, are we better, worse, or equivalent?
+
+**Better, on both statistics they publish.**
+
+| statistic | upstream (README) | ours, arm B | ratio |
+|---|---|---|---|
+| mean error (= `mean_x`, global shift) | 0.70 px (7 m) | **0.155 px (1.55 m)** | **4.5x better** |
+| RMSE (per axis) | 2.50 px (24 m) | **1.03 / 0.91 px** | **~2.5x better** |
+| implied std | ≈2.40 px | **1.03 / 0.90 px** | ~2.4x better |
+
+**The §4 conclusion that we were "3x worse than upstream" was wrong**, and wrong for two compounding
+reasons: it compared our per-point mean radial against their global shift, and it did so over a
+point set 23x larger because the 0.8 confidence threshold had not been applied.
+
+**Caveat, stated because it cuts against the tidy version of this story:** our arm A global shift
+(0.2595 px) is itself well *below* the ≈0.71 px that the scale ramp predicts as a mean radial
+displacement over this grid. So our own data does not reproduce a 0.7 px bias from the scale error
+alone. Contributing factors, none isolated: the common grid is inset (145-2425 m rather than the
+full 0-2570 m), only ~3 confidence-filtered points survive per chip, and our chips are not upstream's.
+
+### 8.7 Status of `geometry-finding.md` §12.4 — partially un-retracted
+
+The retraction in §4 rested on an invalid comparison and is withdrawn. The hypothesis is **re-opened
+but not confirmed**:
+
+* **For it:** the scale error's predicted mean radial displacement over a full chip is
+  0.003891 × 1285 m × sqrt(2) ≈ **7.07 m = 0.707 px**, which matches upstream's reported 0.70 px
+  almost exactly. And correcting the affine reduces this statistic by **40.3 %**, not the 6.1 %
+  that §4's per-point figure suggested — so the correction matters far more on upstream's statistic
+  than we had concluded.
+* **Against it:** our own arm A global shift is only 0.2595 px, so we do not directly measure a
+  0.7 px bias attributable to the scale error.
+
+**Correct status: plausible and numerically consistent, not demonstrated.** It should not be
+asserted in an upstream issue as established; it should be offered as a hypothesis with the
+arithmetic shown.
