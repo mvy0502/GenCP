@@ -27,7 +27,7 @@ tubitak/
 ├── configs/
 ├── notebooks/
 ├── docs/
-│   ├── geometri-bulgusu.md      # 257->256 geometry scale-error investigation
+│   ├── geometry-finding.md      # 257->256 geometry scale-error investigation
 │   └── figures/
 ├── data/               # gitignored
 └── outputs/            # gitignored
@@ -236,7 +236,7 @@ Expected: `CRS: EPSG:32631 | size: 256 x 256 | resolution: (10.0, 10.0)`
 > **Known geometry caveat.** The declared 10.0 m pixel size is not exact: inputs are 257×257
 > and are resampled to 256×256, so the true ground sample distance is 10.0390625 m — a
 > +0.39 % scale error reaching ~14 m at the far corner. Measured and quantified in
-> [`docs/geometri-bulgusu.md`](docs/geometri-bulgusu.md). Nothing in the pipeline was changed.
+> [`docs/geometry-finding.md`](docs/geometry-finding.md). Nothing in the pipeline was changed.
 
 ## Verification scripts
 

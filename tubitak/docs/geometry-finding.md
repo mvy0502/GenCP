@@ -159,7 +159,7 @@ Fitted slope (least squares through the origin), 6 tiles:
 | 31TEJ_0706_00 | −0.004084 | −0.004200 | −0.004084 | −0.004200 | 0.000000 |
 | **mean** | **−0.004144** | **−0.004179** | **−0.004144** | **−0.004183** | **≤ 5×10⁻⁶** |
 
-Shift field figure: [`figures/geometri-kayma-alani.png`](figures/geometri-kayma-alani.png).
+Shift field figure: [`figures/geometric-shift-field.png`](figures/geometric-shift-field.png).
 Measured magnitudes on the representative tile run from **0.86 m** (NW) to **13.65 m** (SE),
 i.e. 0.086 → 1.365 output pixels.
 
