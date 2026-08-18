@@ -44,3 +44,16 @@ test/data/legacy_serialized.pt
 
 #Ignore Wandb
 wandb/
+
+# ---- TUBITAK work additions ----
+*.tif
+!GenCP_HR_demo/data/dataset/test/*.tif
+!GenCP_VHR_demo/gencp_VHR_data_test/**/*.tif
+data/GenCP_DB/
+data/fake_images/
+tubitak/data/
+tubitak/outputs/
+*.pth
+*.zip
+.venv/
+*.egg-info/
