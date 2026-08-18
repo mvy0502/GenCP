@@ -338,3 +338,94 @@ python tubitak/scripts/analyse_karios.py --figure tubitak/docs/figures/karios-re
 
 All imagery and results live under `tubitak/data/`, which is gitignored.
 KARIOS itself is installed at `~/tools/karios` outside this repository.
+
+---
+
+## 8. Statistic reconciliation — did we compare the wrong quantity?
+
+### 8.1 Q1: what `mean_x`/`mean_y` actually are (read from source)
+
+From `karios/accuracy_analysis/accuracy_statistics.py`:
+
+```python
+self.v_x = points["dx"]  # vector of dx displacements
+self.v_y = points["dy"]  # vector of dy displacements
+# reverse y (line/northing) if image have SRS (carto representation)
+if carto:
+    self.v_y = -self.v_y
+self.v_c = points["score"]  # vector of dc displacements
+```
+
+```python
+self.median_x = np.median(vx)
+self.mean_x   = np.mean(vx)
+self.std_x    = np.std(vx)
+```
+
+where `vx = self.v_x_th` is the confidence-filtered vector of **signed** per-point `dx`.
+
+**`mean_x`/`mean_y` are therefore the signed arithmetic means of the per-point displacements —
+the GLOBAL SYSTEMATIC SHIFT (bias), not a per-point error magnitude.** A field of large but
+randomly-oriented residuals averages to nearly zero on this statistic. This confirms from source
+what the (5,3) validation showed behaviourally.
+
+Three further facts from the same reading:
+
+* The `carto` branch is the y sign flip observed in §1: `correl_res.txt` reports northing-up while
+  the per-point CSV reports image rows.
+* `self.v_c = points["score"]` is the **KLT score**, not a displacement — the inline comment
+  "vector of dc displacements" is wrong. So `mean_c`/`std_c` are score statistics.
+* **`correl_res.txt` contains no radial and no RMSE column.** Its columns are exactly:
+  `refImg secImg total_valid_pixel sample_pixel confidence_th min_x max_x median_x mean_x std_x
+  min_y max_y median_y mean_y std_y`.
+
+RMSE appears only in the report, derived per axis in `karios/report/circular_error_plot.py`:
+
+```python
+def _rmse(mean, std, img_res=None):
+    ...
+    return np.sqrt(_mean * _mean + _std * _std)
+```
+
+so **RMSE = sqrt(mean² + std²) per axis** — bias and scatter combined. A separate CE90 (90th
+percentile of sqrt(x²+y²)) exists but is printed to console/HTML only, not to `correl_res.txt`.
+
+**Consequence.** Upstream's *"mean error around 0.7 pixel (7m) and a RMSE around 2.5 pixels (24m)"*
+is consistent with `mean_x` ≈ 0.7 px and per-axis RMSE ≈ 2.5 px, which via the formula above
+implies their **std ≈ sqrt(2.5² − 0.7²) ≈ 2.40 px**. In §4 we compared our *per-point mean radial*
+(2.23 px) against their *global shift* (0.7 px). **Those are different quantities and the comparison
+was invalid.**
+
+### 8.2 PRE-REGISTRATION (registered 2026-08-18 12:28:01 UTC, before extracting any `correl_res.txt`)
+
+Declared inputs: I already know from §4.1 that arm B's per-point **median** dx is +0.189 and dy
++0.0024, and arm A's are −0.246 and −0.444. The means are not yet extracted. Predictions below use
+those medians as priors and say so.
+
+**Q2 — arm B global shift vs upstream's 0.70 px.**
+Predict **smaller**: global radial shift sqrt(mean_x² + mean_y²) in the range **0.10-0.40 px**,
+most likely ≈ **0.20 px**, i.e. roughly one third of upstream's 0.70 px. Basis: the per-point
+medians above give a radial ≈ 0.19 px; the mean may exceed the median given heavy tails, hence the
+range rather than a point value.
+
+**Q3 — does the affine correction reduce the GLOBAL shift by more than the 6.1 % it reduced the
+per-point mean by?**
+Predict **yes, by a large margin**. The scale ramp is a *systematic* displacement, which is exactly
+what a signed mean captures, whereas the per-point radial mean is dominated by random scatter the
+correction cannot touch. Over the common grid the ramp's mean displacement is 1285 m × 0.003891
+= 5.0 m = **0.50 px per axis**, so arm A's signed means should exceed arm B's by about that.
+Quantitatively: predict arm A global radial ≈ **0.45-0.60 px**, arm B ≈ **0.15-0.25 px**, a
+reduction of **≥ 50 %** (most likely 55-75 %), against 6.1 % on the per-point mean.
+
+**Q4 — what would make the reconciliation FAIL.**
+It fails, and we really are worse than upstream rather than measuring a different quantity, if
+**either**:
+
+* arm B's global radial shift is **≥ 0.70 px** — then we are not better on their own statistic; or
+* our per-axis **std substantially exceeds ~2.40 px** (say > 3.6 px, i.e. 50 % worse) — then our
+  scatter is genuinely worse and the "different statistic" explanation covers only part of the gap.
+
+A partial outcome is possible and must be reported as such: better on bias, worse on scatter. In
+that case the honest statement is that we are better on the statistic upstream reports and worse on
+one they also report, and §12.4 stays retracted.
+
