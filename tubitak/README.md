@@ -23,7 +23,11 @@ tubitak/
 ├── scripts/
 │   ├── fix_openmp.sh            # OpenMP conflict fix (required after setup)
 │   ├── verify_georeferencing.py # georeferencing verification
-│   └── visualize.py             # visual comparison / verification grid
+│   ├── visualize.py             # visual comparison / verification grid
+│   ├── shift_estimator.py       # subpixel shift estimators + self-test (reusable module)
+│   ├── shift_field.py           # NxN shift field between any two rasters + quiver figure
+│   ├── hypothesis_test.py       # how 257x257 becomes 256x256
+│   └── network_alignment.py     # generator input->output alignment check
 ├── configs/
 ├── notebooks/
 ├── docs/
@@ -272,6 +276,63 @@ python tubitak/scripts/visualize.py --verify -n 6 --seed 7
 ```
 
 Output: `tubitak/outputs/verification_grid.png`. Last run: 6/6 identical.
+
+## Geometry analysis tools
+
+Measurement code behind [`docs/geometry-finding.md`](docs/geometry-finding.md). `shift_estimator.py`
+is an importable module, intended for reuse during KARIOS validation:
+
+```python
+import sys; sys.path.insert(0, "tubitak/scripts")
+from shift_estimator import phase_shift, ncc_shift, prepare
+```
+
+**Always run the self-test before trusting a measurement.** Two estimators are provided because
+one is not enough: phase correlation is accurate to 0.076 px RMS *within a modality* but fails
+outright across modalities (errors of 40-64 px), where bounded-search NCC is needed instead.
+
+```bash
+python tubitak/scripts/shift_estimator.py --self-test
+python tubitak/scripts/shift_estimator.py --self-test --mode gradient
+```
+
+### `shift_field.py` — shift field between any two rasters
+
+Takes an arbitrary raster pair, so it can be pointed at Turkish AOIs or KARIOS inputs rather than
+only the demo. It reports a per-window table, a fitted slope and a plain-language interpretation
+(zero field / linear ramp / uniform offset / no clean category), and optionally writes a quiver
+figure.
+
+```bash
+python tubitak/scripts/shift_field.py REFERENCE.tif MOVING.tif \
+    --pixel-size 10 --figure out.png
+
+# cross-modal pairs must use gradient correlation, not intensity
+python tubitak/scripts/shift_field.py A.tif B.png --mode gradient
+```
+
+### `hypothesis_test.py` — how 257x257 becomes 256x256
+
+Reconstructs each candidate transform and compares it to the network's own recorded input,
+printing every candidate's score rather than only the winner.
+
+```bash
+python tubitak/scripts/hypothesis_test.py --tiles 8
+```
+
+### `network_alignment.py` — does the generator preserve alignment?
+
+Measures the shift field between `_real` (input) and `_fake` (output). Validates its own
+cross-modal estimator against injected known shifts first, and reports a resolution limit rather
+than a bare number.
+
+```bash
+python tubitak/scripts/network_alignment.py --tiles 6 --mode gradient
+```
+
+> **Note on the training set.** `docs/geometry-finding.md` §6 measures `GenCP_HR_DB.zip` (1.71 GB)
+> from Zenodo. It is **not** in the repository — it lives in `tubitak/data/`, which is gitignored.
+> Re-download it from <https://zenodo.org/records/15044428> if those measurements need repeating.
 
 ## Visualisation
 

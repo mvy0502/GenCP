@@ -55,6 +55,8 @@ tubitak/data/*
 !tubitak/data/.gitkeep
 tubitak/outputs/*
 !tubitak/outputs/.gitkeep
+# report figures are deliverables: keep them despite the *.png rule above
+!tubitak/docs/figures/*.png
 *.pth
 *.zip
 .venv/
