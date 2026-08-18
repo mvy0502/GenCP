@@ -166,3 +166,54 @@ output — precisely the failure mode this investigation exists to prevent.
 
 Option (b) is worth running first: it converts an unbounded fidelity requirement into a measured
 tolerance.
+
+---
+
+## 8. Edge profile — the measured anti-aliasing specification
+
+Measured with `tubitak/scripts/edge_profile.py` over 100 demo + 100 corpus rasters: every row and
+column is scanned for maximal runs of non-palette pixels flanked by exact-palette pixels, each run
+pixel projected onto the RGB segment between the flanks (blend fraction *t*), runs off the segment
+by >6 DN discarded as junctions. Perpendicular widths use the local edge normal from a Sobel field;
+32k area-area transitions and 9k road crossings were kept.
+
+### 8.1 Transition geometry
+
+Raw run lengths look wide (median 5 px), but the **mean t-profiles** show what those runs contain
+(near-perpendicular subset):
+
+| run | mean t per pixel | erf fit σ |
+|---|---|---|
+| 4 px | 0.035 · 0.377 · 0.627 · 0.976 | 1.05 px |
+| 5 px | 0.014 · 0.023 · **0.541** · 0.988 · 0.988 | 0.48 px |
+| 6 px | 0.011 · 0.026 · **0.21 · 0.81** · 0.980 · 0.986 | 0.61 px |
+
+The genuine blend is **1–2 intermediate pixels** (an erf step, weighted mean **σ = 0.68 px**);
+the remaining run pixels sit within a few DN of the flanking colours — real but tiny deviations
+that keep them off-palette without being visible blends.
+
+**Interpretation:** a sharp antialiased core plus low-amplitude tails extending ±2 px is the
+signature of resampling with a kernel that has negative lobes (bicubic/Lanczos) — consistent with a
+hard-edged render at higher resolution followed by a bicubic-style downsample, and *inconsistent*
+with either plain supersampling (σ ≈ 0.29, single intermediate pixel, no tails) or a wide Gaussian
+(no tails, σ ≫ 1 would be needed to explain the run lengths, contradicting the profiles).
+
+### 8.2 Consistency and isotropy
+
+* **Demo vs corpus agree**: σ = 0.677 vs 0.684 px — one renderer produced both.
+* **Isotropic**: perpendicular-corrected width varies only 4.1–4.8 px across orientation bins
+  0–15°/15–30°/30–45°, with no near-axis staircase signature. Filter-like, not supersampling-like.
+
+### 8.3 Roads
+
+Transverse road crossings (flanks equal, interior nearest a road colour): **median full width 6 px**
+— a ~2 px core (matching the earlier distance-transform measurement and the VHR width table) plus
+~2 px of AA tail each side. Road pixels almost never reach their exact palette colour because a
+2 px line under a σ≈0.7 kernel never fully saturates: this is why roads are ~100 % off-palette.
+
+### 8.4 The specification the rasteriser must hit
+
+1. Interiors byte-exact on the 11-colour palette.
+2. Area-area boundaries: erf-like transition, **σ = 0.68 ± 0.15 px**, isotropic.
+3. Roads: 2 px core width before smoothing.
+4. If the target cannot be hit exactly, err toward **harder** edges (renderer-tolerance.md: over-smoothing measured 1.7× worse).
