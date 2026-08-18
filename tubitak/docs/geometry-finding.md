@@ -3,6 +3,10 @@
 **Status:** investigation only. No pipeline code was modified, no outputs were regenerated.
 **Date:** 2026-08-18
 **Verdict:** the 0.39 % scale error is **real, and exactly as predicted** — not larger, not smaller.
+The HR training set has since been measured (§6): 257x257 is the project-wide convention, not a
+demo artefact, which resolves the last material uncertainty and leaves the verdict unchanged.
+Two further findings are recorded below: a train/inference scale mismatch (§6.1) and the
+network's own input->output alignment, measured rather than assumed (§11).
 
 ---
 
@@ -242,26 +246,75 @@ roughly 7 m; worst case 14.1 m.
 
 ---
 
-## 6. Is 257 intentional? (training-data check)
+## 6. Is 257 intentional? Answered by measuring the training set
 
-**The HR training set is not available locally** — only the 630 test rasters (121 MB) and the
-model weights were downloaded. It was **not** downloaded for this investigation, per instruction.
+`GenCP_HR_DB.zip` (1.71 GB, 2.55 GB unpacked, 11,416 rasters) was downloaded from Zenodo and
+measured in full — not sampled.
 
-Indirect evidence available locally:
+| group | files | dimensions | pixel size | CRS |
+|---|---|---|---|---|
+| `GenCP_HR_DB/train/` | 5,131 | **257x257 (100.0 %)** | (10.0, 10.0) | 5 UTM zones (EPSG:32630-32634) |
+| `GenCP_HR_DB/test/` | 577 | **257x257 (100.0 %)** | (10.0, 10.0) | 5 UTM zones |
+| `GenCP_HR_DB/image_pairs/train/` | 5,131 | **514x257 (100.0 %)** | (1.0, 1.0) | none |
+| `GenCP_HR_DB/image_pairs/test/` | 577 | **514x257 (100.0 %)** | (1.0, 1.0) | none |
 
-| dataset | present locally | chip size |
-|---|---|---|
-| HR demo test rasters | yes, 630 files | **257×257** (uniform) |
-| VHR demo `images/` | yes, 21 files | **256×256** |
-| VHR demo `masks/` | yes, 21 files | **256×256** |
-| HR **training** pairs | **no** | unknown |
+**257 is uniform, not mixed and not absent.** Every one of the 5,708 georeferenced rasters is
+257x257 at exactly (10.0, 10.0) m. There are zero exceptions in the entire corpus.
 
-The VHR branch of the same project uses 256×256. That is suggestive that 257 is an artefact
-of how *this* HR demo dataset was rasterised (e.g. an inclusive-bounds off-by-one when
-cutting tiles) rather than a deliberate convention — but it is indirect. **The decisive
-question, whether the HR training pairs were also 257 px, cannot be answered locally.**
+**The paired A/B images share dimensions exactly.** `514 = 2 x 257`, and the check
+`width == 2 * height` holds for all 5,708 pairs without exception. `AlignedDataset` splits at
+`w/2`, giving A and B of 257x257 each.
 
----
+**Which half is which** (measured, not assumed): the right half is byte-identical to the
+same-named georeferenced raster in `train/` (corr 1.0000, MAD 0.00) and carries the signature of
+a categorical rendering — its top 5 colours cover 54.3 % of pixels, comparable to the demo OSM
+input's 71.7 %. The left half is continuous imagery: top 5 colours cover 1.2 %, with 51,960
+distinct colours in 66,049 pixels. So the layout is **[satellite | OSM]**, and producing satellite
+imagery from OSM with this corpus requires `--direction BtoA`. The `image_pairs` files carry no
+CRS and a (1.0, 1.0) pixel size — they are plain images for pix2pix, with georeferencing held
+separately in `train/` and `test/`.
+
+**This overturns the previous revision's indirect inference.** That reasoning used the VHR demo's
+256x256 chips to suggest 257 might be a rasterisation artefact of the HR demo dataset. It is not:
+257x257 at 10 m is the convention across the whole HR corpus, training and test alike. The
+verdict in §5 is unaffected — the scale error follows from 257-px content on a 256-px grid with a
+10 m transform, regardless of why 257 was chosen.
+
+### 6.1 Training-time geometry — a second, larger mismatch
+
+Read from the executed code path, as for `test.py`:
+
+- `options/base_options.py` defaults: `preprocess=resize_and_crop`, **`load_size=286`**, `crop_size=256`,
+  `no_flip` is `store_true` so it defaults to **False** (flipping enabled).
+- `options/train_options.py` overrides none of them.
+- `train.py` overrides none of them (unlike `test.py`, which overrides `no_flip`, `serial_batches`
+  and `num_threads` after the options file is written).
+- Only `options/test_options.py` contains
+  `parser.set_defaults(load_size=parser.get_default('crop_size'))`, commented
+  *"To avoid cropping, the load_size should be the same as crop_size"*. **That override is why
+  inference ran at load_size 256 and is absent at training time.**
+
+So under released defaults, training applies to each 257x257 half: resize to 286x286, then a
+random 256x256 crop at a position shared by A and B (`get_params` is computed once and passed to
+both transforms), plus a shared random flip. A and B therefore stay mutually aligned — but the
+scale differs from inference:
+
+| stage | resize applied | GSD of content the model sees | ground extent of the 256-px grid |
+|---|---|---|---|
+| training | 257 -> 286, then random 256 crop | 10 x 257/286 = **8.986 m** | 2300.5 m |
+| inference | 257 -> 256, no crop | 10 x 257/256 = **10.039 m** | 2570 m |
+
+Ratio 286/256 = **1.1172**: at inference the network is shown content **11.7 % coarser** than
+anything it saw during training. Note this is the same 286/256 factor as the "H2' counterfactual"
+dismissed in §3.2 — dismissed correctly for *inference*, but it is what the code does at
+*training*.
+
+**Caveat, and it is a real one.** This describes the released code under its default options. The
+authors' actual training command was not published: `GenCP_HR_Model_Weights.zip` contains only two
+`latest_net_G.pth` files and no `train_opt.txt`, so the `load_size` actually used is not
+recoverable from the released artefacts. If they passed `--load_size 256`, this mismatch does not
+exist. **This is now the principal open question, and it is separate from the georeferencing
+error, which stands either way.**
 
 ## 7. Upstream awareness
 
@@ -283,24 +336,28 @@ approximation.
 
 ## 8. What remains uncertain
 
-1. **Whether the training data shared this geometry.** This is the one thing that changes the
-   *interpretation*. If training pairs were also 257 rasters resampled to 256, the model
-   learned on this geometry, the generated content genuinely corresponds to the full 2570 m
-   extent, and the problem is **metadata-only** — the pixels are right, the transform is wrong.
-   If training chips were natively 256, the situation is more complicated. Resolving this
-   requires the Zenodo HR training set (~1.7 GB), deliberately not downloaded.
-2. **Estimator bias.** Validated RMS 0.076 px, and it under-reads small shifts. This affects
-   the absolute slope by ~7 % but not the conclusion, because the control absorbs it.
-3. **Sub-pixel behaviour of BICUBIC resampling** on hard-edged categorical OSM rasters may
-   introduce edge-dependent bias not modelled here. It does not affect the scale factor,
-   which is fixed by the 257→256 grid ratio, not by the kernel.
-4. **Whether 10.0390625 m or 10.0 m is the "intended" GSD** is a project decision, not a
+1. **Training-data geometry — RESOLVED.** Measured in §6: 257x257 uniformly, across the entire
+   corpus. The model was trained on the same 257-px chips the demo uses, so the generated content
+   does correspond to the full 2570 m extent and the problem is **metadata-only** — the pixels are
+   right, the transform is wrong. This was previously the one uncertainty that could change the
+   interpretation; it no longer can.
+2. **The authors' actual training invocation — now the principal unknown.** Under released
+   defaults, training resizes 257 -> 286 and random-crops 256, an 11.7 % scale difference from
+   inference (§6.1). No `train_opt.txt` was released, so whether they overrode `load_size` cannot
+   be determined from the published artefacts. This affects expected output *quality*, not the
+   georeferencing arithmetic.
+3. **Estimator bias.** Validated RMS 0.076 px; it under-reads small shifts. Affects the absolute
+   slope by ~7 % but not the conclusion, because the control absorbs it identically (§4.3).
+4. **Network input->output alignment is bounded, not resolved.** Measured in §11: no misalignment
+   detected, but only to ~0.9 px (~9 m). That bound is the same order as the scale error itself,
+   so this method cannot certify sub-pixel alignment at the precision KARIOS needs.
+5. **Sub-pixel behaviour of BICUBIC resampling** on hard-edged categorical rasters may introduce
+   edge-dependent bias not modelled here. It does not affect the scale factor, which is fixed by
+   the 257->256 grid ratio, not by the kernel.
+6. **Whether 10.0390625 m or 10.0 m is the "intended" GSD** is a project decision, not a
    measurement. §5 quantifies the discrepancy; it does not adjudicate which is correct.
-5. **KARIOS interaction.** KARIOS may itself fit and report a scale/shift term. Whether this
-   ramp should be subtracted beforehand or left in and interpreted is a validation-design
-   choice, not settled here.
-
----
+7. **KARIOS interaction.** KARIOS may itself fit and report a scale/shift term. Whether this ramp
+   should be subtracted beforehand or left in and interpreted is a validation-design choice.
 
 ## 9. Options (proposals only — nothing implemented)
 
@@ -358,8 +415,161 @@ Open an issue on `telespazio-tim/GenCP` describing the 257/256 transform mismatc
 
 ## 10. Reproducing these measurements
 
-The analysis was run from throwaway scripts in a scratch directory and is **not** committed,
-per instruction (only this document and its figure are). The method is fully specified above:
-§2 gives the estimator and its validation protocol, §3.2 the hypothesis reconstructions,
-§3.3 the 4×4 windowing scheme and the control construction. No pipeline file was modified and
-no output was regenerated at any point.
+The analysis code is committed under `tubitak/scripts/` — the measurements below regenerate from
+a clean checkout. The estimator is also intended for reuse during KARIOS validation.
+
+| script | purpose |
+|---|---|
+| `shift_estimator.py` | phase-correlation (same-modality) and NCC (cross-modal) estimators, plus the validation harness of §2 as a runnable self-test |
+| `hypothesis_test.py` | the H1/H2/H2'/H3 reconstruction comparison of §3.2 |
+| `shift_field.py` | the 4x4 shift-field measurement of §3.3 and the quiver figure; takes an arbitrary raster pair as arguments |
+| `network_alignment.py` | the input->output alignment measurement of §11, with its own cross-modal validation |
+
+```bash
+conda activate gencp
+
+# validate the estimator before trusting anything it produces
+python tubitak/scripts/shift_estimator.py --self-test
+
+# section 3.2
+python tubitak/scripts/hypothesis_test.py --tiles 8
+
+# section 3.3 + the figure
+python tubitak/scripts/shift_field.py \
+  GenCP_HR_demo/data/dataset/test/31TEJ_0704_00.tif \
+  GenCP_HR_demo/data/fake_images/genCP_HR_RGB_model/test_latest/images/31TEJ_0704_00_real.png \
+  --pixel-size 10 --figure tubitak/docs/figures/geometric-shift-field.png
+
+# section 11
+python tubitak/scripts/network_alignment.py --tiles 6 --mode gradient
+```
+
+The training set (§6) is not committed: `GenCP_HR_DB.zip` is 1.71 GB and lives in
+`tubitak/data/`, which is gitignored. Re-download from
+<https://zenodo.org/records/15044428>.
+
+No pipeline file was modified and no output was regenerated at any point in this investigation.
+
+
+---
+
+## 11. Does the network preserve spatial alignment? (input -> output)
+
+### 11.1 Why this needed measuring
+
+Every measurement in §3 compares `_real.png` — the network's **input** — against the source
+raster. The georeferenced GeoTIFFs contain `_fake` — the network's **output**. The bridge between
+them, *"a U-Net preserves pixel alignment between input and output"*, is true by architecture but
+had never been measured here. It was an assumption sitting underneath every number in this
+document. Any misalignment the network introduces would add to the KARIOS error budget and would
+be confounded with the scale ramp of §5.
+
+`_real.png` and `_fake.png` are both 256x256 on the same grid, so any shift between them is
+attributable to the network alone.
+
+### 11.2 Representation: why gradient magnitude
+
+The two images are different modalities: categorical OSM colours versus continuous satellite
+texture. A green OSM polygon and the field it generates share no grey level, so raw intensities
+are essentially uncorrelated. What they do share is **edge position** — roads, field boundaries,
+water margins sit in the same places in both. The images were therefore correlated on **Sobel
+gradient magnitude of a lightly smoothed image** (sigma = 1.0). Raw intensity was measured too, and
+is reported below so the choice can be checked rather than taken on trust.
+
+### 11.3 Validation first — and the first two methods failed
+
+Following the same discipline as §2: an estimator that cannot recover a *known* displacement
+cannot be trusted with an unknown one. `_fake` was deliberately displaced by known amounts and the
+estimator had to recover them, measured as the change relative to the (unknown) baseline offset so
+that the baseline could not contaminate the test.
+
+**Phase correlation — the §2 estimator — fails outright across modalities:**
+
+| estimator | representation | window | RMS error | max error | usable? |
+|---|---|---|---|---|---|
+| phase correlation | gradient | 256 | 2.506 | 8.540 | no |
+| phase correlation | gradient | 128 | 9.050 | 37.980 | no |
+| phase correlation | gradient | 64 | 14.772 | 64.040 | no |
+| phase correlation | intensity | 256 | 8.912 | 40.820 | no |
+| phase correlation | intensity | 128 | 5.432 | 29.260 | no |
+| phase correlation | intensity | 64 | 9.222 | 62.520 | no |
+
+Errors of 40-64 px on a 256-px chip mean the correlation peak is essentially random. The cause is
+the whitening step: phase correlation normalises away magnitude, which sharpens the peak for
+same-modality pairs (RMS 0.076 px in §2) but destroys robustness when the two images do not share
+intensity structure. **This is not a small degradation; it is total failure**, and it is why the
+§2 estimator could not simply be reused.
+
+**Normalised cross-correlation (no whitening), bounded search +/-8 px, is far better but still not
+sub-pixel per window:**
+
+| estimator | representation | window | RMS error | max error |
+|---|---|---|---|---|
+| NCC | gradient | 128 | 0.830 | 6.024 |
+| NCC | gradient | 64 | 1.127 | 4.159 |
+| NCC | intensity | 64 | 0.847 | 3.609 |
+| NCC | intensity | 256 | 5.928 | 33.500 |
+
+Individual 64-px windows remain unreliable. Many saturate against the +/-8 px search bound, which
+is visible in the measurement below as per-window magnitudes near 11 px (= sqrt(8^2+8^2)).
+
+**What is reliable is the pooled statistic.** Taking the median across the 16 windows of a tile
+before comparing to the injected shift:
+
+```
+n=15   median |err| = 0.209   RMS = 0.517   p90 = 0.869   max = 1.559  px
+```
+
+So the method is **usable as a bound, not as a sub-pixel measurement**. Its resolution limit is
+~0.87 px: a systematic offset below that cannot be distinguished from estimator noise, while one
+above it would be detected.
+
+### 11.4 Measurement
+
+NCC on gradient magnitude, 4x4 grid of 64x64 windows, 6 tiles, confidence floor 1.2 (calibrated to
+NCC's own scale — its peaks sit at a median confidence of 2.3 against phase correlation's 10.3, so
+the §2 threshold of 8 would have rejected every window).
+
+| tile | usable windows | median dy | median dx | std dy | std dx | max abs |
+|---|---|---|---|---|---|---|
+| 31TEJ_0451_00 | 15/16 | −0.382 | −0.137 | 2.210 | 2.962 | 9.146 |
+| 31TEJ_0691_00 | 11/16 | −1.727 | +0.602 | 3.726 | 4.340 | 9.185 |
+| 31TEJ_0699_00 | 14/16 | +0.038 | −0.455 | 4.336 | 4.419 | 10.901 |
+| 31TEJ_0700_00 | 15/16 | +1.271 | +0.770 | 3.760 | 3.273 | 8.106 |
+| 31TEJ_0704_00 | 14/16 | −0.858 | +0.606 | 4.001 | 3.706 | 9.347 |
+| 31TEJ_0706_00 | 15/16 | −1.176 | −0.970 | 3.706 | 3.784 | 9.750 |
+| **POOLED** | **84** | **−0.281** | **−0.068** | 3.759 | 3.804 | 10.901 |
+
+Pooled median offset: **dy −0.281 px, dx −0.068 px** (−2.8 m, −0.7 m).
+Per-window scatter: ~3.8 px (1 sigma) — large, and consistent with the validation finding that
+individual windows are not trustworthy.
+
+As an independent check on whether the pooled median means anything, its standard error is
+approximately 1.253 x sigma / sqrt(n) = 1.253 x 3.78 / sqrt(84) = **0.52 px**, which agrees with the
+0.87 px resolution limit obtained from injected shifts. Two different routes to the same
+uncertainty.
+
+### 11.5 Verdict: holds, within a bound that is not tight enough
+
+**The alignment assumption HOLDS at the precision available, and sub-pixel alignment is
+UNRESOLVABLE by this method.**
+
+- No systematic input->output displacement was detected. The pooled median (0.28 px) is below both
+  the validated resolution limit (0.87 px) and the standard error of the median (0.52 px), so it
+  is not distinguishable from zero.
+- The shift field shows **no structure** — no ramp, no rotation, no consistent direction across
+  tiles; per-tile medians scatter in sign (−1.73 to +1.27 px in dy). This is what noise looks
+  like, not a systematic effect.
+- Upper bound: any systematic misalignment the network introduces is **smaller than ~0.9 px
+  (~9 m)**.
+
+**The important caveat, stated plainly:** that ~9 m bound is the *same order of magnitude* as the
+scale error this document is about (0 m at the NW corner rising to 14.1 m at the SE corner). So
+this measurement is strong enough to exclude a gross misalignment — a whole-pixel or multi-pixel
+offset would have been detected — but **not** strong enough to certify that the network is aligned
+at the precision KARIOS is trying to measure. The architectural argument remains the stronger
+evidence at sub-pixel level; this measurement bounds it rather than replacing it.
+
+A tighter measurement would need a genuinely cross-modal similarity metric (mutual information, or
+a learned descriptor) rather than gradient correlation, or a controlled test on synthetic pairs
+where the true alignment is known by construction. Neither was attempted here.
