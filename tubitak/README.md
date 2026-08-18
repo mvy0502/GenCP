@@ -36,6 +36,17 @@ unimplemented and `GenCP_DB` is untouched.
 * **The ~2 px noise floor is local matching, not our setup.** Variance decomposition puts **~95 %
   within-chip**; our ground-truth construction is not inflating the measurements.
 
+### Turkish pipeline — status
+
+**Turkey is absent from the training corpus.** It spans UTM zones 30-34 (western/central Europe);
+Turkey is in zones 35-38, ~520 km further east. Running the pretrained model on Turkish data is
+therefore a **genuine geographic generalisation test**, which is the stronger experiment.
+
+The OSM rasteriser is **not built**. The palette is pinned down from data (11 colours, closed), but
+the renderer is not: the one released colour table is demonstrably not the one used (buildings
+missing, three colours never rendered), and 45 % of every raster is anti-aliasing from unknown
+tooling. See [osm-palette.md](docs/osm-palette.md) §7 for the recommended next step.
+
 ### Priority order this implies
 
 1. **Site selection** — the largest lever by a wide margin. Rank AOIs by OSM information content.
@@ -85,6 +96,7 @@ tubitak/
 │   ├── train-test-scale-mismatch.md  # 286-vs-256 domain shift (principal open question)
 │   ├── hallucinated-structure.md     # invented detail and GCP chip selection
 │   ├── karios-validation.md          # 3-arm KARIOS run against real ground truth
+│   ├── osm-palette.md                # OSM raster palette spec (PARTIAL - see §7)
 │   └── figures/
 ├── data/               # gitignored
 └── outputs/            # gitignored
