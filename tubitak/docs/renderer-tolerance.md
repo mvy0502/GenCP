@@ -106,3 +106,108 @@ of vector rendering and we only hold rasters. They are approximated:
 
 Their results bound the effect of getting these wrong; they do not reproduce a specific alternative
 renderer.
+
+---
+
+## 2. RESULTS (2026-08-18 16:12:18 UTC)
+
+30 chips stratified across OSM edge density 0.056-0.900, 18 variants each = **540 generations and
+540 KARIOS runs**, scored against the real satellite half on the affine-corrected common grid so the
+known scale error cannot confound the measurement. Every figure is a **paired per-chip change from
+that chip's own baseline**.
+
+Baseline: median residual **2.157 px**, median **66 points/chip**.
+
+| axis | Δ residual (px) | SE | t | Δ points | verdict |
+|---|---|---|---|---|---|
+| **anti-aliasing INCREASED** | **+0.3450** | 0.0877 | 3.93 | **−17.0 %** | **TIGHT** |
+| colour shift GLOBAL 40 DN † | +0.3881 | 0.0816 | 4.76 | −14.6 % | TIGHT |
+| **anti-aliasing REMOVED** | **+0.1988** | 0.0676 | 2.94 | −4.2 % | **TIGHT** |
+| colour shift GLOBAL 20 DN † | +0.1546 | 0.0598 | 2.59 | −8.4 % | TIGHT |
+| road width +1 px | +0.1402 | 0.0804 | 1.74 | −7.1 % | LOOSE |
+| draw order (roads removed) | +0.1121 | 0.0631 | 1.77 | −5.4 % | LOOSE |
+| colour shift GLOBAL 2 DN † | +0.0999 | 0.0473 | 2.11 | +3.7 % | LOOSE |
+| road width −1 px | +0.0717 | 0.0726 | 0.99 | −1.9 % | LOOSE |
+| colour shift GLOBAL 10 DN † | +0.0476 | 0.0644 | 0.74 | −3.9 % | LOOSE |
+| building dilated 1 px | +0.0223 | 0.1027 | 0.22 | −3.5 % | LOOSE |
+| colour shift GLOBAL 5 DN † | +0.0027 | 0.0707 | 0.04 | −1.1 % | LOOSE |
+| colour shift ONE CLASS 40 DN | −0.0243 | 0.0839 | −0.29 | −6.7 % | LOOSE |
+| colour shift ONE CLASS 20 DN | −0.0422 | 0.0589 | −0.72 | −4.9 % | LOOSE |
+| black/snow class removed | −0.0471 | 0.0561 | −0.84 | −0.2 % | LOOSE |
+| colour shift ONE CLASS 5 DN | −0.0356 | 0.0726 | −0.49 | +2.4 % | LOOSE |
+| colour shift ONE CLASS 2 DN | −0.0707 | 0.0774 | −0.91 | −0.1 % | LOOSE |
+| colour shift ONE CLASS 10 DN | −0.0934 | 0.0534 | −1.75 | −0.6 % | LOOSE |
+
+† **The global-shift axis is confounded and should not be read as a clean colour test.** Adding a
+constant to every channel clips at 255, and  (B=255), , ,  and
+ all saturate at **any** positive δ. So "global shift" is really
+"shift plus differential distortion of the bright end", which is exactly the non-uniform kind of
+change BatchNorm cannot remove. Its degradation is an upper bound on a true uniform shift, not a
+measurement of one. This is a flaw in my perturbation design, recorded rather than papered over.
+
+### 2.1 Scorecard — my predictions were substantially wrong
+
+| # | registered | outcome |
+|---|---|---|
+| **P1** | D-single most impactful; F least; D-global null | **FALSIFIED, and inverted.** D-single is null at *every* magnitude (|t| ≤ 1.75, signs mostly negative). The anti-aliasing axes dominate. F being least was right. |
+| **P2** | global null at all magnitudes; single-class onset ~10 DN | **FALSIFIED both ways.** Global degrades from ~20 DN (though see †); single-class shows nothing through 40 DN. |
+| **P3** | positive rho — dense chips degrade more | **Weakly supported.** Only anti-aliasing-increased reaches significance (rho = +0.395, n = 30, critical ≈ 0.36) and it is positive. Others are small and mixed (+0.14, +0.20, −0.19, +0.03, −0.05). Direction right where measurable, but this is thin evidence. |
+| **P4** | LOOSE if all uncontrollable axes < 0.15 px and < 10 % points | **Not met** — two axes exceed it. |
+| **P5** | NOT BUILDABLE if any axis > 0.5 px or > 30 % points | **Not met** — worst case is +0.345 px, −17 %. |
+
+### 2.2 Why the inversion makes mechanistic sense
+
+My §1.0 reasoning was that BatchNorm at inference (train mode, batch 1) removes a constant offset. The
+mechanism is right; I attached it to the wrong axis.
+
+**Shifting one dominant class *is* approximately a global shift.**  covers ~48 % of the
+average chip, so moving it moves the image mean substantially — and BatchNorm subtracts most of it.
+That is why a 40 DN shift of the dominant vegetation colour costs nothing measurable.
+
+**Shifting "everything" is *not* uniform once clipping enters.** Bright classes saturate while dark
+ones move freely, producing exactly the non-uniform distortion normalisation cannot absorb.
+
+The rule that survives: **the network is insensitive to changes that preserve relative colour
+geometry, and sensitive to changes that distort it.** Absolute RGB identity matters far less than
+either the calibration guess or my own prediction assumed.
+
+---
+
+## 3. VERDICT: TIGHT — buildable, with anti-aliasing as the one axis that must be matched
+
+Nothing approaches NOT BUILDABLE. Worst case is +0.345 px against a P5 bound of 0.5 px, and no axis
+loses more than 17 % of key points.
+
+### 3.1 Axes that must be matched precisely
+
+| axis | cost if wrong | how to verify |
+|---|---|---|
+| **Edge softness (anti-aliasing)** | +0.199 px if we render hard edges; **+0.345 px and −17 % points if we over-smooth** | Render a LaCrau chip whose reference we hold, classify both to nearest palette, and compare the *fraction of off-palette pixels*: the references sit at 36-45 %. Match that band. |
+
+Two practical points fall out of the asymmetry:
+
+* **Over-smoothing is 1.7× worse than under-smoothing.** If we must err, err toward hard edges.
+* A default  produces hard edges with **no** anti-aliasing — that is
+  the +0.199 px case, and it is the likely naive outcome. Rendering through a vector engine with
+  anti-aliasing (matplotlib/Agg, Cairo) is closer to the reference, but must not be blurred further.
+
+### 3.2 Axes that are forgiving — approximate freely
+
+Road width ±1 px, draw order, the missing black/snow class, building treatment, and per-class colour
+error up to 40 DN are **all within the LOOSE bound**. Notably:
+
+* **The unresolved questions from  mostly do not matter.** Draw order (+0.112 px),
+  building rendering (+0.022 px) and the CORINE-derived black/snow class we cannot reproduce
+  (−0.047 px, i.e. nothing) were the three biggest open gaps, and all three are cheap to get wrong.
+* **The palette values matter far less than expected.** A 40 DN error in the dominant class — the
+  scale of two people independently choosing "forest green" — costs nothing measurable.
+
+### 3.3 What this means for the Turkish pipeline
+
+Build the rasteriser. Match the palette from  §2 (it is known exactly, and cheap to
+match), spend the engineering effort on **edge rendering**, and do not spend it on draw order,
+building conventions, or reproducing the CORINE classes.
+
+Expected penalty from a competent reimplementation: **≈0.2 px (2 m)** against a 2.16 px baseline —
+about 1.5× the georeferencing affine correction we already judged worth making, and well inside the
+range where the site-selection lever (rho −0.61) dominates.
