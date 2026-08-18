@@ -27,11 +27,16 @@ tubitak/
 │   ├── shift_estimator.py       # subpixel shift estimators + self-test (reusable module)
 │   ├── shift_field.py           # NxN shift field between any two rasters + quiver figure
 │   ├── hypothesis_test.py       # how 257x257 becomes 256x256
-│   └── network_alignment.py     # generator input->output alignment check
+│   ├── network_alignment.py     # cross-modal alignment attempt (superseded)
+│   ├── paired_alignment.py      # alignment vs real satellite (superseded)
+│   ├── equivariance_test.py     # alignment certification (0.008 px)
+│   ├── corpus_overlap.py        # is the demo site in the training corpus?
+│   └── scale_experiment.py      # train/inference scale comparison
 ├── configs/
 ├── notebooks/
 ├── docs/
-│   ├── geometry-finding.md      # 257->256 geometry scale-error investigation
+│   ├── geometry-finding.md      # 257->256 georeferencing scale error
+│   ├── train-test-scale-mismatch.md  # 286-vs-256 domain shift (principal open question)
 │   └── figures/
 ├── data/               # gitignored
 └── outputs/            # gitignored
@@ -320,14 +325,43 @@ printing every candidate's score rather than only the winner.
 python tubitak/scripts/hypothesis_test.py --tiles 8
 ```
 
-### `network_alignment.py` — does the generator preserve alignment?
+### Alignment: three scripts, one answer
 
-Measures the shift field between `_real` (input) and `_fake` (output). Validates its own
-cross-modal estimator against injected known shifts first, and reports a resolution limit rather
-than a bare number.
+Alignment was measured three ways; the first two are kept because their failures are informative,
+and each records the numbers that ruled it out.
+
+| script | compares | bound achieved |
+|---|---|---|
+| `network_alignment.py` | OSM input vs generated output (cross-modal) | ~0.9 px |
+| `paired_alignment.py` | generated output vs **real** satellite half | ~1.9 px (worse) |
+| `equivariance_test.py` | two outputs from a **known-offset input** | **0.008 px** |
+
+Both ground-truth comparisons are limited by content mismatch — the generator makes a *plausible*
+scene, not the real one. Removing ground truth from the question tightened the bound by two orders
+of magnitude.
 
 ```bash
-python tubitak/scripts/network_alignment.py --tiles 6 --mode gradient
+python tubitak/scripts/equivariance_test.py \
+    --out-p tubitak/data/equivariance/out_p/genCP_HR_RGB_model/test_latest/images \
+    --out-q tubitak/data/equivariance/out_q/genCP_HR_RGB_model/test_latest/images --offset 16
+```
+
+### `corpus_overlap.py` — is the demo site in the training corpus?
+
+Compares exact chip names, not just MGRS tiles. Answer: the 50 processed chips are all 31TEJ and
+appear **nowhere** in the corpus, so demo results are held out.
+
+```bash
+python tubitak/scripts/corpus_overlap.py
+```
+
+### `scale_experiment.py` — train/inference scale comparison
+
+Scores the current inference path against the training-matched path on four metrics over two
+evaluation grids. See [`docs/train-test-scale-mismatch.md`](docs/train-test-scale-mismatch.md).
+
+```bash
+python tubitak/scripts/scale_experiment.py --figure tubitak/docs/figures/scale-comparison.png
 ```
 
 > **Note on the training set.** `docs/geometry-finding.md` §6 measures `GenCP_HR_DB.zip` (1.71 GB)

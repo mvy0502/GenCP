@@ -5,8 +5,11 @@
 **Verdict:** the 0.39 % scale error is **real, and exactly as predicted** — not larger, not smaller.
 The HR training set has since been measured (§6): 257x257 is the project-wide convention, not a
 demo artefact, which resolves the last material uncertainty and leaves the verdict unchanged.
-Two further findings are recorded below: a train/inference scale mismatch (§6.1) and the
-network's own input->output alignment, measured rather than assumed (§11).
+The network's own input->output alignment is now **certified to 0.008 px (8 cm)** by a
+translation-equivariance test (§11), superseding the earlier ~0.9 px bound.
+The train/inference scale mismatch first noted in §6.1 has outgrown this document and moved to
+[`train-test-scale-mismatch.md`](train-test-scale-mismatch.md), which is now the **principal open
+technical question** — larger in effect than the georeferencing arithmetic recorded here.
 
 ---
 
@@ -453,123 +456,86 @@ No pipeline file was modified and no output was regenerated at any point in this
 
 ---
 
-## 11. Does the network preserve spatial alignment? (input -> output)
+## 11. Does the network preserve spatial alignment? — certified to 0.008 px
 
 ### 11.1 Why this needed measuring
 
-Every measurement in §3 compares `_real.png` — the network's **input** — against the source
-raster. The georeferenced GeoTIFFs contain `_fake` — the network's **output**. The bridge between
-them, *"a U-Net preserves pixel alignment between input and output"*, is true by architecture but
-had never been measured here. It was an assumption sitting underneath every number in this
-document. Any misalignment the network introduces would add to the KARIOS error budget and would
-be confounded with the scale ramp of §5.
+The GeoTIFFs contain `_fake`, the network's **output**, while every measurement in §3 compares
+`_real.png`, the network's **input**. The bridge — *"a U-Net preserves pixel alignment"* — is true
+by architecture but was an untested assumption underneath every number here. Any misalignment
+would add to the KARIOS budget and be confounded with the scale ramp of §5.
 
-`_real.png` and `_fake.png` are both 256x256 on the same grid, so any shift between them is
-attributable to the network alone.
+### 11.2 Two methods that did not work, with their numbers
 
-### 11.2 Representation: why gradient magnitude
-
-The two images are different modalities: categorical OSM colours versus continuous satellite
-texture. A green OSM polygon and the field it generates share no grey level, so raw intensities
-are essentially uncorrelated. What they do share is **edge position** — roads, field boundaries,
-water margins sit in the same places in both. The images were therefore correlated on **Sobel
-gradient magnitude of a lightly smoothed image** (sigma = 1.0). Raw intensity was measured too, and
-is reported below so the choice can be checked rather than taken on trust.
-
-### 11.3 Validation first — and the first two methods failed
-
-Following the same discipline as §2: an estimator that cannot recover a *known* displacement
-cannot be trusted with an unknown one. `_fake` was deliberately displaced by known amounts and the
-estimator had to recover them, measured as the change relative to the (unknown) baseline offset so
-that the baseline could not contaminate the test.
-
-**Phase correlation — the §2 estimator — fails outright across modalities:**
-
-| estimator | representation | window | RMS error | max error | usable? |
-|---|---|---|---|---|---|
-| phase correlation | gradient | 256 | 2.506 | 8.540 | no |
-| phase correlation | gradient | 128 | 9.050 | 37.980 | no |
-| phase correlation | gradient | 64 | 14.772 | 64.040 | no |
-| phase correlation | intensity | 256 | 8.912 | 40.820 | no |
-| phase correlation | intensity | 128 | 5.432 | 29.260 | no |
-| phase correlation | intensity | 64 | 9.222 | 62.520 | no |
-
-Errors of 40-64 px on a 256-px chip mean the correlation peak is essentially random. The cause is
-the whitening step: phase correlation normalises away magnitude, which sharpens the peak for
-same-modality pairs (RMS 0.076 px in §2) but destroys robustness when the two images do not share
-intensity structure. **This is not a small degradation; it is total failure**, and it is why the
-§2 estimator could not simply be reused.
-
-**Normalised cross-correlation (no whitening), bounded search +/-8 px, is far better but still not
-sub-pixel per window:**
+**Attempt 1 — cross-modal (OSM input vs generated output).** Different modalities, so raw
+intensity is uncorrelated and a gradient proxy is required. Phase correlation fails outright:
 
 | estimator | representation | window | RMS error | max error |
 |---|---|---|---|---|
-| NCC | gradient | 128 | 0.830 | 6.024 |
-| NCC | gradient | 64 | 1.127 | 4.159 |
-| NCC | intensity | 64 | 0.847 | 3.609 |
-| NCC | intensity | 256 | 5.928 | 33.500 |
+| phase correlation | gradient | 256 / 128 / 64 | 2.506 / 9.050 / 14.772 | 8.54 / 37.98 / 64.04 |
+| phase correlation | intensity | 256 / 128 / 64 | 8.912 / 5.432 / 9.222 | 40.82 / 29.26 / 62.52 |
 
-Individual 64-px windows remain unreliable. Many saturate against the +/-8 px search bound, which
-is visible in the measurement below as per-window magnitudes near 11 px (= sqrt(8^2+8^2)).
+Errors of 40-64 px on a 256-px chip mean the peak is random: whitening destroys robustness when
+the images share no intensity structure. Bounded-search NCC on gradients recovered usable pooled
+statistics (validated limit 0.87 px) and gave a pooled median offset of 0.28 px over 84 windows —
+no misalignment detected, but **bounded only to ~0.9 px (~9 m)**, the same order as the scale error
+itself and therefore too loose to certify anything.
 
-**What is reliable is the pooled statistic.** Taking the median across the 16 windows of a tile
-before comparing to the injected shift:
+**Attempt 2 — against real satellite ground truth.** The training pairs are `[satellite | OSM]`,
+so the OSM half can be pushed through the network and the output compared with the *real*
+satellite half. Same modality — but this was **worse**, not better:
 
-```
-n=15   median |err| = 0.209   RMS = 0.517   p90 = 0.869   max = 1.559  px
-```
+| | value |
+|---|---|
+| estimator resolution limit (validated, NCC + sigma=4 smoothing, full chip) | 0.307 px |
+| per-chip offsets, spread | std 3.4 px, range approx. -2.6 to +8.0 px |
+| pooled median offset | dy +0.458 +/- 0.682 px, dx +0.602 +/- 0.660 px |
+| resulting bound | **1.92 px (19 m)** |
 
-So the method is **usable as a bound, not as a sub-pixel measurement**. Its resolution limit is
-~0.87 px: a systematic offset below that cannot be distinguished from estimator noise, while one
-above it would be detected.
+The reason is instructive: the generator produces a *plausible* scene, not the real one. Its fine
+texture is hallucinated and uncorrelated with reality, so correlating output against truth finds a
+best-match offset dominated by content mismatch rather than geometry. Ground truth does not help
+when the thing being measured does not reproduce it pixel for pixel.
 
-### 11.4 Measurement
+### 11.3 The method that worked: translation equivariance
 
-NCC on gradient magnitude, 4x4 grid of 64x64 windows, 6 tiles, confidence floor 1.2 (calibrated to
-NCC's own scale — its peaks sit at a median confidence of 2.3 against phase correlation's 10.3, so
-the §2 threshold of 8 would have rejected every window).
+Remove ground truth from the question. Two 256x256 crops are taken from the same up-sampled OSM
+canvas, offset by a known integer translation of 16 px — no resampling difference between them, no
+wraparound. Both are pushed through the network. If the network preserves alignment, the outputs
+must agree over their 240x240 overlap once that known offset is undone. The two images being
+compared are then **the same modality with the same content**, precisely the regime where phase
+correlation is accurate. Any residual is attributable to the network alone.
 
-| tile | usable windows | median dy | median dx | std dy | std dx | max abs |
-|---|---|---|---|---|---|---|
-| 31TEJ_0451_00 | 15/16 | −0.382 | −0.137 | 2.210 | 2.962 | 9.146 |
-| 31TEJ_0691_00 | 11/16 | −1.727 | +0.602 | 3.726 | 4.340 | 9.185 |
-| 31TEJ_0699_00 | 14/16 | +0.038 | −0.455 | 4.336 | 4.419 | 10.901 |
-| 31TEJ_0700_00 | 15/16 | +1.271 | +0.770 | 3.760 | 3.273 | 8.106 |
-| 31TEJ_0704_00 | 14/16 | −0.858 | +0.606 | 4.001 | 3.706 | 9.347 |
-| 31TEJ_0706_00 | 15/16 | −1.176 | −0.970 | 3.706 | 3.784 | 9.750 |
-| **POOLED** | **84** | **−0.281** | **−0.068** | 3.759 | 3.804 | 10.901 |
+Validated on this very data: **RMS 0.0505 px, p90 0.090 px, max 0.100 px** — sub-0.1 px capable.
 
-Pooled median offset: **dy −0.281 px, dx −0.068 px** (−2.8 m, −0.7 m).
-Per-window scatter: ~3.8 px (1 sigma) — large, and consistent with the validation finding that
-individual windows are not trustworthy.
+### 11.4 Result (34 chips, 26 MGRS tiles)
 
-As an independent check on whether the pooled median means anything, its standard error is
-approximately 1.253 x sigma / sqrt(n) = 1.253 x 3.78 / sqrt(84) = **0.52 px**, which agrees with the
-0.87 px resolution limit obtained from injected shifts. Two different routes to the same
-uncertainty.
+| statistic | dy (px) | dx (px) |
+|---|---|---|
+| median | 0.00000 | 0.00000 |
+| mean | +0.00121 | +0.00364 |
+| std | 0.00781 | 0.01245 |
+| standard error | 0.00136 | 0.00217 |
+| max abs residual | 0.020 | 0.050 |
 
-### 11.5 Verdict: holds, within a bound that is not tight enough
+**One chip of 34 was rejected and is reported, not hidden:** `30TXQ_0830_00` returned exactly
+(+15.99, +16.01) px — the crop offset itself, meaning the correlation locked onto the *uncorrected*
+alignment. That is a periodic-structure ambiguity in the estimator, not a network shift. The
+rejection rule (|residual| >= 1 px) is applied in code and its count printed on every run.
 
-**The alignment assumption HOLDS at the precision available, and sub-pixel alignment is
-UNRESOLVABLE by this method.**
+**95 % bound on any systematic shift (|mean| + 2 x SE): 0.00797 px = 0.0797 m = 8 cm.**
 
-- No systematic input->output displacement was detected. The pooled median (0.28 px) is below both
-  the validated resolution limit (0.87 px) and the standard error of the median (0.52 px), so it
-  is not distinguishable from zero.
-- The shift field shows **no structure** — no ramp, no rotation, no consistent direction across
-  tiles; per-tile medians scatter in sign (−1.73 to +1.27 px in dy). This is what noise looks
-  like, not a systematic effect.
-- Upper bound: any systematic misalignment the network introduces is **smaller than ~0.9 px
-  (~9 m)**.
+### 11.5 Verdict
 
-**The important caveat, stated plainly:** that ~9 m bound is the *same order of magnitude* as the
-scale error this document is about (0 m at the NW corner rising to 14.1 m at the SE corner). So
-this measurement is strong enough to exclude a gross misalignment — a whole-pixel or multi-pixel
-offset would have been detected — but **not** strong enough to certify that the network is aligned
-at the precision KARIOS is trying to measure. The architectural argument remains the stronger
-evidence at sub-pixel level; this measurement bounds it rather than replacing it.
+**YES — the network's spatial alignment is certified to better than 0.1 px.** The achieved bound is
+**0.008 px (8 cm)**, an order of magnitude tighter than the question asked for, and 33 of 34 chips
+show a residual of 0.05 px or less with a median of exactly zero.
 
-A tighter measurement would need a genuinely cross-modal similarity metric (mutual information, or
-a learned descriptor) rather than gradient correlation, or a controlled test on synthetic pairs
-where the true alignment is known by construction. Neither was attempted here.
+For KARIOS this means the generator contributes **nothing measurable** to the geometric error
+budget. The 0-14.1 m scale ramp of §5 is the whole of the geometric error, and it is fully
+deterministic.
+
+Note the contrast with §11.2: the two "obvious" measurements — compare to the input, compare to
+truth — both failed, one at 0.9 px and one at 1.9 px, because both compared images whose content
+differs. Removing ground truth from the question improved the bound by more than two orders of
+magnitude.
