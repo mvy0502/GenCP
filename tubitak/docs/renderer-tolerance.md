@@ -333,3 +333,59 @@ bucket like WorldCover.
 
 Pending to complete the record once Overpass unbans this IP: the 9 remaining v2 chips, the full
 n = 30 gate, and the 25-chip held-out gate that no fitting ever touched.
+
+---
+
+## 6. Geofabrik source switch, harness erratum, and the completed gates
+
+### 6.1 ERRATUM — the "zero-point chips" were a harness bug, not a model failure
+
+Every previous acceptance run pointed KARIOS at `karios/arms/ref/`, which holds references only
+for the 116 arm-experiment chips. **11 of the 30 gate chips are not in that set**; their runs
+failed instantly on a missing-file error that the runner's `>/dev/null 2>&1` swallowed. They were
+reported as "chips with zero surviving key points" in §4.1 and §5.2 — including the claim that
+water loss caused them. **That attribution is withdrawn**: the 11 chips were never evaluated
+(8 of the 11 have under 1 % water), and two mechanism hypotheses (water, input texture density)
+tested against them were both refuted before the true cause — the missing files — was found.
+The paired statistics on the 19 evaluated chips were computed on valid runs and stand.
+
+Both fixes are in: the runner falls back to `sensitivity/arms/ref/` (which holds all 30), and it
+no longer silences stderr.
+
+### 6.2 The completed gates (PBF snapshot renders, WorldCover base, corrected harness)
+
+| gate | Δ residual (px) | t | points | chips worse | verdict at 0.15 px |
+|---|---|---|---|---|---|
+| **full, n = 30** | **+0.3965 ± 0.1115** | 3.56 | −12.2 % | 23/30 | **FAIL** |
+| **held-out, n = 25** (no fitting touched it) | **+0.3017 ± 0.1340** | 2.25 | −15.3 % | 16/25 | **FAIL** |
+
+Subgroups (both gates): sparse-OSM chips ≈ +0.07…+0.34 px, dense-OSM +0.45…+0.55 px — the penalty
+concentrates in feature-rich chips.
+
+### 6.3 Task 3 — the Ankara ambiguity measurement, and what it did and did not show
+
+Ambiguity fraction := share of chip pixels with (reference = water) ∧ (WorldCover = crop).
+
+| distribution | p50 | p90 | p95 | p99 | chips > 0.1 % |
+|---|---|---|---|---|---|
+| corpus (566 chips) | 0.000 % | 0.047 % | 0.410 % | **39.8 %** | 8 % |
+| **Ankara T36TVK (1764 chips)** | 0.000 % | 0.000 % | 0.000 % | **0.016 %** | **0.3 %** |
+
+**Ankara escapes the paddy/marsh water-ambiguity failure entirely** — it sits at the corpus median,
+two orders of magnitude below the corpus tail. That part of the steppe argument is now measured.
+
+**But the ambiguity-matched gate still fails**: restricting both gates to Ankara-like chips
+(ambiguity ≤ 0.1 %, satisfied by 99.7 % of Ankara) gives **+0.3993 px (n = 26)** and
+**+0.3556 px (n = 24)** — indistinguishable from the unrestricted numbers, with the excluded paddy
+tail contributing nothing systematic. **The residual WorldCover penalty is broad, not a paddy
+artefact**, consistent with the base-product difference itself (WorldCover vs the identified CLC+
+Backbone): at reference-water pixels WC agrees only 24 %, and class geographies differ everywhere,
+not only in wetlands.
+
+### 6.4 Standing verdict
+
+The rasteriser carries a **documented, understood penalty of ≈ +0.30 px (held-out) to +0.40 px
+(full) against reference-raster baselines** with a WorldCover base. Per the no-tuning rule, no
+parameter was adjusted to close it. The credible fix is the actual upstream base product — CLC+
+Backbone 2021, registration in progress — after which the gates should be re-run unchanged. If
+CLC+ does not close it, the residual is renderer-level and must be re-diagnosed.
