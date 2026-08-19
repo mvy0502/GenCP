@@ -113,3 +113,20 @@ scene (best that day > 20 % cloud) and takes 05-27 at 0.20 % — a stated four-w
 
 Both sites are tested with the **pretrained weights** — the hypothesis concerns the original
 training distribution; fine-tuned weights are a separate, subsequent question.
+
+### 3b. Registered confound: Cappadocia's acquisition date (added before any Cappadocia result)
+
+No usable 36SXJ scene exists near the common 2026-04-30 date (±2 weeks: best is 21.3 % cloud on
+04-27; the 04-30 window is 25–100 % cloud). The 2026-05-27 scene (0.20 %) stands.
+
+**The confound, registered with its ambiguous direction:** Cappadocia therefore differs from every
+other site in phenology as well as landform — four weeks later, and Anatolian vegetation dries
+measurably in that window (later ⇒ drier, browner). We also know the pretrained model's own output
+prior trends brown (`turkey-results.md` §3.3). The mismatch could thus plausibly cut EITHER way:
+a browner real scene may *reduce* the generated-vs-real radiometric gap (model prior closer to
+reality) while simultaneously *degrading* vegetation-edge contrast that KLT matches on.
+**No direction is claimed.** Any Cappadocia degradation must therefore exceed what phenology can
+plausibly produce — i.e. the morphological claim rests on the badlands-vs-flat-agriculture
+*within-site* contrast (both halves share the date), not on the site-level comparison against
+Ankara. The within-site contrast is the registered discriminator; the cross-site number is
+reported with this caveat attached.
