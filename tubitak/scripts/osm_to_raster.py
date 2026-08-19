@@ -111,6 +111,54 @@ def fetch_worldcover(bounds_utm, crs):
             continue                      # ocean-only tiles are not published
     return dst
 
+def fetch_pbf(bounds_utm, crs, pbf_path):
+    """Read OSM features for a UTM footprint from a LOCAL .osm.pbf extract.
+
+    Same return contract as :func:`fetch` (GeoDataFrame in `crs` with tag columns
+    consumed by :func:`classify`), but from a fixed, dated Geofabrik snapshot:
+    reproducible, no rate limits. Areas come from osmium's area assembler, which
+    handles multipolygon relations; lines (highways, rivers) from the way stream.
+    """
+    import osmium
+    import shapely.wkb as swkb
+    import geopandas as gpd
+    from pyproj import Transformer
+    tr = Transformer.from_crs(crs, "EPSG:4326", always_xy=True)
+    x0, y0, x1, y1 = bounds_utm
+    pts = [tr.transform(x, y) for x, y in
+           ((x0-MARGIN_M,y0-MARGIN_M),(x1+MARGIN_M,y0-MARGIN_M),
+            (x1+MARGIN_M,y1+MARGIN_M),(x0-MARGIN_M,y1+MARGIN_M))]
+    W=min(p[0] for p in pts); S=min(p[1] for p in pts)
+    E=max(p[0] for p in pts); N=max(p[1] for p in pts)
+
+    KEEP = ("building","landuse","natural","water","waterway","highway","leisure")
+    fab = osmium.geom.WKBFactory()
+    rows = []
+
+    class H(osmium.SimpleHandler):
+        def area(self, a):
+            t = {k: a.tags.get(k) for k in KEEP if k in a.tags}
+            if not t: return
+            try: g = swkb.loads(fab.create_multipolygon(a), hex=True)
+            except Exception: return
+            t["geometry"] = g; rows.append(t)
+        def way(self, w):
+            if w.is_closed(): return          # closed ways surface via area()
+            t = {}
+            if "highway" in w.tags: t["highway"] = w.tags.get("highway")
+            if "waterway" in w.tags: t["waterway"] = w.tags.get("waterway")
+            if not t: return
+            try: g = swkb.loads(fab.create_linestring(w), hex=True)
+            except Exception: return
+            t["geometry"] = g; rows.append(t)
+
+    H().apply_file(str(pbf_path), locations=True)
+    if not rows:
+        return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326").to_crs(crs)
+    g = gpd.GeoDataFrame(rows, crs="EPSG:4326")
+    g = g.cx[W:E, S:N]                        # clip to the footprint+margin
+    return g.to_crs(crs)
+
 def fetch(bounds_utm, crs):
     """Fetch OSM features for a UTM footprint (+margin), reprojected to that CRS."""
     import osmnx as ox
@@ -223,9 +271,9 @@ def write(path, arr, bounds_utm, crs):
     with rasterio.open(path, "w", **prof) as d:
         d.write(np.transpose(arr, (2, 0, 1)))
 
-def make_chip(bounds_utm, crs, out_path, gdf=None, use_worldcover=True):
+def make_chip(bounds_utm, crs, out_path, gdf=None, use_worldcover=True, pbf=None):
     if gdf is None:
-        gdf = fetch(bounds_utm, crs)
+        gdf = fetch_pbf(bounds_utm, crs, pbf) if pbf else fetch(bounds_utm, crs)
     polys, lines = classify(gdf)
     base = fetch_worldcover(bounds_utm, crs) if use_worldcover else None
     arr = render(bounds_utm, crs, polys, lines, base=base)
