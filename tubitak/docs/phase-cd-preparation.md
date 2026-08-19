@@ -73,3 +73,43 @@ scene — an expansion can hold phenology constant, which the corpus itself neve
 
 **Deferred decision, noted:** whether to mix European corpus pairs into Phase C training against
 catastrophic forgetting. Data already local; a decision, not an acquisition.
+
+---
+
+## 3. Phase D amendment: Cappadocia added — overriding the metric, deliberately (2026-08-19 09:29:30 UTC)
+
+Cappadocia is included **despite** its low JSD (0.116), and the reasoning is the point: the JSD
+measure compares **class composition**. The observation that motivated this entire phase — white
+badlands rendering as dark woodland with an incoherent blob — was a **morphological** failure:
+ordinary classes, alien texture and relief. A composition metric cannot see that axis by
+construction (§1 already flagged it as blind to relief). Deferring to a measure known to be blind
+on the relevant axis would not be rigour; it would be laziness. The override is recorded as such.
+
+Two distinct kinds of out-of-distribution, now separated by design:
+
+| | site | JSD | mechanism probed |
+|---|---|---|---|
+| compositional | **Tuz Gölü** (36SWJ, 2026-04-30, cloud 1.19 %) | 0.467 | unusual class mix |
+| morphological | **Cappadocia** (36SXJ, 2026-05-27, cloud 0.20 %) | 0.116 | ordinary classes, unfamiliar shape/texture |
+
+Phenology note: three of four Phase C/D scenes are 2026-04-30; Cappadocia has no usable 04-30
+scene (best that day > 20 % cloud) and takes 05-27 at 0.20 % — a stated four-week deviation.
+
+### Registered Cappadocia prediction (before any Cappadocia data is prepared)
+
+> Tuff-badlands chips (high relief texture, composition dominated by perm-herb/bare) degrade
+> **morphologically**: generated imagery misrenders the eroded-valley texture (the badlands
+> signature), with matched gap **> +0.5 px** against density-matched Europe on those chips, while
+> flat agricultural chips in the same granule behave like Ankara (within ±0.3 px).
+
+### Mechanism separation — the outcome table, registered in advance
+
+| Tuz Gölü salt chips | Cappadocia badlands chips | conclusion |
+|---|---|---|
+| fail (> +0.8 px) | hold (≤ +0.3 px) | the limit is **composition** |
+| fail | fail (> +0.5 px) | the limit is **morphology** — landform-vocabulary hypothesis confirmed in its strong form |
+| hold | hold | the landform explanation is **wrong**; the badlands chip was an isolated anomaly |
+| hold | fail | composition robust, morphology not — vocabulary hypothesis holds in texture space only |
+
+Both sites are tested with the **pretrained weights** — the hypothesis concerns the original
+training distribution; fine-tuned weights are a separate, subsequent question.
