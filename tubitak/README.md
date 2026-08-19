@@ -104,7 +104,8 @@ tubitak/
 │   ├── train-test-scale-mismatch.md  # 286-vs-256 domain shift (principal open question)
 │   ├── hallucinated-structure.md     # invented detail and GCP chip selection
 │   ├── karios-validation.md          # 3-arm KARIOS run against real ground truth
-│   ├── osm-palette.md                # OSM raster palette spec (PARTIAL - see §7)
+│   ├── osm-palette.md                # OSM raster palette + edge profile + snapshots
+│   ├── data-sources.md               # consolidated reproducibility record
 │   └── figures/
 ├── data/               # gitignored
 └── outputs/            # gitignored
@@ -290,6 +291,20 @@ python gencp_georeferencing.py \
 ```
 
 Output: 50 georeferenced GeoTIFFs in `data/GenCP_DB/`.
+
+### 2b. Affine correction (Option A — REQUIRED for new outputs)
+
+`gencp_georeferencing.py` declares 10.0 m pixels for content whose true GSD is 10.0390625 m
+(geometry-finding.md §5; KARIOS measured the correction to cut the systematic global shift by
+40 %). All new chip sets — the Turkish outputs in particular — go through the correction by
+default; existing `GenCP_DB` files are left as published:
+
+```bash
+python tubitak/scripts/fix_georeferencing.py --dir <output_dir> --out-dir <corrected_dir>
+```
+
+Metadata-only (pixels byte-identical); verified against the KARIOS arm-B rasters: 90/90
+fixed-then-warped chips byte-identical to the trusted arm B set.
 
 `NotGeoreferencedWarning` is **normal** — the generated PNGs carry no geospatial metadata;
 the script takes that information from the input rasters.
