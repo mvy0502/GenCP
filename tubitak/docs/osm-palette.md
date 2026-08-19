@@ -248,3 +248,53 @@ mapped landuse), which is why plurality rather than purity is the read-out.
 Two corrections against inspection (50, 90) on 4 % of pixels — exactly the "looks obvious and is
 wrong" failure the evidence check exists to catch. WorldCover vintage is 2021; reference imagery
 vintage is unknown; class drift between them is a residual, unquantified error source.
+
+---
+
+## 10. OSM data source: fixed Geofabrik snapshots (replacing Overpass)
+
+Overpass serves live data with interactive-use rate limits — it produced rasters that were
+irreproducible by construction and, in practice, day-long IP bans during bulk work. The rasteriser
+now reads **local Geofabrik extracts** through `fetch_pbf()` (pyosmium, osmium area assembler), with
+per-chip mini-extracts cut in one `osmium extract` pass per country. Interface and rendering are
+unchanged; §11 proves the switch transparent.
+
+### The snapshot record
+
+All extracts from `https://download.geofabrik.de/europe/<name>-latest.osm.pbf`, downloaded
+2026-08-19; every file's embedded data timestamp is **2026-08-18T20:20:57Z** (one coherent
+snapshot). MD5s verified against Geofabrik's published checksums.
+
+| extract | md5 |
+|---|---|
+| austria | e864ed7a5fbcb65ae57c131718cb9bf0 |
+| belgium | b4151f785875aa156cf28b55c9614dbb |
+| france | 3d1c462f48e3cc89b35b8be88b399ac6 |
+| great-britain | 2115b4be7c92694fed4edd500aab3bdb |
+| hungary | bbbaa9e50217c76283ce2591c0c4d4a4 |
+| italy | eadcc482823ddc828eed8d0bef26c071 |
+| serbia | 2afe76148cff7bdfe389c48e9ebf398a |
+| spain | dd95ee8d01c0d2e84f98428cb38efc2d |
+| sweden | 5436785bbddb25ac02c597c360814d6a |
+| **turkey** | 76af5efb51c5ef9fcb738795753a402a |
+| germany | dated build `germany-260817` (see below) |
+
+**Germany hit the latest-vs-md5 race twice**: its published `.md5` referred to the dated build
+`germany-260817.osm.pbf` while `-latest` was mid-update, so `-latest` could not be checksum-verified.
+Resolution: pin the explicit dated build, whose checksum is published for exactly that file. (The
+other ten extracts' md5 files all name `-latest` and verified cleanly.)
+
+### Transparency of the switch (measured, 22 chips rendered from both sources)
+
+| | value |
+|---|---|
+| geometry | 22/22 identical transform/CRS/size |
+| byte-identical pixels | 95.36 % |
+| class agreement | 97.47 % overall · 95.12 % stable · 97.73 % volatile |
+
+One systematic difference was found and fixed before accepting: the PBF handler initially kept all
+`leisure` values while the Overpass fetch had been filtered to {park, pitch, garden}, so
+`leisure=nature_reserve` polygons over-painted forest. After the parity fix, the residual
+forest→light_green flow (1.03 %) is **91 % concentrated in two chips** (16 of 22 contribute 10 px
+total) — individual features present/absent between the live query date and the snapshot, not a
+systematic colour, boundary or class error. **Switch accepted.**

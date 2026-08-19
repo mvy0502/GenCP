@@ -138,6 +138,9 @@ def fetch_pbf(bounds_utm, crs, pbf_path):
     class H(osmium.SimpleHandler):
         def area(self, a):
             t = {k: a.tags.get(k) for k in KEEP if k in a.tags}
+            # parity with the Overpass fetch: leisure restricted to the same subset
+            if t.get("leisure") not in (None, "park", "pitch", "garden"):
+                del t["leisure"]
             if not t: return
             try: g = swkb.loads(fab.create_multipolygon(a), hex=True)
             except Exception: return

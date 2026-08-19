@@ -5,7 +5,7 @@ osmium extract supports many bboxes per run, so each multi-GB country file is
 read once regardless of how many chips fall in it.
 """
 from __future__ import annotations
-import json, subprocess, sys, warnings
+import json, os, subprocess, sys, warnings
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 GEO  = ROOT/"tubitak/data/geofabrik"
@@ -21,7 +21,7 @@ def main() -> int:
     from rasterio.warp import transform_bounds
     warnings.filterwarnings("ignore")
     OUT.mkdir(parents=True, exist_ok=True)
-    cc = json.load(open("/tmp/chip_country.json"))
+    cc = json.load(open(os.environ.get("CHIP_COUNTRY","/tmp/chip_country.json")))
     bycountry = {}
     for st, c in cc.items(): bycountry.setdefault(c, []).append(st)
     for country, stems in sorted(bycountry.items()):
