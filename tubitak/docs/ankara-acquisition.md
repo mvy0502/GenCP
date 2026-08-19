@@ -97,3 +97,55 @@ seed 42, **PROPOSAL ONLY**:
 When CLC+ Backbone arrives: re-render the 1564 candidates with the real base layer, recompute the
 scores, re-stratify, and report how far the proxy selection moved — that displacement is itself a
 result (it measures how much the base layer reorders Turkish chips).
+
+## 6. Final stratification on CLC+ rasters, and the proxy displacement (2026-08-19)
+
+All 1564 valid candidates re-rendered with the **CLC+ Backbone base** (the adopted product after
+the held-out gate passed at +0.012 px) and re-scored on the real rasters.
+
+**The base layer transforms the picture.** Final median edge density is **0.189** against the
+OSM-only proxy's 0.072 — the base supplies most of the Turkish chips' structure, and the density
+gap to the corpus (median 0.259) narrows from 3.6× to 1.4×. Class count becomes usable again
+(median 28).
+
+**Proxy → final displacement — the corpus benchmark did NOT hold:**
+
+| | corpus (55 chips) | **Ankara (1564 chips)** |
+|---|---|---|
+| Spearman rho (proxy vs final edge density) | 0.757 | **0.648** |
+| same quintile | 55 % | **39 %** |
+| within ±1 | 89 % | **79 %** |
+| moved ≥2 strata | 11 % | **21 %** |
+
+As hypothesised: where OSM is sparse, the base layer contributes proportionally more, and OSM-only
+ranking degrades. The proxy-based proposal shares only 13/130 chips with the final selection
+(partly re-sampling noise within re-assigned strata; the stratum-level displacement figures above
+are the meaningful measure). **The final selection supersedes the proposal**
+(`final_selection.csv`, 130 chips, 26 per final-stratum quintile, seed 42).
+
+| final stratum | edge range (CLC+) | pool | GLI med | non-dom med | classes med |
+|---|---|---|---|---|---|
+| Q1 | 0.000–0.100 | 313 | +0.103 | 0.068 | 6 |
+| Q2 | 0.100–0.159 | 313 | +0.075 | 0.166 | 18 |
+| Q3 | 0.159–0.225 | 312 | +0.093 | 0.279 | 24 |
+| Q4 | 0.225–0.336 | 313 | +0.079 | 0.325 | 42 |
+| Q5 | 0.336–0.974 | 313 | +0.063 | 0.623 | 52 |
+
+## 7. The density-matched European baseline (Task 4 framework)
+
+Matching on **OSM-only density** — the pre-registered variable the European relationship was
+measured on (`turkey-prediction.md`). Matched band = EU chips within 2× of the stratum's median.
+
+| final stratum | med OSM-only density | EU chips in band | EU arm-B median resid | EU pts/chip |
+|---|---|---|---|---|
+| Q1 | 0.026 | 0 | **NO EU SUPPORT** | — |
+| Q2 | 0.057 | 1 | **NO EU SUPPORT** | — |
+| Q3 | 0.083 | 8 | 2.995 px | 44 |
+| Q4 | 0.084 | 8 | 2.995 px | 44 |
+| Q5 | 0.308 | 36 | 2.004 px | 72 |
+
+Unmatched EU reference: 2.052 px / 70 pts. When Turkish KARIOS results exist, the report gives
+both numbers per stratum: the **raw gap** (vs 2.052) and the **matched gap** (vs the table above),
+their difference being the quantified density effect. **Q1–Q2 have no European counterpart at
+all** — for 40 % of Ankara, Europe simply contains no comparably OSM-sparse chip, and any gap
+there cannot be decomposed with this design. Q3–Q5 carry the evidential weight, as pre-registered.
