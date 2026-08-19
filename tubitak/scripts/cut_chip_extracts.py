@@ -42,7 +42,11 @@ def main() -> int:
         cfg = OUT/f"_cfg_{COUNTRY_FILE[country]}.json"
         cfg.write_text(json.dumps({"directory": str(OUT), "extracts": extracts}))
         print(f"  {country}: cutting {len(todo)} chips from {pbf.name} ...", flush=True)
-        r = subprocess.run(["osmium","extract","-c",str(cfg),"--overwrite",str(pbf)],
+        # -s smart: complete multipolygon relations across the bbox boundary.
+        # The simple strategy drops large forest/lake multipolygons and produced a
+        # measured 3:1 systematic forest->background flow in the transparency test.
+        r = subprocess.run(["osmium","extract","-s","smart","-c",str(cfg),
+                           "--overwrite",str(pbf)],
                            capture_output=True, text=True)
         if r.returncode: print(f"    osmium FAILED: {r.stderr[:300]}")
     n = len(list(OUT.glob("*.osm.pbf")))

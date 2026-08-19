@@ -416,3 +416,87 @@ forest recall 83.5 %, overall agreement 74.5 % → 80.6 %, stable classes 23.1 %
 Per the two-attempts rule: CLC+ passes on the number that matters and is adopted. The full-gate
 set remains 0.11 px above its band — that set was selected *because* v1 failed on it and carries
 that bias; recorded, not chased.
+
+---
+
+## 6. Source switch to Geofabrik, both gates completed, and the ambiguity verdict (2026-08-19 11:53 UTC)
+
+### 6.1 The data source (Task 1)
+
+Overpass is replaced by local Geofabrik extracts read with pyosmium (`fetch_pbf()`, same
+interface; `classify()`/`render()` untouched). Snapshot record — all extracts from
+`https://download.geofabrik.de/europe/<name>-latest.osm.pbf`, osmosis replication timestamp
+**2026-08-18T20:20:57Z** (Germany 2026-08-17T20:21:36Z, served as `germany-260817` during a
+Geofabrik rebuild):
+
+| extract | size | md5 |
+|---|---|---|
+| austria | 785M | e864ed7a5fbcb65ae57c131718cb9bf0 |
+| belgium | 660M | b4151f785875aa156cf28b55c9614dbb |
+| france | 4.7G | 3d1c462f48e3cc89b35b8be88b399ac6 |
+| germany-260817 | 4.5G | a9dc28f754e5df792f11f9a74a5d9592 |
+| great-britain | 2.0G | 2115b4be7c92694fed4edd500aab3bdb |
+| hungary | 320M | bbbaa9e50217c76283ce2591c0c4d4a4 |
+| italy | 2.1G | eadcc482823ddc828eed8d0bef26c071 |
+| serbia | 228M | 2afe76148cff7bdfe389c48e9ebf398a |
+| spain | 1.4G | dd95ee8d01c0d2e84f98428cb38efc2d |
+| sweden | 776M | 5436785bbddb25ac02c597c360814d6a |
+| turkey | 625M | 76af5efb51c5ef9fcb738795753a402a |
+
+Per-chip mini-extracts are cut in one osmium pass per country. Rendering 28 chips took **23 s**
+against multiple hours (and two IP bans) on Overpass.
+
+### 6.2 Transparency (Task 2) — PASSED, after catching one real systematic error
+
+First comparison (28 chips rendered from both sources, everything else identical): 97.93 %
+agreement but a **3:1 directional forest→background flow** — flagged as systematic rather than
+averaged away. Cause found: `osmium extract`'s default *simple* strategy drops multipolygon
+relations whose members lie outside the bbox, deleting large forest/lake polygons. (A first test
+of the fix was itself invalid — `strategy` is a CLI option, not a per-extract config key, and the
+config setting was silently ignored.) With `-s smart`:
+
+> **GEOMETRY 28/28 identical · byte-identical pixels 99.79 % · class agreement 99.91 %**
+> (stable 99.36 %, volatile 99.96 %); worst chip 99.23 %; largest residual flow 0.011 %,
+> bidirectional — snapshot drift, not systematic error.
+
+### 6.3 Water-ambiguity measurement (Task 3)
+
+ambiguity := fraction of chip pixels with (reference = water) ∧ (WorldCover = cropland).
+
+| | corpus (566 chips) | Ankara T36TVK (1764 chips) |
+|---|---|---|
+| p50 / p90 | 0.000 % / 0.047 % | 0.0000 % / 0.0000 % |
+| p95 / p99 | 0.410 % / **39.82 %** | 0.0000 % / **0.016 %** |
+| chips > 0.1 % | 47 (8 %) | 5 (0.3 %) |
+
+The corpus failure signature is a **19-chip paddy/marsh tail**; Ankara sits at the corpus median
+or below, three orders of magnitude under that tail at p99. **Ankara does escape the water
+ambiguity.**
+
+### 6.4 The gates (Task 4) — and the honest negative
+
+| gate | paired Δ vs baseline | points | zero-point chips | verdict |
+|---|---|---|---|---|
+| full n = 30 (fitted-adjacent) | +0.4226 ± 0.1672 px | −11.6 % | 11/30 | **FAIL** |
+| **HELD-OUT n = 25** (no fitting exposure, arm-B baselines) | **+0.3149 ± 0.1276 px** | **−12.4 %** | **0/25** | **FAIL** |
+| Ankara-matched subset of n30 (amb ≤ 0.1 %) | +0.3612 ± 0.1704 px | −12.8 % | 9/26 | **FAIL** |
+| Ankara-matched subset of held-out | +0.3508 ± 0.1277 px | −12.3 % | 0/24 | **FAIL** |
+| excluded paddy-like chips (n30) | +0.9451 ± 0.7234 px | — | 2/4 | worst, as predicted |
+
+**The matched-subset hypothesis is refuted as a sufficient explanation.** Excluding the
+paddy/marsh chips barely moves the number (+0.42 → +0.36; held-out +0.31 → +0.35). Water
+ambiguity explains the catastrophic tail (excluded chips: +0.95 px) but **not** the ~+0.35 px bulk
+penalty, which persists on water-clean chips. WorldCover-as-base cannot be justified for Europe by
+the Ankara argument alone; for Ankara itself the water term is measured ≈ 0, but the residual
+penalty has a different, unidentified cause — the leading candidate being base-layer *texture*
+mismatch (WorldCover's class-boundary speckle differs from the CLC+ pattern the model trained on),
+testable directly once CLC+ Backbone arrives via CLMS.
+
+Progress across attempts: v1 OSM-only **+0.549** → +WorldCover **+0.42 / +0.31 (held-out)** — the
+penalty is now ~2.3× the affine-correction effect (0.137 px), down from 4×.
+
+### 6.5 Held-out vs fitted-adjacent
+
+The held-out gate (the meaningful number) is *better* than the fitted set (+0.31 vs +0.42) and has
+**no zero-point chips** — evidence the fitting did not overfit those 30 chips; if anything the
+stratified sensitivity set over-represents pathological chips.
