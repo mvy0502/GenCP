@@ -60,3 +60,59 @@ European binned reference at the same densities: Q4-band chips 2.995 px (n=8), Q
 3. The 4-month OSM/imagery temporal gap (data-sources.md) acts in the direction of WORSE Turkish
    matching; it is part of the "geography" residual as decomposed here and cannot be separated
    from it with this design.
+
+---
+
+# v2 registration — CLC+ densities on both sides (registered 2026-08-19 09:05:09 UTC)
+
+**Why a v2 exists and is legitimate:** v1 was computed on the OSM-only proxy because the base layer
+did not exist yet. The proxy mismeasured Ankara badly (median density 0.072 where the real rendered
+input is 0.189). No Turkish KARIOS result exists at v2 registration time — this revises the INPUT
+measurement, not the story. v1 stands above, unedited.
+
+**Instrument note:** both sides now use the same measure — edge density of OUR CLC+ renders (EU:
+the 44 arm-B chips re-rendered on CLC+; Ankara: the 1564 candidate renders).
+
+## The v2 relationship
+
+44 EU chips, Spearman rho(CLC+ density, arm-B residual) = **−0.675** (v1: −0.655 on the proxy).
+Fit: residual = 3.459 − 3.223 × density (support 0.111–0.883).
+
+## T1–T3 v2 (v1 in parentheses)
+
+| | v2 | v1 |
+|---|---|---|
+| T1 Ankara median residual, density alone | **2.85 ± 1.08 px** | (2.90 ± 1.13) |
+| T3 density-only Turkey−Europe gap | **+0.80 px median / +0.58 mean** | (+0.85 / +0.62) |
+
+Per-stratum (final CLC+ strata): Q1 **3.24** (extrapolated) · Q2 **3.04** · Q3 **2.85** ·
+Q4 **2.57** · Q5 **2.02** px — Q2–Q5 all interpolated now.
+
+## T4/T5 v2 (thresholds unchanged, scope widened)
+
+T4: geography substantial ⇔ matched gap > **+0.5 px** on the interpolated strata — now **Q2–Q5**,
+not just Q4/Q5. T5: density explanation falsified ⇔ matched ≈ raw gap, or Turkish stratum-level
+density trend |rho| < 0.3 against the EU −0.675.
+
+## The v1 → v2 movement — itself a result
+
+**Predictions moved almost nothing** (T1 −0.05 px, T3 −0.05 px): the proxy preserved rank order
+well enough that the fitted relationship survives the variable change. **Support moved
+enormously**: the fraction of the 130-chip selection with no density-matched European counterpart
+falls **40 % → 20 %** (only Q1 remains unsupported), because Ankara's real rendered densities are
+2.6× its OSM-only ones. An OSM-only view of "how much map data does this place have" overstated
+Ankara's sparsity by that factor — the base layer supplies most of the input structure precisely
+where OSM is thin.
+
+## Matched baseline v2 (CLC+ density both sides, band = within 2× of stratum median)
+
+| stratum | med CLC+ dens | EU chips | baseline resid | baseline pts |
+|---|---|---|---|---|
+| Q1 | 0.060 | 1 | **NO SUPPORT** | — |
+| Q2 | 0.130 | 6 | 3.386 px | 38 |
+| Q3 | 0.193 | 19 | 2.375 px | 52 |
+| Q4 | 0.273 | 35 | 2.199 px | 70 |
+| Q5 | 0.451 | 39 | 1.953 px | 72 |
+
+(supersedes the v1 table in ankara-acquisition.md §7, whose Q3/Q4 medians of 0.083/0.084 betrayed
+the variable mismatch — strata formed on CLC+ scores but matched on OSM-only density)
