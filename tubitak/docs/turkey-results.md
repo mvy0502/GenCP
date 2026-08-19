@@ -6,15 +6,53 @@ same config as every European run. **All 130 chips scored** — no zero-point fa
 Registrations: [`turkey-prediction.md`](turkey-prediction.md) v1 (proxy) and v2 (CLC+, committed
 before any Turkish result existed).
 
+## 0. Read these three qualifications before the headline
+
+**COVERAGE.** The matched comparison covers **104 of 130 chips**. The remaining 26 (Q1, the
+sparsest fifth) have no European counterpart at that sparsity and are the worst absolute
+performers (3.480 ± 0.149 px). The generalisation claim holds for the ~80 % of Ankara where a
+comparison is possible; **for the sparsest fifth, no comparison exists** — its number is reported
+raw and undecomposed.
+
+**IMAGERY SELECTION ASYMMETRY.** The Ankara scene was deliberately selected — 2.04 % cloud,
+spring, the highest vegetation index among candidates. The European reference imagery is whatever
+the corpus authors used: unknown dates, unknown quality, heterogeneous. The rasteriser side is
+controlled (gate passed at +0.012 px); the imagery side is not. The claim is therefore:
+**"at least as good as density-matched Europe, with Turkish imagery quality-selected and the
+European reference not."**
+
+**WHAT THE REGISTRATION ACTUALLY TESTED.** The predictions were derived from Europe's
+density→residual relationship and applied to Turkish densities. The registration therefore tested
+whether that RELATIONSHIP transfers — it does (Turkish rho −0.727 vs European −0.675) — and
+geographic generalisation is **inferred** from the absence of a residual gap once density is
+controlled, not measured directly. Same conclusion; this is the inference chain that carries it.
+
+**Fragility flag:** Q2's matched baseline rests on **6 European chips**; its large density effect
+(+1.334 px) carries correspondingly wide uncertainty. Per-stratum uncertainties are given below.
+
+## 0b. Two numbers, two questions
+
+| estimator | value | answers |
+|---|---|---|
+| stratified (equal stratum weights) | residual **2.481 px**, points 54.6 | *how does the relationship behave?* |
+| population-weighted (exact pool shares) | residual **2.481 px**, points 54.6 | *what would a GCP database over Ankara deliver?* |
+
+They coincide **by construction**: the strata are exact population quintiles of the 1564 valid
+candidates (313/313/312/313/313), so equal stratum weights are population weights. The expectation
+that the population number would be worse rested on the OSM-only proxy picture (16 % near-empty
+chips); on the real CLC+ rasters only **1.6 %** are near-empty. Within-stratum sampling bias is
+≤ 0.007 density units. (Both numbers describe the *valid* population — the 200 cloud/snow-excluded
+candidates are in neither.)
+
 ## 1. The decomposition — headline table
 
 | stratum | n | TK resid (px) | TK pts | v2 pred | RAW gap | matched base | MATCHED gap | density effect |
 |---|---|---|---|---|---|---|---|---|
-| Q1 | 26 | 3.480 | 37 | 3.24 | +1.428 | NO SUPPORT | — | — |
-| Q2 | 26 | 3.106 | 38 | 3.04 | +1.054 | 3.386 | **−0.280** | +1.334 |
-| Q3 | 26 | 2.492 | 52 | 2.85 | +0.440 | 2.375 | **+0.118** | +0.323 |
-| Q4 | 26 | 2.084 | 56 | 2.57 | +0.032 | 2.199 | **−0.114** | +0.147 |
-| Q5 | 26 | 1.240 | 91 | 2.02 | −0.812 | 1.953 | **−0.713** | −0.099 |
+| Q1 | 26 | 3.480 ± 0.149 | 37 | 3.24 | +1.428 | NO SUPPORT | — | — |
+| Q2 | 26 | 3.106 ± 0.186 | 38 | 3.04 | +1.054 | 3.386 (n=6!) | **−0.280** | +1.334 (fragile) |
+| Q3 | 26 | 2.492 ± 0.177 | 52 | 2.85 | +0.440 | 2.375 (n=19) | **+0.118** | +0.323 |
+| Q4 | 26 | 2.084 ± 0.151 | 56 | 2.57 | +0.032 | 2.199 (n=35) | **−0.114** | +0.147 |
+| Q5 | 26 | 1.240 ± 0.146 | 91 | 2.02 | −0.812 | 1.953 (n=39) | **−0.713** | −0.099 |
 | **overall** | 130 | **2.588** | 51 | 2.85 | **+0.536** | | **−0.247** (Q2–Q5 mean) | **≈ +0.78** |
 
 - **RAW gap** (what a naive analysis reports): Turkey is +0.536 px (26 %) worse than the unmatched
