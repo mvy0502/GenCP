@@ -54,3 +54,46 @@ release itself carries no product metadata, so this indirect check is the strong
 available. Ankara is brighter overall (steppe/bare soil vs green Europe) and its GLI greenness
 (+0.069) sits below the corpus median (+0.119) but inside the corpus per-zone range (0.004–0.175).
 End-April is close to the Anatolian steppe's green peak; no better month exists for this match.
+
+## 4. Chip grid and screening (2026-08-19)
+
+Grid: 42×42 = **1764 candidates** (257×257 px @ 10 m, EPSG:32636, anchored at the granule NW
+corner; 186 px margins east/south unused). Screening uses the scene's own **SCL band** — a
+TCI-only brightness proxy was rejected after visual calibration showed it flagging cloud-free
+bright steppe, roofs and limestone (653/1764 against a 2.04 % scene). SCL agrees with the scene
+metadata (2.53 % cloud+shadow+cirrus vs 2.04 %).
+
+| screen | chips |
+|---|---|
+| SCL cloud/shadow/cirrus > 1 % | 180 |
+| snow > 2 % (April, NE mountains) | 38 |
+| dark-pixel clusters > 0.5 % | 0 (the granule is complete; earlier "nodata" flags were dark surface) |
+| **VALID** | **1564** |
+
+## 5. OSM-only information scores and the provisional stratified selection
+
+**Proxy validation first** (55 corpus chips, full reference raster vs OSM-only render of the same
+footprint): Spearman rho — edge density **0.757**, non-dominant fraction 0.618, class count
+**0.315 (unusable — the base layer supplies the class variety; dropped)**. Stratum stability by
+edge-density quintile: **55 % exact, 89 % within ±1**, 6/55 move ≥2. Verdict: usable for a
+provisional ranking; final scores wait for CLC+.
+
+**Ankara distribution** (all 1564 valid candidates, OSM-only renders from the fixed
+turkey-260818 snapshot): median edge density **0.072** vs corpus full-raster median 0.259 —
+Turkish OSM is far sparser than the rendered European references, and **16 % of chips are
+near-empty (< 0.02)**. p90 = 0.326, max 0.965 (central Ankara).
+
+**Proposed selection** — `proposed_selection.csv`, 130 chips, 26 per edge-density quintile,
+seed 42, **PROPOSAL ONLY**:
+
+| stratum | edge range | pool | selected | median GLI | bright-chip share |
+|---|---|---|---|---|---|
+| Q1 | 0.000–0.025 | 313 | 26 | +0.071 | 42 % |
+| Q2 | 0.025–0.052 | 313 | 26 | +0.083 | 31 % |
+| Q3 | 0.052–0.090 | 312 | 26 | +0.064 | 31 % |
+| Q4 | 0.090–0.167 | 313 | 26 | +0.080 | 31 % |
+| Q5 | 0.168–0.965 | 313 | 26 | +0.063 | 65 % |
+
+When CLC+ Backbone arrives: re-render the 1564 candidates with the real base layer, recompute the
+scores, re-stratify, and report how far the proxy selection moved — that displacement is itself a
+result (it measures how much the base layer reorders Turkish chips).
