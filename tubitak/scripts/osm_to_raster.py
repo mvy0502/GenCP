@@ -71,6 +71,36 @@ WC_MAP = {10:"forest_green", 20:"light_green", 30:"light_green", 40:"light_green
 WC_URL = ("https://esa-worldcover.s3.eu-central-1.amazonaws.com/v200/2021/map/"
           "ESA_WorldCover_10m_2021_v200_{lat}{lon}_Map.tif")
 
+# CLC+ Backbone 2021 V1_1 (CLMS delivery, local): the base product the upstream
+# renderer actually used (legend matches CLC_color_mapping one-to-one).
+# Mapping below is DERIVED by confusion on the 40 fitting chips (osm-palette.md
+# §11) and agrees with the released CLC_color_mapping on every class present.
+CLC_PATH = (Path(__file__).resolve().parents[2] /
+            "tubitak/data/clcplus/CLMS_CLCplus_RASTER_2021_010m_eu_03035_V1_1.tif")
+CLC_MAP = {1:"gray", 2:"forest_green", 3:"forest_green", 4:"forest_green",
+           5:"light_green", 6:"light_green", 7:"light_green", 8:"light_green",
+           9:"no_vegetation", 10:"water", 11:"snow", 253:"water", 254:"water",
+           0:"black"}
+
+def fetch_clcplus(bounds_utm, crs):
+    """CLC+ Backbone classes on the SUPERSAMPLE grid (nearest -> speckle preserved)."""
+    import rasterio
+    from rasterio.transform import from_origin
+    from rasterio.warp import reproject, Resampling, transform_bounds
+    from rasterio.windows import from_bounds as wfb
+    n = SIZE * SUPERSAMPLE
+    x0, y0, x1, y1 = bounds_utm
+    tgt = from_origin(x0, y1, GSD/SUPERSAMPLE, GSD/SUPERSAMPLE)
+    dst = np.zeros((n, n), np.uint8)
+    with rasterio.open(CLC_PATH) as src:
+        bb = transform_bounds(crs, src.crs, x0-200, y0-200, x1+200, y1+200)
+        win = wfb(*bb, src.transform).round_offsets().round_lengths()
+        arr = src.read(1, window=win)
+        wtr = src.window_transform(win)
+        reproject(source=arr, destination=dst, src_transform=wtr, src_crs=src.crs,
+                  dst_transform=tgt, dst_crs=crs, resampling=Resampling.nearest)
+    return dst
+
 def wc_tiles(lonlat_bounds):
     """SW-corner names of the 3-degree WorldCover tiles covering a WGS84 bbox."""
     import math
@@ -221,7 +251,7 @@ def classify(g):
             if cls: addl(cls, geom, ROAD_W.get(hw, 2))
     return polys, lines
 
-def render(bounds_utm, crs, polys, lines, base=None):
+def render(bounds_utm, crs, polys, lines, base=None, base_map=None):
     from rasterio import features as rfeat
     from rasterio.transform import from_origin
     from scipy.ndimage import gaussian_filter
@@ -231,8 +261,9 @@ def render(bounds_utm, crs, polys, lines, base=None):
     t_hi = from_origin(x0, y1, GSD/S, GSD/S)
     img = np.zeros((n, n, 3), np.float64)
     img[:] = RGB["light_green"]                                    # fallback background
-    if base is not None:                                           # WorldCover base layer
-        for code, cls in WC_MAP.items():
+    if base is not None:                                           # land-cover base layer
+        cmap = base_map if base_map is not None else WC_MAP
+        for code, cls in cmap.items():
             if code == 0: continue
             m = (base == code)
             if m.any(): img[m] = RGB[cls]
@@ -274,12 +305,19 @@ def write(path, arr, bounds_utm, crs):
     with rasterio.open(path, "w", **prof) as d:
         d.write(np.transpose(arr, (2, 0, 1)))
 
-def make_chip(bounds_utm, crs, out_path, gdf=None, use_worldcover=True, pbf=None):
+def make_chip(bounds_utm, crs, out_path, gdf=None, use_worldcover=True, pbf=None,
+              base_product=None):
+    """base_product: None->WorldCover if use_worldcover, 'clcplus', or 'none'."""
     if gdf is None:
         gdf = fetch_pbf(bounds_utm, crs, pbf) if pbf else fetch(bounds_utm, crs)
     polys, lines = classify(gdf)
-    base = fetch_worldcover(bounds_utm, crs) if use_worldcover else None
-    arr = render(bounds_utm, crs, polys, lines, base=base)
+    if base_product == "clcplus":
+        base, bmap = fetch_clcplus(bounds_utm, crs), CLC_MAP
+    elif base_product == "none" or not use_worldcover:
+        base, bmap = None, None
+    else:
+        base, bmap = fetch_worldcover(bounds_utm, crs), WC_MAP
+    arr = render(bounds_utm, crs, polys, lines, base=base, base_map=bmap)
     write(out_path, arr, bounds_utm, crs)
     return arr
 

@@ -389,3 +389,30 @@ The rasteriser carries a **documented, understood penalty of ≈ +0.30 px (held-
 parameter was adjusted to close it. The credible fix is the actual upstream base product — CLC+
 Backbone 2021, registration in progress — after which the gates should be re-run unchanged. If
 CLC+ does not close it, the residual is renderer-level and must be re-diagnosed.
+
+---
+
+## 7. CLC+ Backbone gate — PASS on held-out
+
+CLC+ Backbone 2021 V1_1 arrived (CLMS delivery; data-sources.md updated) and replaced WorldCover
+as the base layer. Mapping verified by confusion on the 40 disjoint fitting chips rather than
+assumed: 9 of 11 observable classes match the released `CLC_color_mapping` outright; the two
+apparent disagreements (1 sealed, 9 non-veg) are overlay contamination and a near-tie — the
+released table stands and is used as-is. Marine classes 253/254 map to water at 98.2 %/72.0 %.
+
+| gate | WorldCover base | **CLC+ base** | verdict |
+|---|---|---|---|
+| full n = 30 | +0.3965 ± 0.1115 px | **+0.2625 ± 0.1229 px** | still FAIL (fitted-adjacent set) |
+| **held-out n = 25** | +0.3017 ± 0.1340 px | **+0.0120 ± 0.1319 px (t = 0.09)** | **PASS — statistically zero** |
+
+Diagnostics (gate set): **water recall 25.1 % → 82.0 %** (the diagnosed WorldCover failure, closed),
+forest recall 83.5 %, overall agreement 74.5 % → 80.6 %, stable classes 23.1 % → 64.3 %.
+
+**The base-product cost, measured on the same 55 chips with everything else identical:**
+
+> CLC+ − WorldCover = **−0.205 ± 0.052 px (t = −3.96)**, CLC+ better on 39/55 chips, +3.9 %
+> surviving points. Choosing WorldCover over CLC+ costs ≈ 0.2 px (2 m) in KARIOS terms.
+
+Per the two-attempts rule: CLC+ passes on the number that matters and is adopted. The full-gate
+set remains 0.11 px above its band — that set was selected *because* v1 failed on it and carries
+that bias; recorded, not chased.
