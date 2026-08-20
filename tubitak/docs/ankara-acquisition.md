@@ -101,7 +101,7 @@ result (it measures how much the base layer reorders Turkish chips).
 ## 6. Final stratification on CLC+ rasters, and the proxy displacement (2026-08-19)
 
 All 1564 valid candidates re-rendered with the **CLC+ Backbone base** (the adopted product after
-the held-out gate passed at +0.012 px) and re-scored on the real rasters.
+the held-out gate passed at +0.012 px — **figure PENDING re-run**, corrections-log entry 15) and re-scored on the real rasters.
 
 **The base layer transforms the picture.** Final median edge density is **0.189** against the
 OSM-only proxy's 0.072 — the base supplies most of the Turkish chips' structure, and the density

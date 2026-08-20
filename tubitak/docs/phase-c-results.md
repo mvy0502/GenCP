@@ -120,6 +120,34 @@ decomposition is registered and in progress:
 [phase-d-ratio-addendum.md](phase-d-ratio-addendum.md) (Cappadocia transfer ratio). Until those
 report, the 64 % headline is a within-scene number.
 
+## Limitations (added 21 Aug after the tool work package)
+
+**Input-source dependence — measured, restatement per the registered criterion.** The Ankara
+evaluation inputs were rendered from Overpass; the production tool renders from the dated
+Geofabrik snapshots. On a 30-chip stratified subset with all four arms fully re-paired on both
+input sources (tool-gate-registration-2.md, Task 3): the common-mode shift is +0.33…+0.58 px
+per arm (cancels in pairing by design, reported as the measured size of that term); the
+between-arm margin **C2−pretrained shrinks by +0.196 ± 0.157 px** on production inputs, and by
+**+0.620 ± 0.225 px on forest-heavy chips** — the class where the sources disagree most. The
+registered restatement criterion is point-estimate based and fired on that basis; we are not
+retrofitting a significance requirement after losing the bet (the forest-heavy component is
+robust at ~2.8 SE on its own). Ordering and every headline survive on both sources: C2 beats
+C1 and pretrained, C3−C2 stays null. **Practical consequence: on the production path C2's
+margin over pretrained is approximately −0.97 px, not the −1.167 px reported above, and the
+final report must quote the production-path figure — the production path is what the
+institution receives.**
+
+**Training-input provenance — a real train/serve skew with known direction.** Three stages,
+three provenances: training = Geofabrik **pre-fix** (simple-strategy extracts; the `-s smart`
+fix only ever patched the acceptance-chip cutter, never the tile cutter), evaluation archive =
+Overpass, production tool = Geofabrik post-fix. Training inputs therefore under-represent
+forest; production inputs contain it. The cost is measured: ~0.6 px on forest-heavy chips.
+Nothing was claimed falsely — this is a limitation, not a correction. The skew lands on
+precisely the class the institution intends to mask out ("orman maskesi"); that is fortunate,
+not designed, and is stated as such. Mitigation: the reliability layer is weighted against
+forest as planned; retraining on post-fix inputs is listed as future work
+([phase-f-backlog.md](phase-f-backlog.md)), not undertaken now.
+
 ## Consequence
 
 C3 (EU mixing) applies to **C2**, per the registration's sequential design. The corrections log
