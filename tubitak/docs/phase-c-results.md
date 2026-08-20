@@ -10,8 +10,9 @@ any training existed). Checkpoint discipline fixed before any number was seen: *
 **Provenance notes.** C1 is the amended run (stage-1 `--lr_policy step`; the discarded first
 run and the reason are corrections-log entry 5 and the amendment in
 [phase-c-config.md](phase-c-config.md)). All three arms' fakes were generated in one local
-environment; the Phase B pretrained fakes are not byte-reproducible locally (generation-
-environment numerics), so the pretrained arm was regenerated and re-scored as a gate: paired
+environment; the Phase B pretrained fakes are not byte-reproducible locally (test-time dropout
+— pix2pix's own noise design; corrections-log entry 14 — not "environment numerics" as first
+written here), so the pretrained arm was regenerated and re-scored as a gate: paired
 regen − published = **+0.034 ± 0.045 px** (statistically zero). Published Phase B numbers stand;
 paired statistics below are quoted against the published baseline, with the same-environment
 baseline in parentheses where it differs materially (it never does).
