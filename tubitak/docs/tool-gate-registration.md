@@ -1,5 +1,14 @@
 # gencp-ref correctness gate — registered before the gate is run
 
+> **STATUS (2026-08-21): FAILED-as-designed.** Criterion 1 failed because the reference
+> outputs were rendered from Overpass while the tool renders from the Geofabrik snapshots —
+> the two sides never drew from the same OSM data, so the test could not have passed for a
+> correct tool. The mismatch this registration anticipated ("extract scope") turned out to be
+> a source discontinuity in the archive (corrections-log entry 13). This registration is
+> retained unmodified below; the well-posed replacement is
+> [tool-gate-registration-2.md](tool-gate-registration-2.md). Criteria 2–3 were never
+> evaluated under this registration.
+
 **Registered 2026-08-20, branch `tubitak-tool`.** The extent→reference tool
 (`tubitak/tool/gencp_ref.py`) must reproduce the already-verified evaluation outputs where
 it overlaps them. Test extent: the union of Ankara evaluation chips **ank_26_21 and

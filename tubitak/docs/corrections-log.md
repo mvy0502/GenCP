@@ -50,3 +50,15 @@ guarantee, and the two must not be conflated when deciding whether a bias can st
 8. Reading the CLI's slug-derivation warning as an error, not a suggestion.
 9. A one-line CUDA smoke test (`torch.randn(2,2,device='cuda') @ ...`) in preflight instead of trusting `is_available()`; capability-vs-arch-list assertion now standard.
 10. Copying any about-to-be-touched untracked file aside before running a tool that writes into its directory.
+
+| 13 | 21 Aug | The evaluation archive and the production path assumed to render from the same OSM source | The Ankara evaluation inputs predate the Geofabrik switch and were rendered from **Overpass**; the tool renders from the dated snapshots. Render content differs on 3.3–7.9% of pixels on the first gate chips, concentrated in forest and water edges | caught by the tool's correctness gate (registered comparison of tool output against archived outputs); gate recorded FAILED-as-designed and re-registered against PBF-rendered references | [tool-gate-registration.md](tool-gate-registration.md), [tool-gate-registration-2.md](tool-gate-registration-2.md) |
+
+**Entry 13 addendum — what would have caught it sooner:** recording the input raster's
+provenance alongside every output. The tool embeds provenance in its outputs, which is why
+this class of error cannot recur in the production path. Related incident, same date: the
+session scratchpad was purged and every artifact labelled "regenerable" in the results
+documents had to be regenerated; regeneration succeeded this time, but a regeneration path
+can drift. Added to the Phase F backlog: **audit the "regenerable" label** — for every
+artifact a document depends on and does not commit, verify it regenerates to the same bytes
+with the generation path pinned. An artifact we cannot reproduce at report time is an
+artifact we cannot defend.
