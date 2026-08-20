@@ -39,6 +39,7 @@ SRC_PX, OUT_PX, NOMINAL = 257, 256, 10.0
 TRUE_GSD = SRC_PX * NOMINAL / OUT_PX          # 10.0390625 — the Option-A correction
 TILE_M = SRC_PX * NOMINAL                     # 2570 m footprint per generated tile
 GENCP_PY = sys.executable
+OSMIUM = shutil.which("osmium") or str(Path(sys.executable).parent / "osmium")
 
 ARMS = {
     "pretrained": ("GenCP_HR_demo/checkpoints", "genCP_HR_RGB_model"),
@@ -141,7 +142,7 @@ def osm_window(extent, work_crs, out_pbf, extra_pbfs):
     parts = []
     for k, src in enumerate(sources):
         part = out_pbf.with_suffix(f".part{k}.pbf")
-        r = subprocess.run(["osmium", "extract", "-s", "smart", "-b", bbox,
+        r = subprocess.run([OSMIUM, "extract", "-s", "smart", "-b", bbox,
                             "-o", str(part), "--overwrite", str(src)],
                            capture_output=True, text=True)
         if r.returncode == 0 and part.exists() and part.stat().st_size > 100:
@@ -152,7 +153,7 @@ def osm_window(extent, work_crs, out_pbf, extra_pbfs):
     if len(parts) == 1:
         shutil.move(parts[0], out_pbf)
     else:
-        subprocess.run(["osmium", "merge", *map(str, parts), "-o", str(out_pbf),
+        subprocess.run([OSMIUM, "merge", *map(str, parts), "-o", str(out_pbf),
                         "--overwrite"], check=True)
         for p in parts:
             p.unlink(missing_ok=True)
@@ -189,16 +190,38 @@ def render_tiles(tiles, work_crs, pbf, render_dir):
     return png_dir
 
 
-def infer(png_dir, arm, work_dir, n_tiles):
+def infer(png_dir, arm, work_dir, n_tiles, seed, deterministic):
+    """Inference through the repository's own test.py — the evaluated path.
+
+    pix2pix applies dropout at test time BY DESIGN (its noise source in place of a z
+    vector; corrections-log entry 14), so this path is stochastic. The tool therefore
+    pins a SEED via a sitecustomize shim on the subprocess (reproducibility without
+    changing the distribution every evaluation measured). --deterministic instead passes
+    --no_dropout, which drops the parameterless Dropout modules from the generator and
+    leaves normalisation untouched — deliberately NOT --eval, whose BatchNorm switch is
+    a different, output-shifting effect that must not be conflated with dropout.
+    """
     ckdir, name = ARMS[arm]
     res = work_dir / "inference"
+    shim = work_dir / "_seedshim"
+    shim.mkdir(parents=True, exist_ok=True)
+    (shim / "sitecustomize.py").write_text(
+        "import random, numpy, torch\n"
+        f"SEED = {int(seed)}\n"
+        "random.seed(SEED); numpy.random.seed(SEED)\n"
+        "torch.manual_seed(SEED); torch.cuda.manual_seed_all(SEED)\n")
+    env = dict(os.environ)
+    env["PYTHONPATH"] = str(shim) + ((os.pathsep + env["PYTHONPATH"]) if env.get("PYTHONPATH") else "")
     cmd = [GENCP_PY, str(ROOT / "test.py"), "--dataroot", str(png_dir), "--name", name,
            "--checkpoints_dir", str(ROOT / ckdir), "--model", "test", "--netG", "unet_256",
            "--norm", "batch", "--dataset_mode", "single", "--load_size", "256",
            "--crop_size", "256", "--num_test", str(n_tiles), "--gpu_ids", "-1",
            "--results_dir", str(res)]
-    log(f"inference: arm={arm} tiles={n_tiles} (byte-verified test.py path)")
-    r = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)
+    if deterministic:
+        cmd.append("--no_dropout")
+    log(f"inference: arm={arm} tiles={n_tiles} seed={seed} "
+        f"dropout={'OFF (--deterministic)' if deterministic else 'ACTIVE (evaluated path)'}")
+    r = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, env=env)
     if r.returncode != 0:
         sys.exit(f"inference failed:\n{r.stderr[-2000:]}")
     imgs = res / name / "test_latest" / "images"
@@ -415,7 +438,19 @@ def main():
     ap.add_argument("--crs", required=True, help="CRS of --bbox AND of the output")
     ap.add_argument("--arm", choices=list(ARMS), default="C3")
     ap.add_argument("--bands", choices=["rgb", "single"], default="rgb")
+    # 640 m default from the registered seam experiment (tool-gate-registration-2.md,
+    # Task 2): at 160/320 m the registered inadequacy criteria do not fire, but seam
+    # attraction of matched points is statistically detectable (p=0.029 / p=0.003); at
+    # 640 m it vanishes (obs/exp 1.01, p=0.46; seam ratio 1.008). The failure mode is
+    # delivering false control points into a matcher we cannot observe, so we take the
+    # safe side of our own threshold and pay ~44% duplicate generation — the same
+    # reasoning that discarded the C1 warm-up run. 160 m is the economy setting
+    # (12% duplication) for previews; it passes the registered criteria but carries the
+    # measured p=0.029 clustering signal.
     ap.add_argument("--overlap-m", type=float, default=640.0)
+    ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--deterministic", action="store_true",
+                    help="disable generator dropout ONLY (not --eval); non-default")
     ap.add_argument("--align-origin", nargs=2, type=float, metavar=("E", "N"),
                     help="pin tile (0,0) NW corner (gate/reproducibility mode)")
     ap.add_argument("--osm-pbf", nargs="*", default=[], help="additional snapshot pbf(s)")
@@ -431,7 +466,7 @@ def main():
         f"stride {stride} m, overlap {a.overlap_m} m")
     pbf, snapshots = osm_window(extent, work_crs, out / "extent.osm.pbf", a.osm_pbf)
     png_dir = render_tiles(tiles, work_crs, pbf, out / "renders")
-    imgs, ck_sha = infer(png_dir, a.arm, out, len(tiles))
+    imgs, ck_sha = infer(png_dir, a.arm, out, len(tiles), a.seed, a.deterministic)
     mosaic_tif = out / "reference.tif"
     mosaic_tif, shape, valid, target = mosaic(tiles, imgs, work_crs, extent, a.overlap_m,
                                               mosaic_tif, a.crs, a.bands)
@@ -445,8 +480,12 @@ def main():
     git = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True,
                          text=True).stdout.strip()
     import rasterio
+    import torch
     prov = dict(tool=f"gencp-ref {TOOL_VERSION}", generated_utc=datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 arm=a.arm, checkpoint_sha256=ck_sha, repo_commit=git,
+                seed=a.seed, torch_version=torch.__version__,
+                dropout_active=("no (--deterministic)" if a.deterministic else
+                                "yes (pix2pix test-time dropout, the evaluated configuration)"),
                 osm_snapshots=";".join(snapshots),
                 clcplus="CLMS_CLCplus_RASTER_2021_010m_eu_03035_V1_1",
                 s2_preview_scene=s2_id or "none",
