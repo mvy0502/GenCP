@@ -10,3 +10,5 @@
   gencp-ref stays refusing until then.
 - **Sparse-Europe regression under C3** (+0.235 px, phase-c3-results.md) if European
   deployment becomes a goal.
+- **Retrain on production-provenance (post-fix Geofabrik) inputs** — closes the
+  measured train/serve skew (~0.6 px forest-heavy); see standing-practices.md item 3.
