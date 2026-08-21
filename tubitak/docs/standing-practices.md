@@ -43,3 +43,10 @@ Rules of general force, collected where future work will see them. Each carries 
    outlive a session writes per-item artifacts so a respawn resumes rather than restarts
    (registration B had to be respawned from zero after a session limit). Origin: regB.
 
+8. **Review the open items; do not only append to them** (2026-08-21). At the end of every
+   package, [open-items.md](open-items.md) is read from the top; each item is closed or
+   explicitly deferred with a written reason. Origin: three headline-deciding findings (the
+   cold-D risk, the small-n rule lapse, the unexplained baseline shift) were all items we
+   wrote down ourselves and stopped watching. The corrections log records what went wrong;
+   nothing before this rule forced revisiting what we flagged as pending.
+
