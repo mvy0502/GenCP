@@ -100,6 +100,37 @@ point here.
 - All numbers here are KLT-conditional, as registered: the institution's matcher is not
   KLT, and no gain is assumed to transfer.
 
+## Registration D — variance map at K = 32: the attenuation story is refuted; K = 8 was already converged
+
+Registered instrument fix, same +0.15 bar ([tool-registration-4.md](tool-registration-4.md),
+commit `18ea887`). 18,720 new draws (24 seeds per cell on top of regC's 8), 780 mean/std-of-32
+compositions, 780 KARIOS runs, zero failures, checkpointed throughout (standing practice 7).
+
+| cell | rho K=8 | rho K=32 | rose? |
+|---|---|---|---|
+| Ankara-Overpass / pretrained | +0.150 | +0.149 | no |
+| Ankara-Overpass / C1 | +0.034 | +0.034 | ±0 |
+| Ankara-Overpass / C2 | +0.006 | −0.000 | no |
+| Ankara-production / pretrained | +0.003 | −0.035 | no |
+| Ankara-production / C1 | +0.122 | +0.110 | no |
+| Ankara-production / C2 | +0.142 | +0.139 | no |
+| EU / C1 | +0.118 | +0.118 | ±0 |
+| EU / C2 | +0.112 | +0.106 | no |
+
+**Bar verdict: FAIL at all three sites** (best fine-tuned cell +0.139 < +0.15). **Attenuation
+verdict: the registered prediction — rho must rise with K if estimator noise explained the
+sub-bar result — is REFUTED.** Quadrupling the draws left every rho essentially unchanged:
+the K = 8 estimates were already converged, and the variance-map effect **really is sub-bar**
+— the registration's "more informative outcome," reported plainly. The adoption clause is not
+triggered; **the reliability sidecar stays input-heuristic, now on converged evidence rather
+than a possibly-noisy instrument.** Secondary read-out (Δ = mean-of-32 − single, negative =
+averaging better): no cell beyond ~2 SE (best: production-C2 −0.123 ± 0.066); averaging buys
+no material geolocation gain, consistent with K = 8. The mechanism sentence stands on the
+record regardless: model uncertainty is real, replicated (p < 1e-6 in five cells), predicts
+per-point residual weakly but consistently, and concentrates where inputs are
+production-provenance — the skew, forest, and model uncertainty resolve into one story; the
+map is simply not strong enough at the registered bar to replace the input heuristics.
+
 ## Standing state
 
 Production tool: **deterministic by default** (dropout off; `--stochastic` preserves the
