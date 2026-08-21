@@ -1,5 +1,7 @@
 # Phase D results — Cappadocia and Tuz Gölü, scored against the registrations
 
+> **Conventions (project-wide, 2026-08-21):** every paired difference is **Δ = candidate − baseline; negative = candidate better**. Where a table uses "gain", it is defined in that table's header as gain = −Δ. **Inference path:** every number in this document was measured on the **stochastic (dropout-active) path** — pix2pix's evaluated configuration — unless a row explicitly says otherwise; the delivered tool defaults to the deterministic path, whose measured agreement with the stochastic path is |Δ| ≤ 0.05 px at n = 30 resolution (shifts > ~0.15 px excluded, smaller ones not; tool-results.md §A).
+
 **Date:** 2026-08-20 · 130 chips per site, pretrained (regenerated same-environment; disk
 cross-check −0.042 ± 0.065) vs C2 epoch 20, KARIOS unchanged. Registrations scored against
 their committed texts: [phase-cd-preparation.md](phase-cd-preparation.md) §3 (sites, four-outcome
@@ -19,7 +21,7 @@ strengthen under them — with one exception recorded under "salt" below.
 
 ## The transfer ratio R (registered addendum)
 
-R = equal-weight-strata gain(Cappadocia)/gain(Ankara) = 1.188/1.258 = **0.945**; stratified
+R = equal-weight-strata gain(Cappadocia)/gain(Ankara), with gain ≡ −Δ = pretrained − C2 (positive gain = C2 better) = 1.188/1.258 = **0.945**; stratified
 bootstrap (10,000 draws) 95% CI **[0.730, 1.184]**, P(R ≥ 0.7) = 0.987. Per the registration's
 own instruction for a wide interval, the committed sentence is: **the transfer ratio is above
 the registered 0.7 threshold ("mostly real adaptation") with 95% confidence, and is

@@ -28,3 +28,18 @@ Rules of general force, collected where future work will see them. Each carries 
 4. **Registrations before numbers; failed gates reported, never adjusted; mis-specified
    gates re-registered with the original preserved** (standing since Phase B, restated here
    for completeness).
+
+5. **Every reported number states its inference path** (2026-08-21). All C-phase and tool
+   evaluation numbers were measured on the stochastic (dropout-active) path; the delivered
+   tool defaults to the deterministic path (measured agreement |Δ| ≤ 0.05 px at n = 30
+   resolution). The invariance rule applied to our own reporting: a reader must see the
+   gap, not discover it. Origin: tool-results.md §A; Task 1 decision.
+
+6. **One sign convention, document-wide** (2026-08-21). Δ = candidate − baseline; negative
+   = candidate better. "Gain" is defined at point of use as −Δ. Stated at the top of each
+   results document. Origin: the regC/+phase-D sign divergence.
+
+7. **Long detached runs checkpoint intermediate results** (2026-08-21). Any run expected to
+   outlive a session writes per-item artifacts so a respawn resumes rather than restarts
+   (registration B had to be respawned from zero after a session limit). Origin: regB.
+

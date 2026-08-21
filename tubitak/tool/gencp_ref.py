@@ -220,7 +220,7 @@ def infer(png_dir, arm, work_dir, n_tiles, seed, deterministic):
     if deterministic:
         cmd.append("--no_dropout")
     log(f"inference: arm={arm} tiles={n_tiles} seed={seed} "
-        f"dropout={'OFF (--deterministic)' if deterministic else 'ACTIVE (evaluated path)'}")
+        f"path={'deterministic (dropout off; default)' if deterministic else 'stochastic (evaluated; --stochastic)'}")
     r = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, env=env)
     if r.returncode != 0:
         sys.exit(f"inference failed:\n{r.stderr[-2000:]}")
@@ -449,8 +449,15 @@ def main():
     # measured p=0.029 clustering signal.
     ap.add_argument("--overlap-m", type=float, default=640.0)
     ap.add_argument("--seed", type=int, default=42)
-    ap.add_argument("--deterministic", action="store_true",
-                    help="disable generator dropout ONLY (not --eval); non-default")
+    # DEFAULT: deterministic (dropout disabled at inference). Decision 2026-08-21: a
+    # delivered tool must satisfy "same input -> same output" UNCONDITIONALLY; seed-pinned
+    # reproducibility holds only for one library build on one machine, dropout-off holds
+    # everywhere. Measured cost is zero at the n=30 resolution (regA: every arm within
+    # +/-0.05 px, SE ~0.077 -> shifts larger than ~0.15 px are excluded, smaller ones are
+    # not). The evaluated stochastic path stays available via --stochastic; provenance
+    # records which path produced every file.
+    ap.add_argument("--stochastic", action="store_true",
+                    help="use the evaluated dropout-active path (seeded); NON-default")
     ap.add_argument("--align-origin", nargs=2, type=float, metavar=("E", "N"),
                     help="pin tile (0,0) NW corner (gate/reproducibility mode)")
     ap.add_argument("--osm-pbf", nargs="*", default=[], help="additional snapshot pbf(s)")
@@ -466,7 +473,7 @@ def main():
         f"stride {stride} m, overlap {a.overlap_m} m")
     pbf, snapshots = osm_window(extent, work_crs, out / "extent.osm.pbf", a.osm_pbf)
     png_dir = render_tiles(tiles, work_crs, pbf, out / "renders")
-    imgs, ck_sha = infer(png_dir, a.arm, out, len(tiles), a.seed, a.deterministic)
+    imgs, ck_sha = infer(png_dir, a.arm, out, len(tiles), a.seed, not a.stochastic)
     mosaic_tif = out / "reference.tif"
     mosaic_tif, shape, valid, target = mosaic(tiles, imgs, work_crs, extent, a.overlap_m,
                                               mosaic_tif, a.crs, a.bands)
@@ -484,8 +491,8 @@ def main():
     prov = dict(tool=f"gencp-ref {TOOL_VERSION}", generated_utc=datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 arm=a.arm, checkpoint_sha256=ck_sha, repo_commit=git,
                 seed=a.seed, torch_version=torch.__version__,
-                dropout_active=("no (--deterministic)" if a.deterministic else
-                                "yes (pix2pix test-time dropout, the evaluated configuration)"),
+                inference_path=("deterministic (dropout off; DEFAULT)" if not a.stochastic else
+                                "stochastic (dropout active - the evaluated configuration; --stochastic)"),
                 osm_snapshots=";".join(snapshots),
                 clcplus="CLMS_CLCplus_RASTER_2021_010m_eu_03035_V1_1",
                 s2_preview_scene=s2_id or "none",

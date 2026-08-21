@@ -1,5 +1,7 @@
 # Phase C results — scored against the registration
 
+> **Conventions (project-wide, 2026-08-21):** every paired difference is **Δ = candidate − baseline; negative = candidate better**. Where a table uses "gain", it is defined in that table's header as gain = −Δ. **Inference path:** every number in this document was measured on the **stochastic (dropout-active) path** — pix2pix's evaluated configuration — unless a row explicitly says otherwise; the delivered tool defaults to the deterministic path, whose measured agreement with the stochastic path is |Δ| ≤ 0.05 px at n = 30 resolution (shifts > ~0.15 px excluded, smaller ones not; tool-results.md §A).
+
 **Date:** 2026-08-19/20 · 130 Ankara held-out chips (26 per CLC+ stratum), KARIOS
 `confidence_threshold` 0.8 unchanged, same geometry and configuration as every prior run.
 Registration: [phase-c-registration.md](phase-c-registration.md) (committed 09:29 UTC, before

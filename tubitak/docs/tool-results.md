@@ -1,5 +1,7 @@
 # gencp-ref tool package — results, scored against the registrations
 
+> **Conventions (project-wide, 2026-08-21):** every paired difference is **Δ = candidate − baseline; negative = candidate better**. Where "gain" appears it is defined at point of use as −Δ. **Inference path:** registrations B and C were measured on the **stochastic (dropout-active) path**; registration A is the deterministic-vs-stochastic comparison itself; the delivered tool now **defaults to the deterministic path** (decision 2026-08-21), with the stochastic path behind `--stochastic`.
+
 **Date:** 2026-08-21, branch `tubitak-tool`. Registrations:
 [tool-gate-registration-2.md](tool-gate-registration-2.md) (commit `c4f8804`) and
 [tool-registrations-3.md](tool-registrations-3.md) (commit `b80f384`) — all committed before
@@ -42,9 +44,14 @@ is the documented economy setting.
 Paired (deterministic − seeded), 30 production-input chips, all four arms: pretrained
 −0.004 ± 0.089, C1 −0.040 ± 0.077, C2 −0.021 ± 0.092, C3 −0.028 ± 0.070 px — **all in the
 registered ≤ 0.05 px "indistinguishable" band**, with the no-op guard confirming the images
-genuinely differ (70–90% of pixels). Report-back per the registration: `--deterministic`
-could become the default at zero measured cost; the seeded evaluated path remains default
-until that decision is taken deliberately.
+genuinely differ (70–90% of pixels). **Precision limit, stated:** with n = 30 and
+SE ≈ 0.077 px this rules out shifts larger than roughly 0.15 px, NOT all shifts —
+"indistinguishable" has a resolution and this is it. **Decision (2026-08-21):
+`--deterministic` is now the DEFAULT** — a delivered tool must hold "same input → same
+output" unconditionally; seed-pinned reproducibility holds only per library build and
+machine, dropout-off holds everywhere; disabling dropout at inference is the standard
+convention, the stochastic path was the unusual one. The evaluated stochastic path stays
+available via `--stochastic`; provenance records which path produced every file.
 
 ## Registration B — acceptance gate re-run: PASS on the registered estimator, and the original figure is retired
 
@@ -58,21 +65,27 @@ inputs differ from the stale corpus — exactly entry 15's census count).
 | single draw (seed 42) | +0.1495 ± 0.143 px | PASS by 0.0005 px |
 | original (stale corpus, single draw) | +0.012 ± 0.132 px | retired — not quotable |
 
-The corrected central value is an order of magnitude larger than the stale figure but
-statistically indistinguishable from zero. **The shift is carried almost entirely by the
-five German-zone chips** (+0.61 px mean vs **−0.004 px** on the 20 non-German chips) whose
-registered snapshot-drift caveat applies (the `germany-latest` re-download; content drift,
-not render path — the registration's attribution, not established by this run). Quotable
-sentence from here on: *held-out acceptance +0.119 ± 0.138 px, PASS; statistically zero
-outside the drift-caveated German chips.* The PENDING flags on +0.012 stay, now pointing
-here.
+**Quotable sentence, in this order:** *held-out acceptance **+0.119 ± 0.138 px, PASS
+(bound 0.15)*** — the bound was set against the aggregate, so the aggregate leads — *and the
+decomposition follows:* the shift is carried almost entirely by the five German-zone chips
+(+0.61 px mean) while the 20 non-German chips sit at −0.004 px. **The German split is a
+pre-planned stratification, not a post-hoc observation:** the snapshot-drift caveat with its
+"reported per-chip" instruction was committed in the registration (`b80f384`,
+2026-08-20 20:49) hours before the numbers existed (2026-08-21 00:09). The drift attribution
+(the 14:42 `germany-latest` re-download; content drift, not render path) remains the
+registration's, not established by this run. **The single-draw analogue passes by
+0.0005 px** — reported prominently, because it is the best available evidence that the
+registered mean-of-8 estimator was the right choice: the small-n standing rule moved the
+estimate off the bound's edge, it did not manufacture the PASS. The retired +0.012 flags now
+point here.
 
 ## Registration C — K-draw averaging: marginal; variance map real but sub-bar
 
-- **Mean-of-8 vs single draw:** ≈ 0 on all Overpass-input cells (+0.002…+0.014 px) and EU
-  C1; EU C2 +0.046 ± 0.031; **production-input C2 +0.131 ± 0.078** (n = 30, ~1.7 SE) — the
-  only cell crossing the registered ≥ 0.10 px worth-it line, weakly supported, and on the
-  production-relevant configuration.
+- **Mean-of-8 vs single draw** (Δ = mean-of-8 − single; negative = averaging better): ≈ 0
+  on all Overpass-input cells (−0.014…−0.002 px) and EU C1 (+0.001); EU C2 −0.046 ± 0.031;
+  **production-input C2 −0.131 ± 0.078** (n = 30, ~1.7 SE) — the only cell crossing the
+  registered worth-it line (registered as "improvement ≥ 0.10 px", i.e. Δ ≤ −0.10), weakly
+  supported, and on the production-relevant configuration.
 - **Variance map:** the registered usability bar (rho ≥ +0.15, p < 0.01, both arms at one
   site) is **not met**; the signal is nonetheless replicated and highly significant
   everywhere it matters: production-Ankara C1 +0.122 / C2 +0.142, EU C1 +0.118 /
@@ -89,7 +102,8 @@ here.
 
 ## Standing state
 
-Production tool: seeded (byte-exact reruns), 640 m overlap, corrected transform mandatory,
-provenance embeds seed/torch/dropout/snapshot/checkpoint-hash/commit. `--deterministic`
-available, non-default. `--bands single` still refuses pending Package A. Branch isolated
-from `tubitak-tr` until Package A is scored.
+Production tool: **deterministic by default** (dropout off; `--stochastic` preserves the
+evaluated path), seeded, 640 m overlap, corrected transform mandatory, provenance embeds
+inference path/seed/torch/snapshot/checkpoint-hash/commit. `--bands single` still refuses
+pending Package A — which has no artifacts in this repository and is scored elsewhere; the
+branch stays isolated from `tubitak-tr` until that score exists.

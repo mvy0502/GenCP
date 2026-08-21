@@ -1,5 +1,7 @@
 # European held-out results — scored against the registration
 
+> **Conventions (project-wide, 2026-08-21):** every paired difference is **Δ = candidate − baseline; negative = candidate better**. Where a table uses "gain", it is defined in that table's header as gain = −Δ. **Inference path:** every number in this document was measured on the **stochastic (dropout-active) path** — pix2pix's evaluated configuration — unless a row explicitly says otherwise; the delivered tool defaults to the deterministic path, whose measured agreement with the stochastic path is |Δ| ≤ 0.05 px at n = 30 resolution (shifts > ~0.15 px excluded, smaller ones not; tool-results.md §A).
+
 **Date:** 2026-08-20 · 568 chips (577 corpus test − 9 registered train/test-overlap chips),
 pretrained vs C2 epoch 20, generated in one environment, KARIOS config unchanged, geometry per
 [phase-c-europe-registration.md](phase-c-europe-registration.md) (synthetic origin; registered
@@ -31,7 +33,7 @@ and registered before its control ran ([phase-d-checks-registration.md](phase-d-
 2. **Mechanical blur ("KLT prefers smoother inputs") — REFUTED.** Registered bands: ≥ 60%
    of C2's gain recovered by spectrum-matched blurring kills the restraint claim; ≤ 25%
    supports it. Pretrained outputs blurred with the fitted global sigma (0.45; fit quality
-   reported below), same georeferencing, same KARIOS: recovered fraction **−6.1%** on Europe
+   reported below), same georeferencing, same KARIOS (gain ≡ −Δ = pretrained − blurred, per the convention above): recovered fraction **−6.1%** on Europe
    (−7.6% excluding the empty-input stratum) and **+1.7%** at Cappadocia. Blur's per-chip
    effect is a coin flip (295/568 chips worse); its point-count effect is nil (Δn median −1).
    Independently rescored with a second implementation; numbers identical.
