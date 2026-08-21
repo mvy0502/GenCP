@@ -28,7 +28,7 @@ QA preview (never an input). **HOLE: single-band output contract (B-package pend
 | arm | config | status |
 |---|---|---|
 | pretrained | Zenodo release | baseline |
-| C1 | GAN+L1 fine-tune, cold-start D, warm-up amendment | **HOLE B1: cold-D artefact vs loss-function effect — unresolved; the "adversarial liability" claim is conditional on it** |
+| C1 | GAN+L1 fine-tune, cold-start D, warm-up amendment | **B1 CLOSED: cold-D signature absent (C1 e1 already −0.40 vs pre at 6.3 SE); C1−C2 deficit widens with adversarial training (+0.55→+0.70) — loss-function effect confirmed (headline-results.md)** |
 | C2 | L1-only fine-tune | recommended hand-over arm (Package A) |
 | C3 | C2 + 17.7% EU mix | recommended training config; indistinguishable from C2 at n=30 |
 
@@ -42,10 +42,8 @@ QA preview (never an input). **HOLE: single-band output contract (B-package pend
   memorisation.
 - Restraint mechanism: blur control recovers −6.1%/+1.7% [OVP]; EU gain 86% scatter;
   matcher sweep: C2 margin grows under NCC (ank130 −0.70 → −1.01) [OVP] —
-  **HOLE B3: "matcher-independent" tested only within the area-matcher family; descriptor
-  matcher + mediation + direct restraint measurement outstanding.**
-- Urban operational headline: **0.591 px (BT.601 KLT, n=20) [STOCH, OVP] — CBQ until B2:
-  off production path**; B2 re-measures on POST inputs, K=8, all arms.
+  **B3 CLOSED: ordering preserved under ORB (~4.5 SE), AKAZE, MI; mediation 0%; restraint measured directly (silent-region edge ratio: pre 1.02 / C1 1.02 / C2 0.22) — "matcher-independent" earned, quoted with its family boundaries (headline-results.md).**
+- Urban operational headline: **0.593 px ± 0.041 (production path, K=8, n=20) [STOCH mean-of-8, POST]** — B2 verified the off-path 0.591 within +0.002; C2−pre −0.777 ± 0.125, 20/20 chips (headline-results.md).
 - Salt/water rare class: unresolved (C2 salt gain statistically zero; water-dominant class
   absent from training).
 
@@ -73,5 +71,4 @@ manifest committed); scene-date confounds as registered; KLT noise floor ~2 px c
 
 Phase F backlog: veto re-registration; regenerable-label audit; retraining on POST inputs;
 variance map (closed: sub-bar at converged K); sparse-EU regression under C3; single-band
-package; **B1 confirmatory run if cold-D damage confirmed (one D-only warm-up run — not
-launched without report-first).**
+package; B1 confirmatory run: NOT TRIGGERED (cold-D signature absent).
