@@ -50,9 +50,25 @@ QA preview (never an input). **HOLE: single-band output contract (B-package pend
 ## 5. Positioning
 
 Reference-generation for their Georef (extent in → raster out), not GCP lists; two-arm
-hand-over (C2 primary, C1 supplied) with the condition table from Package A; reliability
-sidecar = their forest-mask request, input-heuristic (variance map measured real but
-sub-bar at converged K).
+hand-over (C2 primary, C1 supplied) with the condition table from Package A.
+
+**The honest positioning, from the T1 benchmark ([T1-benchmark-results.md](T1-benchmark-results.md)):**
+at a clean site, real 10 m imagery recovers known shifts far better than our synthetic
+reference (real S2 / EOX / basemap 0.003–0.24 px vs GenCP C2 0.54–3.97 px at 1–5 px
+displacement) [DET, POST]. **Where real 10 m imagery exists — including free Sentinel-2 and
+free EOX cloudless — we recommend it over our own product.** The synthetic reference's niche
+is (a) extents with no usable cloud-free acquisition and no acceptable mosaic, and (b) needing
+the reference to reflect *current OSM content* rather than historical imagery. The tool's own
+georeferencing is sound (intrinsic offset 0.157 px, better than real S2's 0.262 and EOX's
+0.329); what it lacks is matchable content (388 KLT points vs 1164–1738).
+
+**Reliability sidecar SHIPS AS A RECOMMENDATION** ([T3-reliability-results.md](T3-reliability-results.md)):
+ranking under a budget improves the delivered median by 0.213 px (Ankara) and 0.424 px
+(Cappadocia) at the 75% budget, on both sites, with the same features that failed as a fixed
+threshold. Rank, do not threshold.
+
+**Delivered artefact:** the ODTÜ package ([odtu-package-README.md](odtu-package-README.md)) —
+reference GeoTIFF, reliability layer, provenance, recipient README, three-panel visual.
 
 ## 6. Honest record
 
@@ -62,7 +78,10 @@ that failed are quoted as failed (R2 scope, NCC prediction, attenuation story).
 
 ## 7. Limitations
 
-Georef unmeasurable (all numbers proxy; Package A bounds proxy-sensitivity); train/serve
+**Real imagery outperforms the synthetic reference wherever it exists (T1)** — the project's
+accuracy case is subordinate to its availability case; Georef unmeasurable (all numbers proxy;
+Package A bounds proxy-sensitivity); **the ODTÜ extent is train-contaminated (14 chips), so
+ODTÜ-measured accuracy is not representative**; train/serve
 skew (training PRE, production POST; ~0.6 px forest-heavy cost, lands on the maskable
 class — fortunate, not designed); Ankara evaluation inputs OVP (unregenerable — backed up,
 manifest committed); scene-date confounds as registered; KLT noise floor ~2 px context.

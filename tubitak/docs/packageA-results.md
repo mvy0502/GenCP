@@ -46,7 +46,10 @@ structure correlates better than sharp invented structure under template matchin
 
 ## Urban headline (lists committed at `18904f0` before scoring)
 
-Ankara-130 urban (n = 20), BT.601 KLT: **C2 0.591 px vs C1 0.764 vs pretrained 1.349** —
+Ankara-130 urban (n = 20), BT.601 KLT: **C2 0.591 px vs C1 0.764 vs pretrained 1.349**
+[STOCH single-draw, OVP inputs] — **superseded for quotation by the production-path
+re-measurement: 0.593 ± 0.041 px (POST inputs, K = 8; headline-results.md B2), which is the
+institution-facing figure** —
 C2 first under RGB and BT.601, KLT and NCC; same at EU-150 urban (n = 26) except one phase
 cell (−0.03 ± 0.21 — pure noise). Ankara-30 urban n = 2: values reported, no verdict, as
 pre-declared. Quoted beside the production-path restatement: paired C2 − pretrained on
