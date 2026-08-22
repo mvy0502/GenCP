@@ -47,6 +47,11 @@ instead.** The synthetic reference is worth using when there is no usable cloud-
 acquisition, or when you need the reference to reflect *current OpenStreetMap content* (new
 roads and buildings) rather than the state of older imagery.
 
+**Known cosmetic artefact:** 5 pixels in the extreme north-west corner (rows 0–2, cols 0–2)
+are nodata (value 0) — an edge effect of resampling the outermost tile onto the output grid.
+That is 0.0008 % of the image and is not near any content; it is stated here so it does not
+look like data corruption if your software flags it.
+
 ## The reliability layer and how to mask with it
 
 `ODTU_reliability.csv` ranks the 16 generation tiles by a score computed **only from the input
