@@ -18,7 +18,7 @@ Each item is CLOSED or explicitly DEFERRED with a written reason, every package.
 | 12 | Single-band output contract | Package A context | OPEN — B3/T1 both used BT.601 successfully end-to-end (KARIOS accepts 1-band; 0.468 px on the ODTU deliverable), so the conversion is now evidenced; `--bands single` still refuses pending an explicit institution decision on which conversion they want |
 | 13 | "Matcher-independent" family scope | Package A results | **CLOSED 21 Aug: earned across descriptor+MI families; kept with boundaries (headline-results.md B3)** |
 | 14 | Headline off production path | Package A results | **CLOSED 21 Aug: 0.593 px on-path (B2)** |
-| 15 | Second off-machine backup location | A1 | **IN PROGRESS 22 Aug: approved and running** (private Kaggle dataset, 14.6 GB). iCloud reclassified as a synced copy, not a backup; public GitHub release rejected on the unsettled ODbL-over-weights question, recorded in the manifest |
+| 15 | Second off-machine backup location | A1 | **CLOSED 22 Aug: uploaded and verified** — private Kaggle dataset `vedatyildirim/gencp-evidence-backup`, 4,395 files, all five archives, 130/130 unregenerable Ankara inputs confirmed present by enumeration. iCloud remains a synced copy (not a backup); public GitHub release rejected on the unsettled ODbL-over-weights question |
 | 16 | B1 confirmatory run | B1 registration | **CLOSED 21 Aug: not triggered (reading A did not obtain)** |
 
 ## Package review 2026-08-21 (standing practice 8, first pass)

@@ -13,6 +13,11 @@
 #              Retained for convenience; not relied on as the independent copy.
 #  Location 2: private Kaggle dataset vedatyildirim/gencp-evidence-backup - the independent
 #              copy (server-side, not sync-coupled to this machine).
+#              STATUS 2026-08-22: UPLOADED AND VERIFIED. 4,395 files; all five archives
+#              present (checkpoints_C1/C2/C3/pretrained, evidence_inputs_corpora); Kaggle
+#              auto-extracts the archives server-side, so the tars appear as directories.
+#              Critical content verified by enumeration: 130/130 Ankara run/inputs PNGs -
+#              the unregenerable Overpass renders - are in the backup.
 #  A PUBLIC GitHub release was considered and NOT chosen. The generator weights derive from
 #  GenCP's CC-BY 4.0 weights (redistributable with attribution), but our fine-tuning inputs
 #  were rendered from OpenStreetMap under ODbL, and whether ODbL's share-alike obligation
