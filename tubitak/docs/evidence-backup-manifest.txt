@@ -1,0 +1,16 @@
+# Evidence backup manifest — 2026-08-21
+# Contents: the unregenerable / hard-to-regenerate evidence base.
+#  - evidence_inputs_corpora.tar.gz: Ankara run/inputs (OVERPASS-rendered, UNREGENERABLE -
+#    every C-phase paired number is measured against these exact files); Cappadocia and
+#    Tuz Golu run/inputs (pre-fix Geofabrik, regenerable from stored minipbfs - archived as
+#    cheap insurance; NOTE this corrects the triage package's "Cappadocia = Overpass");
+#    acc_pbfgate/acc_clcgate/acc_clcheld corpora; the committed urban chip list.
+#  - checkpoints_{pretrained,C1,C2,C3}.tar: every generator checkpoint including all
+#    per-epoch *_net_G.pth (irreplaceable: B1 scores them), latest_net_D, and
+#    DISCRIMINATOR_PROVENANCE.txt.
+# Verify: (cd tubitak/data/evidence_backup && shasum -a 256 -c <this file's hash lines>)
+95dc68f213d6e095ad674e5eb6b96b6f350ffd9206f7bcdb5271c7998e17fa12  checkpoints_C1.tar
+507bfbf77b73e6b6d832cb1833b851f22c9b213bc02c71df60a86736ae1a2321  checkpoints_C2.tar
+ee5407f7a5c440c274e45a4fb3ee4713a5d0358da6fa57640eefca6550e6b6aa  checkpoints_C3.tar
+411ae7327017cce1daee736746473a420b2002becd0aa1be566c326026a23a3b  checkpoints_pretrained.tar
+0d564fce36e27e17a224f7e90d07c26b4b838b3c427355857f0def5f8085838c  evidence_inputs_corpora.tar.gz

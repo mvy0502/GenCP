@@ -17,7 +17,7 @@ raw and undecomposed.
 **IMAGERY SELECTION ASYMMETRY.** The Ankara scene was deliberately selected — 2.04 % cloud,
 spring, the highest vegetation index among candidates. The European reference imagery is whatever
 the corpus authors used: unknown dates, unknown quality, heterogeneous. The rasteriser side is
-controlled (gate passed at +0.012 px); the imagery side is not. The claim is therefore:
+controlled (gate re-measured at +0.119 ± 0.138 px, PASS — corrections-log entry 15, [tool-results.md](tool-results.md)); the imagery side is not. The claim is therefore:
 **"at least as good as density-matched Europe, with Turkish imagery quality-selected and the
 European reference not."**
 

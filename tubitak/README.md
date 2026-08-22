@@ -30,7 +30,8 @@ unimplemented and `GenCP_DB` is untouched.
   KARIOS's `mean_x`/`mean_y` — the *global systematic shift* — not a per-point error magnitude. Our
   arm B gives **0.155 px** against their 0.70 px, and per-axis RMSE 1.03/0.91 px against their 2.50.
   An earlier claim that we were "3× worse" was based on comparing two different quantities and has
-  been withdrawn.
+  been withdrawn. The full record of corrections — including those where the run, not the
+  record, was corrected — is in [docs/corrections-log.md](docs/corrections-log.md).
 * **Correcting the affine reduces the global shift by 40.3 %** (against 6.1 % on the per-point mean),
   because a scale error is systematic and a signed mean is what captures it.
 * **The ~2 px noise floor is local matching, not our setup.** Variance decomposition puts **~95 %

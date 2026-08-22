@@ -403,7 +403,7 @@ released table stands and is used as-is. Marine classes 253/254 map to water at 
 | gate | WorldCover base | **CLC+ base** | verdict |
 |---|---|---|---|
 | full n = 30 | +0.3965 ± 0.1115 px | **+0.2625 ± 0.1229 px** | still FAIL (fitted-adjacent set) |
-| **held-out n = 25** | +0.3017 ± 0.1340 px | **+0.0120 ± 0.1319 px (t = 0.09)** | **PASS — statistically zero** |
+| **held-out n = 25** | +0.3017 ± 0.1340 px | **+0.0120 ± 0.1319 px (t = 0.09)** | **PASS — statistically zero** — **RETIRED — superseded by the corrected-input re-run: +0.119 ± 0.138 px, PASS (statistically zero outside five drift-caveated German chips); see [tool-results.md](tool-results.md) §Registration B and corrections-log entry 15** |
 
 Diagnostics (gate set): **water recall 25.1 % → 82.0 %** (the diagnosed WorldCover failure, closed),
 forest recall 83.5 %, overall agreement 74.5 % → 80.6 %, stable classes 23.1 % → 64.3 %.

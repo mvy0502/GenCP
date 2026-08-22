@@ -1,5 +1,7 @@
 # Phase C results — scored against the registration
 
+> **Conventions (project-wide, 2026-08-21):** every paired difference is **Δ = candidate − baseline; negative = candidate better**. Where a table uses "gain", it is defined in that table's header as gain = −Δ. **Inference path:** every number in this document was measured on the **stochastic (dropout-active) path** — pix2pix's evaluated configuration — unless a row explicitly says otherwise; the delivered tool defaults to the deterministic path, whose measured agreement with the stochastic path is |Δ| ≤ 0.05 px at n = 30 resolution (shifts > ~0.15 px excluded, smaller ones not; tool-results.md §A).
+
 **Date:** 2026-08-19/20 · 130 Ankara held-out chips (26 per CLC+ stratum), KARIOS
 `confidence_threshold` 0.8 unchanged, same geometry and configuration as every prior run.
 Registration: [phase-c-registration.md](phase-c-registration.md) (committed 09:29 UTC, before
@@ -10,8 +12,9 @@ any training existed). Checkpoint discipline fixed before any number was seen: *
 **Provenance notes.** C1 is the amended run (stage-1 `--lr_policy step`; the discarded first
 run and the reason are corrections-log entry 5 and the amendment in
 [phase-c-config.md](phase-c-config.md)). All three arms' fakes were generated in one local
-environment; the Phase B pretrained fakes are not byte-reproducible locally (generation-
-environment numerics), so the pretrained arm was regenerated and re-scored as a gate: paired
+environment; the Phase B pretrained fakes are not byte-reproducible locally (test-time dropout
+— pix2pix's own noise design; corrections-log entry 14 — not "environment numerics" as first
+written here), so the pretrained arm was regenerated and re-scored as a gate: paired
 regen − published = **+0.034 ± 0.045 px** (statistically zero). Published Phase B numbers stand;
 paired statistics below are quoted against the published baseline, with the same-environment
 baseline in parentheses where it differs materially (it never does).
@@ -119,6 +122,34 @@ decomposition is registered and in progress:
 [phase-c-europe-registration.md](phase-c-europe-registration.md) (forgetting bound) and
 [phase-d-ratio-addendum.md](phase-d-ratio-addendum.md) (Cappadocia transfer ratio). Until those
 report, the 64 % headline is a within-scene number.
+
+## Limitations (added 21 Aug after the tool work package)
+
+**Input-source dependence — measured, restatement per the registered criterion.** The Ankara
+evaluation inputs were rendered from Overpass; the production tool renders from the dated
+Geofabrik snapshots. On a 30-chip stratified subset with all four arms fully re-paired on both
+input sources (tool-gate-registration-2.md, Task 3): the common-mode shift is +0.33…+0.58 px
+per arm (cancels in pairing by design, reported as the measured size of that term); the
+between-arm margin **C2−pretrained shrinks by +0.196 ± 0.157 px** on production inputs, and by
+**+0.620 ± 0.225 px on forest-heavy chips** — the class where the sources disagree most. The
+registered restatement criterion is point-estimate based and fired on that basis; we are not
+retrofitting a significance requirement after losing the bet (the forest-heavy component is
+robust at ~2.8 SE on its own). Ordering and every headline survive on both sources: C2 beats
+C1 and pretrained, C3−C2 stays null. **Practical consequence: on the production path C2's
+margin over pretrained is approximately −0.97 px, not the −1.167 px reported above, and the
+final report must quote the production-path figure — the production path is what the
+institution receives.**
+
+**Training-input provenance — a real train/serve skew with known direction.** Three stages,
+three provenances: training = Geofabrik **pre-fix** (simple-strategy extracts; the `-s smart`
+fix only ever patched the acceptance-chip cutter, never the tile cutter), evaluation archive =
+Overpass, production tool = Geofabrik post-fix. Training inputs therefore under-represent
+forest; production inputs contain it. The cost is measured: ~0.6 px on forest-heavy chips.
+Nothing was claimed falsely — this is a limitation, not a correction. The skew lands on
+precisely the class the institution intends to mask out ("orman maskesi"); that is fortunate,
+not designed, and is stated as such. Mitigation: the reliability layer is weighted against
+forest as planned; retraining on post-fix inputs is listed as future work
+([phase-f-backlog.md](phase-f-backlog.md)), not undertaken now.
 
 ## Consequence
 
