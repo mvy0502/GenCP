@@ -61,3 +61,8 @@ tubitak/outputs/*
 *.zip
 .venv/
 *.egg-info/
+
+# Turkish progress report: source markdown is versioned, rendered PDF and figure
+# binaries are reproducible from it and stay out of git (same policy as tubitak/outputs/).
+tubitak/rapor2/*.pdf
+tubitak/rapor2/gorseller/
