@@ -15,13 +15,27 @@
 | 10 | −0.610 ± 0.072 | −1.162 ± 0.063 | +0.552 ± 0.055 |
 | 20 | −0.487 ± 0.075 | −1.187 ± 0.065 | +0.700 ± 0.059 |
 
-**The registered cold-D signature is absent**: C1 at epoch 1 is already *better* than
-pretrained (−0.399, 6.3 SE) — the wrong sign for damage; no dip exists at any epoch.
-Formally the verdict is reading C ("in between") because C1 is not monotone (best at e5,
-degrades to e20) — but the shape decides the question: **the C1−C2 deficit exists from
-epoch 1 and WIDENS with continued adversarial training** (+0.55 → +0.70), the opposite of a
-cold-D transient, which would shrink as D warms. At most ~0.16 px of the early e1→e5
-narrowing could be a cold-D component. The control (C2) improves near-monotonically and
+**The registered bands did not cover the observed shape. The conclusion below is read off
+the curve, not matched to a band — stated plainly, because presenting it as a clean band hit
+would misrepresent how it was obtained.**
+
+The registration anticipated two shapes: (A) C1 dips below pretrained at epochs 1–2 then
+recovers → cold-D damage; (B) C1 improves monotonically and plateaus → loss-function
+reading. Neither occurred. C1 **never dips below pretrained at any epoch** — at epoch 1 it
+is already *better* by −0.399 px at 6.3 SE, the wrong sign for damage — and it is **not
+monotone** either: it improves to epoch 5 (1.806) then degrades to epoch 20 (2.075). The
+mechanical rules therefore return the residual category C ("anything between"), which is
+the registration admitting it did not foresee this curve.
+
+**What the curve shows, and why it still answers the question:** the diagnostic separating
+the two hypotheses is not monotonicity but the *direction of travel of the C1−C2 deficit*.
+A cold-D transient must SHRINK as D warms. The observed deficit exists from epoch 1
+(+0.546) and **WIDENS with continued adversarial training** (+0.700 at e20), minimum at e5
+(+0.384). At most ~0.16 px of the early e1→e5 narrowing is consistent with a cold-D
+component that then disappears; the dominant, growing term tracks the adversarial objective
+itself. This inference is **post-hoc with respect to the registered bands** and is offered
+as such — its strength comes from the sign and monotone growth of the deficit (t = 11.4 at
+e1, 11.8 at e20), not from a pre-committed rule. The control (C2) improves near-monotonically and
 plateaus. **Consequence: no warm-start rename; the confirmatory D-warm-up run is not
 triggered; "the adversarial term is a liability for GCP generation" survives as a
 loss-function statement** — with the B20 caveat and this sweep cited as its test. The

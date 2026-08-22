@@ -8,6 +8,18 @@
 #  - checkpoints_{pretrained,C1,C2,C3}.tar: every generator checkpoint including all
 #    per-epoch *_net_G.pth (irreplaceable: B1 scores them), latest_net_D, and
 #    DISCRIMINATOR_PROVENANCE.txt.
+# STORAGE POLICY (2026-08-22)
+#  Location 1: iCloud Drive - a SYNCED copy, not a backup: a local deletion propagates to it.
+#              Retained for convenience; not relied on as the independent copy.
+#  Location 2: private Kaggle dataset vedatyildirim/gencp-evidence-backup - the independent
+#              copy (server-side, not sync-coupled to this machine).
+#  A PUBLIC GitHub release was considered and NOT chosen. The generator weights derive from
+#  GenCP's CC-BY 4.0 weights (redistributable with attribution), but our fine-tuning inputs
+#  were rendered from OpenStreetMap under ODbL, and whether ODbL's share-alike obligation
+#  reaches model weights trained on ODbL-derived renders is unsettled. Public release
+#  therefore needs a separate licence decision; direct handover to the institution does not,
+#  and neither does private off-machine backup.
+#
 # Verify: (cd tubitak/data/evidence_backup && shasum -a 256 -c <this file's hash lines>)
 95dc68f213d6e095ad674e5eb6b96b6f350ffd9206f7bcdb5271c7998e17fa12  checkpoints_C1.tar
 507bfbf77b73e6b6d832cb1833b851f22c9b213bc02c71df60a86736ae1a2321  checkpoints_C2.tar
