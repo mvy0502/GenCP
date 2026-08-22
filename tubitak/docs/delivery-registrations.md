@@ -47,6 +47,20 @@ B3); same acceptance rules and statistics.
    the synthetic candidate is *in-domain* there. Mitigation registered in advance: the whole
    benchmark is repeated at a **Cappadocia extent (36SXJ, not a training tile)**, and the
    in-domain/out-of-domain pair is reported together. Neither is reported alone.
+
+   > **AMENDMENT, 2026-08-22, before any T1 number existed** (input measurement improved, no
+   > outcome seen — permitted revision; the original wording above is retained). The
+   > "in-domain" characterisation understates it: a direct check of the training manifest
+   > against the registered ODTÜ extent finds **14 of the 1,434 Ankara training chips overlap
+   > the extent**, i.e. the synthetic candidate was partly trained on the very scene used as
+   > the benchmark target. That is train-on-target contamination, not merely domain
+   > similarity. Consequences, fixed now: **(a) the Cappadocia extent (36SXJ — verified to
+   > contain no training pairs at all) becomes the PRIMARY benchmark**, not the mitigation;
+   > **(b) the ODTÜ GenCP rows are reported as CONTAMINATED and are not quotable as an
+   > accuracy ranking** — they are retained only to show the contamination's size by
+   > comparison with the clean site; **(c) the ODTÜ deliverable (T2) is unaffected as a
+   > workflow demonstration and artefact, but its README must quote an uncontaminated
+   > accuracy figure**, not an ODTÜ-measured one.
 2. **The basemap is natively ~0.5 m** and must be downsampled to 10 m. Justification: the
    institution's workflow consumes a *10 m* reference and upsamples it themselves
    ("10m'lik referansı, yeni görüntünün çözünürlüğüne çıkarıyor"), so comparing all
