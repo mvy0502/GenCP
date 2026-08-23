@@ -66,3 +66,7 @@ tubitak/outputs/*
 # binaries are reproducible from it and stay out of git (same policy as tubitak/outputs/).
 tubitak/rapor2/*.pdf
 tubitak/rapor2/gorseller/
+
+# Sonuç raporu: kaynak sürümlenir, PDF ve figürler üretilebilir olduğu için hariç
+tubitak/rapor3/*.pdf
+tubitak/rapor3/gorseller/
