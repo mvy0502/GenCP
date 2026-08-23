@@ -45,6 +45,8 @@
 import os, subprocess, shutil, sys, hashlib, datetime
 
 ARM  = os.environ.get("ARM", "C1")            # "C2" = L1-only arm; "C3" = C2 + ~20% EU pairs
+                                              # "C4" = GAN + LPIPS (C1 protocol); "C5" = LPIPS-only
+                                              # (C2 protocol). Registration: phase-c-lpips-registration.md
 ROOT = "/kaggle/working/GenCP"
 DATA = None                                   # resolved below by resolve_data_dir()
 SEED = 42                                     # fixed and recorded. The randomly initialised
@@ -279,6 +281,16 @@ if ARM in ("C2", "C3"):                       # L1-only: zero the GAN term (Kagg
     open(p, "w").write(s)
     print("[C2] adversarial term zeroed in the Kaggle copy of pix2pix_model.py", flush=True)
 
+if ARM == "C5":                               # LPIPS-only: same patch, LPIPS branch (Kaggle copy only)
+    p = f"{ROOT}/models/pix2pix_model.py"
+    s = open(p).read()
+    needle = "self.loss_G = self.loss_G_GAN + self.loss_G_LPIPS"
+    assert s.count(needle) == 1, "C5 patch target not found exactly once - refusing to run"
+    s = s.replace(needle,
+        "self.loss_G = 0.0 * self.loss_G_GAN + self.loss_G_LPIPS   # C5: LPIPS-only arm")
+    open(p, "w").write(s)
+    print("[C5] adversarial term zeroed in the Kaggle copy of pix2pix_model.py", flush=True)
+
 base = [sys.executable, f"{ROOT}/train.py",
         "--dataroot", f"{ROOT}/datasets/tr", "--name", ARM,
         "--model","pix2pix","--direction","BtoA","--netG","unet_256","--norm","batch",
@@ -286,7 +298,14 @@ base = [sys.executable, f"{ROOT}/train.py",
         "--checkpoints_dir","/kaggle/working/checkpoints",
         "--continue_train","--epoch","latest",
         "--save_epoch_freq","1","--display_id","-1","--print_freq","10"]
-if ARM == "C1":     # stage 1: low-LR joint warm-up (D catches up, G barely moves)
+if ARM in ("C4", "C5"):
+    # Reconstruction term = LPIPS instead of L1, by the repository's own stock flag:
+    # pix2pix_model.py replaces criterionL1 with LearnedPerceptualImagePatchSimilarity
+    # (net_type='vgg'), weighted by the same lambda_L1 (default 100). This is the
+    # published HR objective per the paper's Table 5 (Adversarial + lambda*LPIPS);
+    # see phase-c-lpips-registration.md, Gate 0.
+    base += ["--LPIPS"]
+if ARM in ("C1", "C4"):   # stage 1: low-LR joint warm-up (D catches up, G barely moves)
     banner(PROVENANCE)
     # --lr_policy step --lr_decay_iters 50: hold 2e-5 CONSTANT across both warm-up epochs.
     # The default 'linear' policy steps its lambda at the START of each epoch and with
@@ -300,7 +319,7 @@ if ARM == "C1":     # stage 1: low-LR joint warm-up (D catches up, G barely move
     banner(PROVENANCE)
     subprocess.run(base+["--lr","1e-4","--n_epochs","10","--n_epochs_decay","10",
                          "--epoch_count","3"], check=True, env=ENV)
-else:               # C2/C3: no adversarial gradient -> no warm-up needed.
+else:               # C2/C3/C5: no adversarial gradient -> no warm-up needed.
                     # C3 deliberately reuses C2's EXACT invocation (linear 10+10 schedule).
                     # A work-package instruction had also said "same lr_policy step /
                     # lr_decay_iters 50"; the author confirmed on 20 Aug 2026 that this was

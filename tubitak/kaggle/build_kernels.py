@@ -28,6 +28,9 @@ ARMS = {
     "C1": "GenCP Phase C - arm C1 (GAN + L1)",
     "C2": "GenCP Phase C - arm C2 (L1 only)",
     "C3": "GenCP Phase C - arm C3 (L1 only + EU mix)",
+    # C4/C5: the LPIPS half of the 2x2 loss factorial (phase-c-lpips-registration.md).
+    "C4": "GenCP Phase C - arm C4 (GAN + LPIPS)",
+    "C5": "GenCP Phase C - arm C5 (LPIPS only)",
 }
 
 
