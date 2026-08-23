@@ -49,3 +49,20 @@ deliverable; they remain open as research questions, and the honest ordering is 
 them would narrow, not eliminate, a gap that the availability argument — not the accuracy
 argument — has to justify.
 
+| 21 | E2's null is equally consistent with "currency does not help" and "OSM had not yet recorded the change" | positioning-results E2 | OPEN — separating them needs OSM edit-history analysis over the Istanbul tiles; recorded as future work, no claim rests on the distinction |
+| 22 | E3 measured cross-resolution matching with KLT only; Georef's own strategy may differ | positioning-results E3 | OPEN — DEFERRED: unmeasurable from here (the standing Georef limitation); the resolution-gap conclusion is stated as KLT-conditional |
+| 23 | E1's "usable scenes per year" is a lower bound (archive query capped at 100, every extent hit the cap) | positioning-results E1 | **CLOSED as immaterial**: the decisive figures (0% gaps, median 2 days, max 17) depend only on the most recent usable scene, not the count |
+| 24 | E3 basemap excluded as candidate because it was the target | positioning-registrations E3 | OPEN — DEFERRED: a coverage gap by construction; closing it needs a fourth independent high-res source |
+
+## Package review 2026-08-23 (standing practice 8, third pass)
+
+Read top to bottom. **Closed this package:** 23. **Newly opened and triaged:** 21, 22, 24 —
+all deferred with written reasons, none blocking the deliverable. **Materially reframed by
+E1–E3:** items 6, 7 and 10 (rare-class learning, sparse-EU regression, retraining on post-fix
+inputs) were already off the critical path after T1; E1 and E2 remove the last two arguments
+that could have put them back on it. They stay open as research questions with no route to
+the deliverable's value.
+
+**Standing state of the ledger:** 24 items, 8 closed, 16 open — every open item carries a
+written reason and none blocks the final report.
+
