@@ -2,7 +2,8 @@
 
 > **Conventions:** Δ = candidate − baseline; negative = candidate better. Registration:
 > [positioning-registrations.md](positioning-registrations.md), commit `122a7db`
-> (E3 amended `89df56a`), before any number. GenCP numbers **[DET path, POST inputs]**;
+> (E3 amended `89df56a`; E3-b is a **retrospective** disclosure — E3 is exploratory, see
+> corrections-log entry 16). GenCP numbers **[DET path, POST inputs]**;
 > real-imagery candidates carry their own provenance below.
 
 Three premises decided what the final report may claim. All three were tested. **All three
@@ -84,15 +85,30 @@ sub-extent. References upsampled once onto that grid. **Basemap excluded as a ca
 because it is the target** — stated per the registration; its absence is a recorded gap, not
 a judgement, since it was a strong candidate at 10 m.
 
-**Two failed passes are on the record before the working one** (registration amended at
-`89df56a` before any ranking was read):
-1. Displacements of 10–100 m: recovered by nobody — KLT is a local tracker and 20–200 px
-   exceeds its range at any window size (KARIOS's own `mean_x/mean_y` confirm ≈ 0).
-2. Enlarging the window to 64 px did **not** fix it — confirming the limit is KLT's tracking
-   range, not the correlation window. The first diagnosis ("capture range vs resolvable
-   scale") was therefore **partly wrong and is corrected here**.
+**E3 is exploratory, not confirmatory** (corrections-log entry 16; AMENDMENT E3-b in the
+registrations). Three configurations ran; only the first two were registered. Provenance
+reconstructed from the run artifacts (`tool_runs/E3/` — every KARIOS output carries its
+config JSON):
 
-Working pass — ground displacements KLT can track:
+1. **Pass 1 (registered, `122a7db`):** `matching_winsize` 15, nine displacement cases
+   (0.5/1/2.5/5 m sub-window + 10–100 m). The 10–100 m cases recovered nothing — KLT is a
+   local tracker and 20–200 px exceeds its range at any window size (KARIOS's own
+   `mean_x/mean_y` confirm ≈ 0). **The sub-window cases did recover.** The E3-a amendment's
+   description of this pass ("nothing was recovered and no ranking existed") is wrong for
+   them: `E3_summary.json`, containing the sub-window ordering, was written 69 s before the
+   amendment commit.
+2. **Pass 2 = E3-a (registered, `89df56a`):** `matching_winsize` 64, displacements
+   5/10/20 m. **Recovered nothing at any magnitude for any candidate** — the registered fix
+   failed. The E3-a diagnosis ("capture range vs resolvable scale") was **partly wrong**:
+   enlarging the window did not extend KLT's usable range here.
+3. **Pass 3 — the reported table, NOT registered:** back to `matching_winsize` 15,
+   displacement set 0.5/1/2/3/5 m. The 0.5/1/5 m cells are pass-1 cells (bit-identical
+   recovery rows — deterministic same-config rerun); 2 and 3 m are new targets run after
+   E3-a failed. This contradicts E3-a's "no other parameter changes" on both window and
+   displacement set. Disclosed retrospectively as AMENDMENT E3-b; the section is downgraded
+   to an exploratory consistency check accordingly.
+
+Reported pass (exploratory; `matching_winsize` 15):
 
 | reference | 0.5 m | 1 m | 2 m | 3 m | 5 m | mean | KLT pts |
 |---|---|---|---|---|---|---|---|
@@ -100,11 +116,16 @@ Working pass — ground displacements KLT can track:
 | real S2 (other date) | 0.523 | 1.112 | 2.173 | 2.803 | 4.984 | 2.319 m | 320 |
 | GenCP C2 | 0.994 | 0.986 | 2.543 | **2.529** | 4.844 | 2.379 m | 71 |
 
-**Ordering matches T1 in direction** (EOX ≥ real S2 > GenCP), so the T1 conclusion transfers
-to the operational setup. **But the magnitudes carry the more important message:** every
-candidate's error is comparable to the displacement applied — i.e. at a 0.5 m target, a 10 m
-reference recovers almost nothing below a few metres, *whichever* 10 m reference you use.
-The gap between candidates (2.06 vs 2.38 m) is small against their absolute errors.
+**Ordering matches T1 in direction** (EOX ≥ real S2 > GenCP) — read as an exploratory
+consistency check per the label above, not as confirmation that the T1 conclusion transfers.
+**The magnitudes carry the more important message:** every candidate's error is comparable
+to the displacement applied — i.e. at a 0.5 m target, a 10 m reference recovers almost
+nothing below a few metres, *whichever* 10 m reference you use. The gap between candidates
+(2.06 vs 2.38 m) is small against their absolute errors, **and no dispersion is reported
+yet**: these are means only, on 71 KLT points for the GenCP arm against 210/320 for the
+others. Until the bootstrap CIs registered in E3-b are computed, the 0.32 m gap between
+candidate means is not distinguishable from noise and no cross-candidate statement beyond
+"direction is consistent with T1" may be quoted from this table.
 
 **The operational consequence, which is useful to the institution regardless of our product:**
 when georeferencing 0.5–1 m imagery against any 10 m reference, expect metre-scale residuals

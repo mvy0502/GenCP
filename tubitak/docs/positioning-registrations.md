@@ -142,6 +142,40 @@ georeferencing error in the target is common to all candidates and cancels in th
 > now differs in matcher window as well as target resolution, and that is stated wherever the
 > two tables are read together. No other parameter changes.
 
+> **AMENDMENT E3-b, 2026-08-23 — retrospective disclosure, written AFTER the reported
+> results were read. This is not a preregistration and is not presented as one.**
+>
+> The reported E3 table was not produced by the E3-a configuration. What the run artifacts
+> show (`tool_runs/E3/`; each KARIOS output directory carries its config JSON):
+>
+> 1. E3-a (winsize 64, displacements 5/10/20 m) **recovered nothing at any magnitude for
+>    any candidate** (`E3a_summary.json`: err ≈ applied displacement throughout). The
+>    registered fix failed.
+> 2. The table in [positioning-results.md](positioning-results.md) comes from a **third,
+>    unregistered configuration**: winsize **15** (per `karios_gencp.json` in every `b_*`
+>    run directory), displacements **0.5/1/2/3/5 m** — it reverted the parameter E3-a
+>    changed and changed the parameter E3-a froze ("No other parameter changes" above).
+>    Its 0.5/1/5 m cells are pass-1 cells (bit-identical recovery rows in
+>    `E3b_recovery.csv` vs `E3_recovery.csv`); only the 2 and 3 m targets are new.
+> 3. E3-a's characterisation of pass 1 ("nothing was recovered and no ranking existed")
+>    was **wrong for the sub-window magnitudes**: they had recovered, and the ordering was
+>    on disk (`E3_summary.json`) 69 seconds before the E3-a commit. Details and timeline:
+>    [corrections-log.md](corrections-log.md) entry 16.
+>
+> **Consequence, binding on every document that cites E3:** E3 is **exploratory** — a
+> consistency check on direction, not a confirmatory measurement. It may be quoted only
+> with that label.
+>
+> **Registered next steps, in order:**
+> 1. **Bootstrap CIs on the existing E3 runs** from the per-point KLT fields
+>    (`kp_delta.json` / `KLT_matcher_*.csv`), before any cross-candidate interpretation.
+>    Interpretation rule, stated before computing: **if the candidate CIs overlap, the
+>    verdict is "the 0.5 m setup does not separate the arms"**, and that scope statement —
+>    not a ranking — is what gets reported.
+> 2. Only after step 1, and only if the arms separate: run **C1 (GAN+L1)** under this
+>    now-disclosed protocol (winsize 15, 0.5–5 m), as a fourth candidate, to test whether
+>    the loss-ablation result transfers to the operational resolution.
+
 **Registered question:** does the ordering match the 10 m-target benchmark? If yes, the T1
 conclusion transfers to the operational setup and we say so with evidence rather than
 assumption. If no, that is a significant finding and the positioning section is rewritten
