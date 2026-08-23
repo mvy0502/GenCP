@@ -123,6 +123,25 @@ probably transfers — but "probably" is not a measurement.
 apply a displacement to the target and measure recovery *of that displacement*. Any absolute
 georeferencing error in the target is common to all candidates and cancels in the comparison.
 
+> **AMENDMENT E3-a, 2026-08-23 — instrument fix, registered after the first pass failed to
+> measure anything and BEFORE any ranking was read.** The first E3 pass returned recovery
+> errors equal to the applied displacement for **every** candidate at every magnitude, i.e.
+> nothing was recovered and no ranking existed. Diagnosis: KLT's capture range is
+> `matching_winsize` 15 px, which at 0.5 m/px is **7.5 m on the ground**, while a 10 m
+> reference upsampled to that grid cannot resolve displacements below **~10 m**. The
+> recoverable window and the resolvable scale do not overlap, so the design could not
+> succeed for any candidate. **This is a broken instrument, not a result** — the same
+> category as the composition-based badlands rule and the K = 8 variance estimator, and it
+> is fixed the same way: the measurement is repaired, the bar is untouched, and the failed
+> first pass stays on the record.
+>
+> **Fix:** re-run with `matching_winsize` **64 px** (32 m capture at 0.5 m/px) and
+> displacement magnitudes of **5, 10, 20 m** — operationally realistic georeferencing errors
+> that a 10 m reference can actually resolve. The enlarged window is applied **identically to
+> every candidate**, so the within-E3 invariance holds; the cross-table comparison with T1
+> now differs in matcher window as well as target resolution, and that is stated wherever the
+> two tables are read together. No other parameter changes.
+
 **Registered question:** does the ordering match the 10 m-target benchmark? If yes, the T1
 conclusion transfers to the operational setup and we say so with evidence rather than
 assumption. If no, that is a significant finding and the positioning section is rewritten
