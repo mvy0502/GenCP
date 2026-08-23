@@ -2,8 +2,17 @@
 
 > **Conventions:** lower recovery error is better. Registration:
 > [delivery-registrations.md](delivery-registrations.md) §T1, commit `7e581b2`, amended
-> `e175c57` before any number existed. GenCP candidates: **[DET path, POST inputs]**;
-> real-imagery candidates carry their own provenance below.
+> `e175c57` before any number existed — **that claim, and every cell of both tables, has
+> been audited against the run artifacts and holds** ([T1-audit.md](T1-audit.md): timeline
+> verified, 70/70 cells recomputed from `T1_recovery_klt.csv`, run configs match the
+> registration). GenCP candidates: **[DET path, POST inputs]**; real-imagery candidates
+> carry their own provenance below.
+>
+> **Disclosed deviation (corrections-log entry 17):** the registration also names a
+> **secondary matcher, ORB+RANSAC (B3 harness). It was never run** — every number in this
+> document is a primary-matcher (KLT/KARIOS) result. The omission was found by the audit,
+> not disclosed at writing time. Running the ORB half remains open work; until then this
+> document is quotable as a primary-matcher result, not as the full registered protocol.
 
 **Design:** ground truth manufactured, not assumed — a known distortion is applied to a real
 Sentinel-2 target, and each candidate reference is asked to recover it. Truth exact by
