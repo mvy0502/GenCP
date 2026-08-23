@@ -70,3 +70,6 @@ tubitak/rapor2/gorseller/
 # Sonuç raporu: kaynak sürümlenir, PDF ve figürler üretilebilir olduğu için hariç
 tubitak/rapor3/*.pdf
 tubitak/rapor3/gorseller/
+
+# Yayınlanmış makalenin yerel kopyası (telifli, depoya girmez)
+tubitak/data/paper/
