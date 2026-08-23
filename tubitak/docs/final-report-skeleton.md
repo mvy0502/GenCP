@@ -52,7 +52,16 @@ QA preview (never an input). **HOLE: single-band output contract (B-package pend
 Reference-generation for their Georef (extent in → raster out), not GCP lists; two-arm
 hand-over (C2 primary, C1 supplied) with the condition table from Package A.
 
-**The honest positioning, from the T1 benchmark ([T1-benchmark-results.md](T1-benchmark-results.md)):**
+**The positioning section is now [positioning-results.md](positioning-results.md), written for
+verbatim lift.** Its three measurements (E1 availability, E2 currency, E3 operational
+resolution) all came back negative for the product: no availability niche (0/24 extents lack a
+cloud-free scene within 90 days; EOX covers 24/24), no currency niche (a five-year-old real
+image still beats current-OSM synthetic, interaction null at <0.5 SE), and at 0.5 m targets
+the resolution gap dominates the choice of source. **What the project delivers is a working
+generator, a corrected georeferencing path, a reliability ranking that measurably helps, and a
+measured account of where the premise does not hold.**
+
+**Supporting detail, from the T1 benchmark ([T1-benchmark-results.md](T1-benchmark-results.md)):**
 at a clean site, real 10 m imagery recovers known shifts far better than our synthetic
 reference (real S2 / EOX / basemap 0.003–0.24 px vs GenCP C2 0.54–3.97 px at 1–5 px
 displacement) [DET, POST]. **Where real 10 m imagery exists — including free Sentinel-2 and

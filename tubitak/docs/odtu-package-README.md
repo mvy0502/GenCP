@@ -38,14 +38,30 @@ That number is flattering and we say so: part of this area was in the model's fi
 data, so treat the 0.59 px urban figure above — measured on chips that were not — as the
 representative one.
 
-**Honest comparison, measured by us on an independent site:** in a known-shift recovery test —
+**Honest comparison, measured by us on independent sites.** In a known-shift recovery test —
 distort a real image by a known amount, see which reference recovers it — a **real Sentinel-2
-scene from a different date recovered 1–2 px shifts to within 0.03 px, and this synthetic
-reference to within 0.5–1.0 px.** Free EOX cloudless and standard basemaps performed like the
-real Sentinel-2. **Where real 10 m imagery is available for your area, we recommend using it
-instead.** The synthetic reference is worth using when there is no usable cloud-free
-acquisition, or when you need the reference to reflect *current OpenStreetMap content* (new
-roads and buildings) rather than the state of older imagery.
+scene from a different date recovered a 1 px shift to within 0.03 px, and this synthetic
+reference to within 0.54 px.** Free EOX cloudless and standard basemaps performed like the
+real Sentinel-2.
+
+We then tested the two reasons you might still prefer a synthetic reference, and **neither
+held up**:
+
+- *Availability.* Across 24 stratified extents in Turkey, there was **no** case without a
+  cloud-free Sentinel-2 scene: the median extent had one from **2 days** earlier, the worst
+  from 17 days. The free EOX cloudless mosaic covered **every** extent.
+- *Currency.* At a rapidly developing area of Istanbul, a **five-year-old** Sentinel-2 image
+  still registered a 2026 target better than this synthetic reference — including in the
+  tiles that had changed the most.
+
+**Our recommendation is therefore to use real imagery wherever it exists for your area, which
+in Turkey appears to be essentially everywhere.** This synthetic reference is worth using when
+imagery genuinely is not available to you, when licensing prevents using what exists, or when
+you specifically want to match against *mapped features* rather than observed ground.
+
+If you are georeferencing 0.5–1 m imagery, note that **any** 10 m reference — ours, Sentinel-2,
+or EOX — leaves metre-scale residuals, because the reference's resolution sets the limit.
+Choose on availability, not on the source's identity.
 
 **Known cosmetic artefact:** 5 pixels in the extreme north-west corner (rows 0–2, cols 0–2)
 are nodata (value 0) — an edge effect of resampling the outermost tile onto the output grid.
