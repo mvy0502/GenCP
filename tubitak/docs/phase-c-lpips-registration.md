@@ -193,7 +193,14 @@ main-stage epochs), the run stops and reports its curves, no rescue by improvisa
 > **AMENDMENT C45-a, 2026-08-24 — retrospective re-registration of the stop rule, written
 > AFTER the runs completed and their results were read. This is not a preregistration and is
 > not presented as one. The original rule above is preserved verbatim and is recorded as
-> FAILED, not as satisfied.**
+> FAILED, not as satisfied. The replacement rule below binds FUTURE runs only and is not
+> applied to the completed arms — scope statement at the end of this amendment.**
+>
+> *Revised 2026-08-24, second pass: the first version of this amendment argued from the
+> two-epoch window, which is confounded (warm-up presence is collinear with discriminator
+> presence), and stated C1 and C4 as behaving alike inside it, which they do not. The
+> argument now rests on the sustained main-stage trend, the C1/C4 difference is stated, and
+> the replacement rule is scoped to future runs. Nothing previously disclosed is withdrawn.*
 >
 > **What happened.** The coarse half of the stop rule above — "G_LPIPS rising over the first
 > two main-stage epochs" — **fired**. C4's per-epoch G_LPIPS means are 56.24, 55.48
@@ -203,24 +210,60 @@ main-stage epochs), the run stops and reports its curves, no rescue by improvisa
 > is a separate reporting error and is **not** covered by this amendment — see
 > corrections-log entry 27.
 >
-> **Why the rule is mis-specified, measured across all four arms.** The rule treats a rising
-> reconstruction loss as a divergence symptom. In an arm carrying an adversarial term it is
-> the expected signature of the discriminator competing with the reconstruction term. The
-> four arms separate exactly on the presence of a discriminator, in the rule's own window
-> (first two main-stage transitions) and over the whole main stage:
+> **What the registered rule measured — the two-epoch window, and why it cannot carry the
+> argument.** These are the numbers that fired the rule, and they are recorded as the
+> description of what the rule looked at:
 >
-> | arm | discriminator | first two main-stage transitions | whole main stage |
-> |---|---|---|---|
-> | C1 (GAN + L1) | yes | 33.582 → **34.224** → 33.858 | +1.16%, slope −0.001/epoch (flat) |
-> | C4 (GAN + LPIPS) | yes | 54.374 → **54.650** → **55.016** | **+2.50%**, slope +0.056/epoch |
-> | C2 (L1 only) | no | 30.894 → 30.404 → 29.585 | **−7.90%**, slope −0.090/epoch |
-> | C5 (LPIPS only) | no | 53.013 → 51.283 → 50.743 | **−7.54%**, slope −0.131/epoch |
+> | arm | discriminator | warm-up | first two main-stage transitions | behaviour in the window |
+> |---|---|---|---|---|
+> | C1 (GAN + L1) | yes | yes | 33.582 → **34.224** → 33.858 | **rise then fall** |
+> | C4 (GAN + LPIPS) | yes | yes | 54.374 → **54.650** → **55.016** | **rises at both** |
+> | C2 (L1 only) | no | no | 30.894 → 30.404 → 29.585 | falls at both |
+> | C5 (LPIPS only) | no | no | 53.013 → 51.283 → 50.743 | falls at both |
 >
-> Both adversarial arms fail to reduce their reconstruction loss; both non-adversarial arms
-> reduce it by roughly 8%. **A gate that fires precisely when the treatment under test is
-> working is mis-specified.** Under the rule as written, C1 — the phase-C arm this package
+> **This window is confounded and cannot be used as evidence.** Warm-up presence is perfectly
+> collinear with discriminator presence in this design: C1 and C4 carry the 2-epoch warm-up at
+> 2e-5, C2 and C5 do not. The first two main-stage transitions are therefore *exactly* where
+> the learning rate jumps **2e-5 → 1e-4, a 5× increase**, in precisely the two arms that show
+> a rise and in neither of the two that do not. The window cannot separate "the adversarial
+> term competes with the reconstruction term" from "a 5× LR jump causes a transient bump".
+> Note also that the two adversarial arms do **not** behave alike inside it: only C4 rises at
+> both transitions; C1 rises then falls.
+>
+> **The argument rests on the sustained main-stage trend instead.** Over all eighteen
+> main-stage epochs, after any LR transient has had time to decay:
+>
+> | arm | discriminator | main stage | trend slope | recovers below its main-stage start? |
+> |---|---|---|---|---|
+> | C1 (GAN + L1) | yes | 33.582 → 33.970, **+1.16%** | −0.001/epoch (flat, no trend) | **yes** — 4 epochs below it; minimum **33.118 at epoch 16**, −0.46 below the start |
+> | C4 (GAN + LPIPS) | yes | 54.374 → 55.732, **+2.50%** | +0.056/epoch (rising) | **no — 0 of 18 epochs**; the main-stage start *is* the run minimum |
+> | C2 (L1 only) | no | 30.894 → 28.455, **−7.90%** | −0.090/epoch | n/a (falling throughout) |
+> | C5 (LPIPS only) | no | 53.013 → 49.014, **−7.54%** | −0.131/epoch | n/a (falling throughout) |
+>
+> **Neither adversarial arm reduces its reconstruction loss; both non-adversarial arms reduce
+> it by roughly 8%.** That contrast is measured over the whole main stage and does not depend
+> on the confounded window.
+>
+> **The transient explanation is refuted for C4 and not for C1, and the two must be written
+> differently.** For C4 the discriminating detail is that its main-stage start of 54.374 is
+> the run minimum: across twenty epochs it **never returns below where it began**. An LR-jump
+> transient recovers below its starting value within a few epochs; this one never does, and
+> instead drifts upward at +0.056/epoch (not monotonically — 13 of its 19 transitions
+> are upward — but with no return to the starting level at any epoch). For **C1 the same test fails**: C1 does
+> recover below its main-stage start, first at epoch 7 (33.536) and deepest at epoch 16
+> (33.118, −0.46 below the start). C1's evidence is therefore the weaker one — not a
+> sustained rise but a **flat** series with no trend, against its paired L1 arm C2 falling
+> 7.90% under an otherwise identical schedule. So: **the non-transient reading is established
+> for C4; for C1 the claim is only that the reconstruction loss fails to fall, not that it
+> rises.**
+>
+> **The conclusion that survives, stated at the strength the evidence supports.** A gate that
+> treats "reconstruction loss not falling" as a divergence symptom fires on the expected
+> behaviour of an arm whose objective contains a competing term — i.e. **it fires precisely
+> when the treatment under test is working**. That is a mis-specification, and it is why the
+> run was allowed to stand. Under the rule as written, C1 — the phase-C arm this package
 > replicates — should also have been stopped at its epoch 4; it was not, in a package
-> registered five days earlier. The rule has never been applied literally.
+> registered five days earlier. The coarse half has never been applied literally.
 >
 > **Re-registered rule, for any future arm carrying an adversarial term.** The coarse half is
 > replaced by: *the run stops if the per-epoch reconstruction loss rises more than **10%**
@@ -234,12 +277,32 @@ main-stage epochs), the run stops and reports its curves, no rescue by improvisa
 > [phase-c-config.md](phase-c-config.md)) is unchanged and remains the operative divergence
 > test.
 >
-> Applied retrospectively to the four completed arms, largest running excursion:
-> **C1 +3.66%, C4 +2.50%, C2 +3.14%, C5 +0.73%** — no arm reaches 10% at any epoch, so no
-> arm stops, and the rule no longer separates the adversarial arms from the others.
-> **This is stated as the arithmetic it is, after the fact; it is not evidence that the new
-> rule was well chosen, only that it is explicit and that it does not fire on a working
-> treatment.**
+> **C45-a binds FUTURE runs only. It does not retroactively bless the completed arms.**
+> Stated in those words because the alternative reading is the one a sceptical reader will
+> reach on their own, and they would be right to: the 10% threshold **was chosen with all four
+> completed arms' values already known, and all four pass it**. A gate that no arm triggers,
+> whose threshold was set after seeing the arms, is a gate adjusted to pass — which is exactly
+> what **standing practice 4** exists to forbid ("failed gates reported, never adjusted;
+> mis-specified gates re-registered with the original preserved" — both halves of that
+> practice are in play here, and only the second one licenses this amendment). So the scope is fixed here rather than left
+> ambiguous:
+>
+> - **The completed seed-42 arms stand on the ORIGINAL rule**, which fired and was not acted
+>   on. Their defence is the mis-specification argument above plus the epoch-2 and epoch-5
+>   counterfactual below — **not** this amendment. C45-a is not evidence about them and is not
+>   offered as any.
+> - **C45-a is not a blind pre-specification** and must never be described as one. Its
+>   threshold is calibrated, not registered-in-advance; the numbers it was calibrated against
+>   are printed below so the calibration is visible rather than implied.
+> - **Its first genuine test is the next set of runs** — an arm whose curves nobody has seen.
+>   Until then it has been tested against nothing.
+>
+> Calibration values, printed so the reader can see what the threshold was set against —
+> largest running excursion in each completed arm: **C1 +3.66%, C4 +2.50%, C2 +3.14%,
+> C5 +0.73%.** No arm reaches 10% at any epoch, so under C45-a no arm would stop, and the
+> rule no longer separates the adversarial arms from the others. **This is the arithmetic it
+> is, after the fact; it is not evidence that the new rule was well chosen, only that it is
+> explicit and that it does not fire on a working treatment.**
 >
 > **The counterfactual that makes the conclusion independent of this decision.** Had C4 been
 > stopped at epoch 5 under the original rule, the registered primary band would still have

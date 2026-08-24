@@ -315,10 +315,25 @@ just not the test the registration names, and the substitution is not disclosed 
 
 **Three things keep this from being worse than it is, and all three are load-bearing.**
 
-1. **It is inherited, not invented for C4.** C1's own G_L1 rose over its first two
-   main-stage epochs too — 33.58 → 34.22 → 33.86 — and C1 was likewise not stopped. The
-   coarse half was never applied literally in phase C either. C4/C5 inherited an ambiguous
-   rule and resolved it the same way the original run had.
+1. **It is inherited, not invented for C4.** C1's own G_L1 rose at the first of its two
+   main-stage transitions too — 33.582 → **34.224** → 33.858, a **rise then a fall**, not
+   C4's rise at both — and C1 was likewise not stopped. The coarse half was never applied
+   literally in phase C either. C4/C5 inherited an ambiguous rule and resolved it the same
+   way the original run had.
+
+   *Revised 2026-08-24, second pass:* the window these numbers come from is **confounded**
+   and is recorded as the description of what the registered rule measured, not as evidence
+   for why it is mis-specified. Warm-up presence is perfectly collinear with discriminator
+   presence (C1 and C4 have the 2-epoch 2e-5 warm-up; C2 and C5 do not), so the first two
+   main-stage transitions are exactly where the learning rate jumps 2e-5 → 1e-4. The
+   mis-specification argument rests instead on the **sustained main-stage trend** — neither
+   adversarial arm reduces its reconstruction loss (C1 +1.16%, flat; C4 +2.50%, rising) while
+   both non-adversarial arms reduce it by ~8% (C2 −7.90%, C5 −7.54%) — and, for C4 alone, on
+   the fact that its main-stage start is the run minimum with **0 of 18 main-stage epochs
+   below it**, which an LR transient would not produce. **C1 does recover below its start**
+   (first at epoch 7, deepest 33.118 at epoch 16, −0.46), so that half of the argument is
+   C4's alone. Full statement: AMENDMENT C45-a in
+   [phase-c-lpips-registration.md](phase-c-lpips-registration.md).
 2. **The rule as written has no threshold.** "Rising" is unquantified; C4's rise over those
    two epochs is +0.28 then +0.37, i.e. 0.5% and 0.7%, against a series whose full-run
    spread is 54.37–56.24. A rule that fires on any positive difference would have stopped
@@ -372,7 +387,7 @@ while B3's harness is gone. Recorded, not corrected; no band depends on it, sinc
 | R4 — fine-tuning not worth doing | scored, reported as not triggered | ✓ |
 | checkpoint discipline: epoch 20 only, `latest_net_G.pth` tensor-equal to `20_net_G.pth` for both arms | **verified here: 20/20 per-epoch checkpoints and 82/82 tensors equal for C1, C2 and C3** | ✓ |
 | seed 42, same schedule family, same KARIOS config | preflight lines confirm seed 42 both arms; KARIOS config identity confirmed via the `8eaa5bd8…` hash shared by every downstream package | ✓ |
-| C1's stop rule, coarse half: "L1 rising over the first two main-stage epochs" | **G_L1 rose 33.58 → 34.22 over exactly those epochs and the run continued** — the same deviation as C4, in its original instance | **✗ — entry 26** |
+| C1's stop rule, coarse half: "L1 rising over the first two main-stage epochs" | **G_L1 rose 33.582 → 34.224 at the first of those transitions and the run continued** — the same deviation as C4, in its original instance. C1 then *falls* to 33.858 (rise-then-fall, unlike C4's rise at both), and over the main stage C1 is flat (+1.16%, slope −0.001/epoch) rather than rising, recovering below its start at epoch 7 and reaching 33.118 at epoch 16 | **✗ — entry 26** |
 
 **No registered band in phase-c went scored-but-unreported.** Every one of R1–R4 appears in
 the results document with an explicit verdict, including the two that went against the
