@@ -492,10 +492,46 @@ invariances does not know what it is measuring:
 | evaluation harness | `tubitak/scripts/c45_eval/`, committed at `40cde9b`, unmodified; any change to it before or during this package invalidates the comparison and must be registered |
 | evaluation set | the same 130 Ankara chips, same warp geometry (GSD 10.0390625, 228-grid), same BT.601 conversion |
 | matcher | KARIOS, config `karios_gencp.json`, sha256 `8eaa5bd8cdae066d2580a4105169262f873523cadf0b450a8aa134a31ed4ca84` |
-| inference | STOCH single draw per chip per arm per seed |
+| inference | STOCH single draw per chip per arm per seed, **dropout shim `_shims/s42` for every training seed** — see AMENDMENT SEED-a below |
 
 **The one thing that is not identical: the training seed**, and through it the cold-D draw in
 the adversarial arms. That is the manipulated factor.
+
+> **AMENDMENT SEED-a, 2026-08-24 — the inference dropout seed is held at 42 for every
+> training seed. Dated, with the original row preserved above (it read "STOCH single draw per
+> chip per arm per seed" and nothing more). Written and committed BEFORE any seed is
+> evaluated.**
+>
+> **This makes explicit what the invariance table already commits to; it is not a new
+> choice.** The table's closing sentence says the training seed is the only thing that
+> varies. Letting the inference dropout draw follow the training seed would vary **two**
+> things at once — what was trained and how it was sampled at test time — and would
+> contradict the invariance this registration is built on. Seed 42's evaluation used shim
+> `_shims/s42`; every replication seed uses the same shim, so the evaluation draw is common
+> across seeds and the training seed stands alone as the manipulated factor.
+>
+> **The statistical reason.** The across-seed variance is the quantity every registered
+> reading is inferred from, and the question is *whether the effect survives retraining*. That
+> variance must therefore contain **training variance only**. Varying the evaluation draw as
+> well would inflate it with measurement noise, widening every interval and answering a
+> blurrier question — "does the effect survive retraining *and* resampling" — which is not the
+> question registered. With df = 1 at stage 1 there is no variance budget to spend on noise
+> that the design does not need.
+>
+> **The counter-argument, recorded rather than only the conclusion: a common draw cannot
+> reveal draw-dependence.** If a result held only under one particular dropout draw, this
+> design would not detect it. That risk is bounded by the evidence that exists: the
+> deterministic-mode measurement was **score-neutral at largest |Δ| = 0.040 ± 0.077 px
+> (n = 30)** ([paper-context-addendum.md](paper-context-addendum.md) §8), which rules out
+> shifts larger than about **0.15 px** — against a primary effect of **0.487 px**. Draw
+> dependence large enough to manufacture that effect is excluded by a measurement already in
+> the record; draw dependence smaller than 0.15 px cannot account for it.
+>
+> **This is a scoping decision, not a closed door.** Draw-dependence remains cheaply
+> answerable later: K seeded draws over the **existing** checkpoints, no GPU training, exactly
+> the standing-practice-2 procedure already used for the B2 production row. If it is ever
+> wanted it can be added as its own registered question, and nothing in this package forecloses
+> it.
 
 **Known asymmetries, inherited and disclosed rather than removed** (they are part of the
 comparison being replicated, identical in kind and size to seed 42's): the adversarial arms
