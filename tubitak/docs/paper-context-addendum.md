@@ -9,12 +9,20 @@ traceable to a committed document; where a number is uncertain or contested, it 
 
 **Repository:** `github.com/mvy0502/GenCP`, branch `tubitak-tr`, directory `tubitak/`
 
-**Repository identity.** This document is the same text the repository carries as
-`tubitak/docs/paper-context-addendum.md`. That copy is **untracked** as of 24 August 2026, which
-means §22's non-monotonicity caveat and §16's prior-art record have no commit timestamp and
-cannot be cited as predating anything — the same preservation failure as corrections-log entries
-10, 13 and 22, in document form rather than artifact form. Commit it, and settle on one name for
-it; two names for one handoff document is its own hygiene problem.
+**Repository identity.** This document is the text the repository carries as
+`tubitak/docs/paper-context-addendum.md` — the settled name, used by every document that
+links here. It was **untracked until commit `84414d7`** (24 August 2026); corrections-log
+entry 23 records why that mattered, namely that §22's non-monotonicity caveat and §16's
+prior-art record had no commit timestamp and so could not be cited as predating anything.
+
+**Provenance.** Sections 14–23 were appended **2026-08-23** as an addendum to sections 1–13,
+which existed as a separate file; the two were merged into this single 1–23 text on
+**2026-08-24** and committed in `84414d7`. This note replaces the addendum header
+("ADDENDUM — sections 14-22 / Appended 2026-08-23") that the merge obsoleted and that was
+the only record of the append date. **The 2026-08-23 date is carried forward from that
+header and is not verifiable by commit timestamp** — the file was untracked at the time, so
+nothing in the repository proves it. Treat it as a statement of recollection, not as a dated
+claim this repository can evidence.
 
 **Revision 2026-08-24.** Updated after the B2/B3 registration audit and the first related-work
 pass. Changed since the previous version: §4 (pretrained edge ratio added; the point-count
@@ -606,9 +614,7 @@ report 0 citations as of 2026-08-24 (published 15 July 2026). Google Scholar is 
 automated access and MDPI's own "Cited By" panel could not be retrieved; one manual look is the
 only remaining check.
 
-**Full positioning pass, with citations and DOIs:** `tubitak/docs/related-work.md`. **Location
-caveat, 2026-08-24: this file was drafted outside the repository and is not committed yet; the
-pointer dangles until it is.** It also supplies the
+**Full positioning pass, with citations and DOIs:** `tubitak/docs/related-work.md`. It also supplies the
 remote-sensing citations a GRSL reviewer expects, the precedent for the blur mechanism
 (Pan 2013 on bias reduction by Gaussian pre-filtering; Berg & Malik 2001 on geometric blur),
 the Cramér-Rao caveat that must be pre-empted in one sentence, and the 2019 SAR-to-optical

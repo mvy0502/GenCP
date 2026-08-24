@@ -1,6 +1,6 @@
 # Related work and positioning
 
-Status: first full pass, 2026-08-24. Closes `makale-context.md` §16's "not done at all".
+Status: first full pass, 2026-08-24. Closes `paper-context-addendum.md` §16's "not done at all".
 Four independent survey legs were run: perception-distortion theory, hallucination
 measurement, upstream citation tracking, and the remote-sensing matching neighbourhood.
 Every item below was read or fetched; items that could not be verified are marked.
@@ -159,7 +159,7 @@ maximise, never as a diagnostic. The same pattern holds across the optical-SAR m
 literature. None of it audits the generated content for invention.
 
 **The blur mechanism now has precedent, which it did not have when the claim was drafted.**
-`makale-context.md` §5 states the mechanistic reading (a blurred template gives a broad
+`paper-context-addendum.md` §5 states the mechanistic reading (a blurred template gives a broad
 correlation peak, invented structure gives a sharp peak in the wrong place, and a broad peak
 in the right place localises better) as our own observation. No remote-sensing registration
 paper states it. But two adjacent fields do, and citing them turns an isolated assertion into
@@ -231,7 +231,7 @@ released code corroborates: `gan_mode` default vanilla (BCE-with-logits), `lambd
 100, LPIPS with VGG backbone, `loss_G = loss_G_GAN + loss_G_LPIPS`. This closes corrections-log
 entry 18 from the other direction: the published objective and our C4 are the same objective.
 
-**Bibliography audit, with one qualification to `makale-context.md` §16.** The complete
+**Bibliography audit, with one qualification to `paper-context-addendum.md` §16.** The complete
 54-entry reference list was obtained from the Crossref deposit. Confirmed: no
 perception-distortion literature, no GAN-hallucination literature, and the word
 "hallucination" never appears; the only artifact discussion is "blurring artifacts".
@@ -300,7 +300,7 @@ example than the others because it is internally self-refuting.
 
 ## 8. What is still required before novelty language can harden
 
-`makale-context.md` §16's rule stands: **"to our knowledge", never "first"**, until the
+`paper-context-addendum.md` §16's rule stands: **"to our knowledge", never "first"**, until the
 following are done.
 
 - A structured Scopus or Web of Science query. This is the one leg of §16 not yet executed and
