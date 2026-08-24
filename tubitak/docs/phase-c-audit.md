@@ -174,11 +174,38 @@ band quantity, and C1's edge ratio clears the "near 1.0 ≥ 0.8" threshold eithe
 **Defect 3 — half-integer point-count medians printed as integers, in both packages.** With
 an even number of chips the median point count can be a half-integer; the harness prints it
 with `:.0f`, which rounds to even, and the documents carry the rounded value with no note.
-Six cells across the two registrations: C4 ank130 **61.5 → 62**; secondary row C1
-**163.5 → 164**, C4 **155.5 → 156**, C5 **224.5 → 224** (down, while the other two go up —
-the inconsistency is banker's rounding, not an error); and in phase-c-results.md the
-pretrained Q2 **37.5 → 38** and Q3 **51.5 → 52**. Systematic and explicable, disclosed here
-rather than corrected. → folded into **entry 24**.
+Systematic and explicable. **Enumerated here and deliberately not corrected**, because how
+they should be stated depends on a decision the audit should not make alone — see below.
+→ folded into **entry 24**.
+
+**Complete list of half-integer point-count medians, 2026-08-24.** Every point-count median
+in every artifact behind a reported table was checked; ten are half-integers, six of them in
+a printed table:
+
+| document | table | arm | artifact value | as printed |
+|---|---|---|---|---|
+| phase-c-lpips-results.md | ank130 primary panel | C4 | **61.5** | 62 |
+| phase-c-lpips-results.md | 20-chip secondary | C1 | **163.5** | 164 |
+| phase-c-lpips-results.md | 20-chip secondary | C4 | **155.5** | 156 |
+| phase-c-lpips-results.md | 20-chip secondary | C5 | **224.5** | **224** (down) |
+| phase-c-results.md | pretrained per-stratum | Q2 | **37.5** | 38 |
+| phase-c-results.md | pretrained per-stratum | Q3 | **51.5** | 52 |
+| — artifact only, not printed anywhere — | | | | |
+| headline-results.md B2 (BT.601) | — | C1 | 163.5 | not printed |
+| headline-results.md B2 (RGB) | — | pretrained / C1 / C3 | 78.5 / 136.5 / 181.5 | not printed |
+| B1 | — | C1_e10 / C2_e10 | 62.5 / 72.5 | not printed |
+
+C5 rounds down while C1 and C4 round up because `:.0f` rounds half to even; it is consistent,
+not erratic.
+
+**The load-bearing argument is unaffected, and this is the reason not to touch these
+blind.** The point-count claim the paper leans on — *"C5 produces more surviving matches than
+C2 (median 88 vs 72) and still scores worse"*, the sentence that closes the fewer-but-better
+reviewer objection — rests on the ank130 panel, where **both values are exact integers**
+(C5 88.0, C2 72.0). No half-integer enters it. The same panel's C4 (61.5) is not part of that
+comparison. So the decision about how to state half-integers is a presentational one that can
+be taken deliberately — print one decimal, or note the convention once — without any risk to
+the argument, which is why it is listed rather than silently rewritten.
 
 **Training-curve prose, checked against the per-epoch log means:** C4's main stage
 54.37 → 55.73 = **+2.50%** ✓, 54.37 **is** the run minimum ✓, warm-up epoch 1 = 56.24 ✓,

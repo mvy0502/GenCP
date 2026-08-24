@@ -190,6 +190,64 @@ version is recorded from the log and reported; C4's stop rule is C1's with the t
 renamed — if G degrades early despite the warm-up (G_LPIPS rising over the first two
 main-stage epochs), the run stops and reports its curves, no rescue by improvisation.
 
+> **AMENDMENT C45-a, 2026-08-24 — retrospective re-registration of the stop rule, written
+> AFTER the runs completed and their results were read. This is not a preregistration and is
+> not presented as one. The original rule above is preserved verbatim and is recorded as
+> FAILED, not as satisfied.**
+>
+> **What happened.** The coarse half of the stop rule above — "G_LPIPS rising over the first
+> two main-stage epochs" — **fired**. C4's per-epoch G_LPIPS means are 56.24, 55.48
+> (warm-up), then **54.37 → 54.65 → 55.02** across the first two main-stage transitions. The
+> run was not stopped. That the run continued is dealt with here; that
+> [phase-c-lpips-results.md](phase-c-lpips-results.md) reported the rule as "not triggered"
+> is a separate reporting error and is **not** covered by this amendment — see
+> corrections-log entry 27.
+>
+> **Why the rule is mis-specified, measured across all four arms.** The rule treats a rising
+> reconstruction loss as a divergence symptom. In an arm carrying an adversarial term it is
+> the expected signature of the discriminator competing with the reconstruction term. The
+> four arms separate exactly on the presence of a discriminator, in the rule's own window
+> (first two main-stage transitions) and over the whole main stage:
+>
+> | arm | discriminator | first two main-stage transitions | whole main stage |
+> |---|---|---|---|
+> | C1 (GAN + L1) | yes | 33.582 → **34.224** → 33.858 | +1.16%, slope −0.001/epoch (flat) |
+> | C4 (GAN + LPIPS) | yes | 54.374 → **54.650** → **55.016** | **+2.50%**, slope +0.056/epoch |
+> | C2 (L1 only) | no | 30.894 → 30.404 → 29.585 | **−7.90%**, slope −0.090/epoch |
+> | C5 (LPIPS only) | no | 53.013 → 51.283 → 50.743 | **−7.54%**, slope −0.131/epoch |
+>
+> Both adversarial arms fail to reduce their reconstruction loss; both non-adversarial arms
+> reduce it by roughly 8%. **A gate that fires precisely when the treatment under test is
+> working is mis-specified.** Under the rule as written, C1 — the phase-C arm this package
+> replicates — should also have been stopped at its epoch 4; it was not, in a package
+> registered five days earlier. The rule has never been applied literally.
+>
+> **Re-registered rule, for any future arm carrying an adversarial term.** The coarse half is
+> replaced by: *the run stops if the per-epoch reconstruction loss rises more than **10%**
+> above the **lowest value seen so far in the main stage** (a running minimum, not a
+> hindsight one), **sustained over two consecutive epochs**.* Threshold and window are
+> stated because "rising" has no threshold and fires on any positive difference; the running
+> minimum is specified because a hindsight minimum would score an arm's own first epoch as an
+> excursion — under that reading C2 and C5 would sit at +9.40% and +8.47% purely for
+> starting high and falling, which is the opposite of what the gate is for. The sharp half
+> (a generator-loss spike within the first few hundred iterations, the cold-D signature,
+> [phase-c-config.md](phase-c-config.md)) is unchanged and remains the operative divergence
+> test.
+>
+> Applied retrospectively to the four completed arms, largest running excursion:
+> **C1 +3.66%, C4 +2.50%, C2 +3.14%, C5 +0.73%** — no arm reaches 10% at any epoch, so no
+> arm stops, and the rule no longer separates the adversarial arms from the others.
+> **This is stated as the arithmetic it is, after the fact; it is not evidence that the new
+> rule was well chosen, only that it is explicit and that it does not fire on a working
+> treatment.**
+>
+> **The counterfactual that makes the conclusion independent of this decision.** Had C4 been
+> stopped at epoch 5 under the original rule, the registered primary band would still have
+> fired: the dose-response sweep gives **C4 − C5 = +0.441 ± 0.039 px (11.3 SE) at epoch 5**
+> and **+0.254 ± 0.040 px (6.4 SE) at epoch 2**. The effect is present at every epoch
+> measured, at ≥ 6 SE throughout. Nothing in the package's conclusions turns on whether the
+> run was stopped.
+
 ## Runs
 
 Two fine-tuning runs on Kaggle (same pipeline as C1/C2/C3;

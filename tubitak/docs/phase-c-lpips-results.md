@@ -19,12 +19,12 @@ two pressures act on the same lever, not additively.
 | | C4 (GAN + LPIPS) | C5 (LPIPS only) |
 |---|---|---|
 | kernel | `vedatyildirim/gencp-phase-c-arm-c4-gan-lpips` v1 | `vedatyildirim/gencp-phase-c-arm-c5-lpips-only` v1 |
-| wall time (T4) | ≈ 3 h 25 m | ≈ 3 h 40 m |
+| wall time (T4) | **3 h 28 m** (12,486.8 s, measured from the log's elapsed field; corrected 2026-08-24 from "≈ 3 h 25 m") | **3 h 33 m** (12,835.9 s; corrected from "≈ 3 h 40 m") |
 | protocol | C1's exactly: 2-epoch warm-up 2e-5 (step policy, **held — verified in log**) + 10+10 linear 1e-4 | C2's exactly: 10+10 linear 1e-4 |
 | loss flags | `LPIPS: True`, `gan_mode: vanilla`, λ = 100 | same + `[C5] adversarial term zeroed` (patch fired, log line) |
 | seed | 42 (seed-hook line in log, both stages) | 42 |
 | torchmetrics | **1.9.0** (image default; paper's evaluation used 0.11.0 — disclosed per registration) | 1.9.0 |
-| stop rule | **not triggered**: G_LPIPS at main-stage start (54.4) is the run minimum, below warm-up (56.2) — no cold-D spike. Mild upward drift 54.4 → 55.7 (+2.5%) across the main stage, comparable to C1's G_L1 wiggle band (32.8–34.3, no trend); reported, not acted on | monotone decrease 53.0 → 49.0 — clean optimisation without the adversarial term |
+| stop rule | **FIRED, and was not acted on** (corrected 2026-08-24; this cell previously read "not triggered"). The registered coarse rule is "G_LPIPS rising over the first two main-stage epochs"; G_LPIPS rose **54.37 → 54.65 → 55.02** across exactly those two transitions, so the rule fired and the run continued to epoch 20. The earlier "not triggered" was reached by citing the **cold-D spike test** instead — true on its own terms (54.37 is the run minimum, below the warm-up's 56.24) but not the registered coarse test, and the substitution was not disclosed: **corrections-log entry 27, a reporting error.** Why the run was allowed to stand, argued separately and retrospectively: the rule is mis-specified for an arm carrying a discriminator (**AMENDMENT C45-a**, [phase-c-lpips-registration.md](phase-c-lpips-registration.md); corrections-log entry 26). Drift 54.37 → 55.73 (+2.50%) across the main stage, against C1's G_L1 wiggle band 32.8–34.3 | decrease 53.0 → 49.0 (**−7.54%** across the main stage; falling trend with five small upward steps in the last third — not strictly monotone, corrected here) — optimisation without the adversarial term |
 | checkpoints | 20/20 epochs saved; `latest_net_G.pth` tensor-equal to `20_net_G.pth` (asserted) | same |
 
 Note for the mechanism section: C5's final training LPIPS (49.0) is **lower** than C4's
@@ -44,7 +44,7 @@ draw family, one warp geometry, one KARIOS config. Mean / median of per-chip med
 | pretrained | 2.563 | 2.588 | 51 |
 | C1 (GAN+L1) | 2.075 | 1.794 | 59 |
 | C2 (L1 only) | 1.376 | 0.974 | 72 |
-| **C4 (GAN+LPIPS)** | **1.966** | **1.918** | **62** |
+| **C4 (GAN+LPIPS)** | **1.965** | **1.918** | **62** |
 | **C5 (LPIPS only)** | **1.478** | **1.134** | **88** |
 
 Paired deltas (per chip, mean ± SE):
@@ -73,7 +73,7 @@ the committed values before use):
 | arm | mean | median | q25–q75 | registered band | committed B3 |
 |---|---|---|---|---|---|
 | pretrained | 1.021 | 1.020 | 0.94–1.12 | near 1.0 (≥ 0.8) | 1.016 |
-| C1 | 1.097 | 1.046 | 0.96–1.17 | near 1.0 | 1.023 |
+| C1 | 1.096 | 1.046 | 0.96–1.17 | near 1.0 | 1.023 |
 | C2 | 0.284 | 0.218 | 0.12–0.38 | well below (≤ 0.5) | 0.218 |
 | **C4** | **1.119** | **1.082** | 1.00–1.20 | **near 1.0** | — |
 | **C5** | **1.159** | **1.117** | 1.03–1.27 | **near 1.0** | — |
@@ -116,14 +116,25 @@ registration — no registered band.** Run on the extended B2 harness; the four 
 reproduce the committed headline figures to the fourth digit (pretrained 1.370 / C1 0.764 /
 C2 0.593 / C3 0.611 — headline-results.md B2), which validates the extension byte-for-byte.
 
-| arm | mean ± SE | median | pts med |
+| arm | mean | median | pts med |
 |---|---|---|---|
-| pretrained | 1.370 ± 0.108 | 1.051 | 92 |
-| C1 | 0.764 ± 0.043 | 0.642 | 164 |
-| C2 | 0.593 ± 0.041 | 0.534 | 235 |
-| C3 | 0.611 ± 0.043 | 0.550 | 210 |
-| **C4** | **0.844 ± 0.054** | **0.654** | **156** |
-| **C5** | **0.663 ± 0.045** | **0.554** | **224** |
+| pretrained | 1.370 | 1.051 | 92 |
+| C1 | 0.764 | 0.642 | 164 |
+| C2 | 0.593 | 0.534 | 235 |
+| C3 | 0.611 | 0.550 | 210 |
+| **C4** | **0.844** | **0.654** | **156** |
+| **C5** | **0.663** | **0.554** | **224** |
+
+> **The per-arm ± SE column was removed on 2026-08-24 (corrections-log entry 24).** It
+> previously read ± 0.108 / 0.043 / 0.041 / 0.043 / 0.054 / 0.045. Five of those six values
+> trace to no computation: `C45_b2_summary.json` stores 0.1612 / 0.0712 / 0.0409 / 0.0375 /
+> 0.0949 / 0.0660 — `sd/√20`, and identical to what B2 committed for the four pre-existing
+> arms — and the printed five match neither that nor the SE of the median, a bootstrap
+> median SE, a MAD- or IQR-based SE, nor the RGB-band SEs. Rather than reprint numbers whose
+> origin is unknown, the column is dropped: **the paired deltas below carry the uncertainty
+> for every comparison this row supports, and they reproduce from raw exactly.** The means,
+> medians and point counts above are unaffected and were verified cell-by-cell
+> ([phase-c-audit.md](phase-c-audit.md) §B.1).
 
 Paired: **C5 − C4 = −0.182 ± 0.054 (t = −3.36, 16/20)** — the main effect holds on the
 production path, and its size there matches the L1 pair's (C2 − C1 = −0.171 ± 0.042,
@@ -144,7 +155,7 @@ e1→e20 at 4.25 SE, C4 flat at 0.24 SE, penalty grows), then the middle epochs.
 | 2 | 1.822 | 1.568 | +0.254 ± 0.040 | 6.4 |
 | 5 | 1.927 | 1.486 | +0.441 ± 0.039 | 11.3 |
 | 10 | 1.989 | 1.493 | +0.496 ± 0.047 | 10.7 |
-| 20 | 1.966 | 1.478 | +0.487 ± 0.053 | 9.2 |
+| 20 | 1.965 | 1.478 | +0.487 ± 0.053 | 9.2 |
 
 The same qualitative dose-response as the L1 family (B1_summary.json: C2 monotone
 1.618 → 1.376; C1 U-shaped 2.164 → 1.806 → 2.075; penalty dip-then-grow

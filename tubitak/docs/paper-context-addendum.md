@@ -94,7 +94,7 @@ C4 as an empty cell.
 | pretrained | 2.563 | 2.588 | 51 |
 | C1 (GAN + L1) | 2.075 | 1.794 | 59 |
 | **C2 (L1 only)** | **1.376** | **0.974** | 72 |
-| C4 (GAN + LPIPS) | 1.966 | 1.918 | 62 |
+| C4 (GAN + LPIPS) | 1.965 | 1.918 | 62 |
 | C5 (LPIPS only) | 1.478 | 1.134 | **88** |
 
 **Primary result (registered, fired).** C5 − C4 = **−0.487 ± 0.053 px** (t = −9.2, better on
@@ -326,6 +326,18 @@ in §3 (1.794 and 0.974) are *not* the same draw as the 1.869 and 0.929 reported
 documents. Mixing them produces a table that is internally inconsistent, and it is the first
 thing a careful reader checks.
 
+**Citation rule, binding (corrections-log entry 25).** The **original phase-c C1/C2 numbers are
+never quoted** — not 1.869, not 0.929, not the per-stratum column, not the paired
+−0.530 / −1.167 / −0.638. **All five arms come from the C45 one-pass recompute**
+(`C45_per_chip.csv`), which is the only version of those numbers with a surviving per-chip
+layer. The reason is not preference but checkability: the 2026-08-19/20 phase-C scoring run
+left no per-chip artifact, so every number in [phase-c-results.md](phase-c-results.md)'s C1 and
+C2 columns is unverifiable, while every number in the C45 panel was recomputed from raw
+cell-by-cell in [phase-c-audit.md](phase-c-audit.md) §B.1. Where the older figure must be
+mentioned at all — the registration's Gate-1 target — cite it *as* the registered target and
+put the reproducible same-draw value beside it, exactly as
+[phase-c-lpips-results.md](phase-c-lpips-results.md) already does.
+
 **The same applies to the edge-ratio numbers.** An earlier measurement gave pretrained 1.016 /
 C1 1.023 / C2 0.218; the C4/C5 package gives C1 1.10 / C4 1.12 / C5 1.16 / C2 0.28. These are
 different runs. Pick one set for the paper, state which, and do not interleave.
@@ -392,6 +404,19 @@ better; "gain" is defined at point of use as −Δ. Repeat it in every table hea
 - **The descriptor-family deltas rest on chip intersections, not on the matched counts printed
   beside them** (ORB ank130 n = 29; eu150 AKAZE n = 3). Any table quoting both must label which
   n belongs to which quantity.
+- **The phase-C C1/C2 raw layer is gone, and the C4/C5 registration's comparison target sits
+  inside it** (corrections-log entry 25). No per-chip artifact survives from the 2026-08-19/20
+  phase-C scoring run, so the ten per-stratum values, both ALL values, all three paired deltas
+  and R2's correlations are uncheckable — **including the Gate-1 target C2 − C1 =
+  −0.638 ± 0.054 px, which is the figure the whole C4/C5 package was registered to replicate.**
+  The consequence for the harness-validation argument is specific and must be stated that way:
+  the C45 extension is **not** validated by reproducing that target — it cannot be — but by the
+  four-digit agreement of the four pre-existing arms with B2's committed production figures
+  (1.369802 / 0.764049 / 0.592721 / 0.610947 against 1.3698 / 0.7640 / 0.5927 / 0.6109), which
+  [phase-c-audit.md](phase-c-audit.md) §B.1 verified independently, 4/4. The Aug-21 seed-42
+  redraw corroborates every lost cell within measured dropout noise and changes no sign or
+  verdict; corroboration by a different draw is not recomputation, and the paper must not
+  present it as one. See §8's citation rule.
 
 ---
 
@@ -399,7 +424,9 @@ better; "gain" is defined at point of use as −Δ. Repeat it in every table hea
 
 **Model.** pix2pix, U-Net-256 generator (54.414 M parameters), PatchGAN discriminator,
 `--direction BtoA`. Fine-tuning: 20 epochs, seed 42, `--lr_policy linear` 10+10, Kaggle T4.
-C4/C5 wall time ≈ 3h25m and 3h40m (LPIPS roughly doubles the L1 arms' 75 minutes).
+C4/C5 wall time **3 h 28 m and 3 h 33 m** (measured from the Kaggle logs' elapsed field,
+corrected 2026-08-24 from the earlier "≈ 3h25m and 3h40m"; LPIPS roughly triples the L1 arms'
+75 minutes).
 
 **Data.** OpenStreetMap via dated Geofabrik snapshots, extracted with `osmium extract -s smart`
 (the default `simple` strategy silently drops multipolygons crossing the extract boundary — a
@@ -833,7 +860,7 @@ are **not monotone**, and the paper must say so before a reviewer plots it:
 |---|---|---|
 | C2 (L1 only) | 0.28 | 1.376 |
 | C5 (LPIPS only) | **1.16 (highest)** | 1.478 |
-| C4 (GAN + LPIPS) | 1.12 | 1.966 |
+| C4 (GAN + LPIPS) | 1.12 | 1.965 |
 | C1 (GAN + L1) | 1.10 | 2.075 |
 | pretrained | 1.02 | 2.563 |
 
