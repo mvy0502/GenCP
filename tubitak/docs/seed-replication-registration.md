@@ -18,6 +18,13 @@ That is recorded here because the pattern matters more than the instance: every 
 was a check on *whether the numbers are what we say they are*, and none was a check on *what
 the numbers are evidence about*.
 
+**Consequence for the audit method, adopted from this package: a fourth leg.** After timeline,
+recomputation and configuration, registration audits now ask *at what level was the treatment
+applied, at what level is the error bar computed, and are they the same level?* — and more
+generally whether the design can support the claim the document draws from it. Recorded as
+**standing practice 9** in [standing-practices.md](standing-practices.md), with this package
+named as its origin, so the class is caught next time rather than this instance.
+
 **The treatment is applied once per cell.** One seed, one initialisation, four runs. Each
 2×2 cell contains exactly one trained checkpoint.
 
@@ -154,17 +161,47 @@ interval and is not designed to.** Therefore:
 
 A wide interval at stage 1 is an expected outcome and will not be described as a null result.
 
+## Seed 42 generated the hypothesis and therefore cannot confirm it
+
+**The direction under test was read off seed 42.** "C5 − C4 is negative" is not a prediction
+this package inherited from theory; it is the seed-42 observation, and the mechanism story was
+built to explain it after it was seen. A hypothesis cannot be confirmed by the observation that
+generated it, so **seed 42 contributes no confirmatory evidence to any reading below.**
+
+**At stage 1 the confirmatory evidence is TWO independent replicates, seeds 43 and 44 — not
+three.** Seed 42 is reported alongside them, labelled as the generating observation, and its
+position within the range of the new seeds is checked per the comparability rule above. It
+earns its place in the tables as context and as a code-path check, never as a third vote.
+
+The same correction applies to the main effect, the secondary reading and the mechanism
+reading: **each is a confirmatory test on the new seeds**, with seed 42 as the generating
+observation. Stage 2 adds seeds 45 and 46, giving **four confirmatory replicates**.
+
 ## Registered readings
 
 All contrasts are seed-level means of per-chip paired differences, on the ank130 panel,
-STOCH single draw, OVP inputs.
+STOCH single draw, OVP inputs. **Every reading below is scored on the new seeds only.**
 
-**Primary.** C5 − C4 **negative in all three seeds** at stage 1. At stage 2: negative in **at
-least four of the five seeds**, with the seed-level interval excluding zero.
+**Primary.** C5 − C4 **negative in both new seeds (43 and 44)** at stage 1, with seed 42
+reported beside them as the generating observation. At stage 2: negative in **at least four of
+the five seeds** — a criterion evaluated across all five because by then four are
+confirmatory — with the seed-level interval excluding zero.
 
-**Main effect (both reconstruction terms).** C1 − C2 > 0 **and** C4 − C5 > 0 **in every
-seed**. This is the adversarial penalty stated as the design factor it is, once under each
-reconstruction term.
+**The null probability, with the reasoning corrected.** Under a null of no treatment effect,
+each seed's sign is a fair coin, and the direction is **pre-specified** because seed 42 fixed
+it. So P(both new seeds negative) = ½ × ½ = **1/4**. An earlier draft of this document
+justified the same 1/4 as "the chance of three matching signs" across seeds 42, 43 and 44 —
+which is arithmetically true as a *two-sided* statement (2 × ½³ = ¼) but is not the reasoning
+that applies here, because it counts seed 42 as evidence and it tests "all three agree in
+either direction" rather than "the new seeds agree with a direction fixed in advance". **The
+two calculations coincide at 1/4 by coincidence, not by equivalence**: one is two-sided over
+three observations, the other one-sided over two. The one-sided-over-two version is the one
+this package is entitled to, and it is the weaker of the two — 1/4 is not a small number, which
+is exactly why sign consistency is a stage-1 read and not a conclusion.
+
+**Main effect (both reconstruction terms).** C1 − C2 > 0 **and** C4 − C5 > 0 **in both new
+seeds**, and in seeds 45 and 46 at stage 2. This is the adversarial penalty stated as the
+design factor it is, once under each reconstruction term.
 
 **Interaction.** I = (C4 − C5) − (C1 − C2) negative at seed level **AND** negative after a
 monotone re-scaling. **Both transforms are registered now, before any seed is run:**
@@ -184,11 +221,32 @@ the null expectation, not a mechanistic finding.** Accordingly: **the raw-scale 
 alone will not be reported as mechanistic** under any outcome. "The same lever" requires the
 sign to survive at least one monotone re-scaling.
 
-**Secondary.** C5 − C2 **positive in every seed** — the LPIPS-alone positional penalty.
+**Secondary.** C5 − C2 **positive in both new seeds** (and in 45, 46 at stage 2) — the
+LPIPS-alone positional penalty.
 
 **Mechanism.** Edge ratio in input-silent regions, computed per seed for all four arms under
-the definition already implemented in `c45_eval/c45_edge_ratio.py`: **C5 highest or tied
-highest in every seed**, and **C2 below 0.5 in every seed**. Reported per seed, not pooled.
+the definition already implemented in `c45_eval/c45_edge_ratio.py`, unchanged.
+
+**The statistic is the per-arm MEAN of the 130 per-chip ratios**, stated explicitly because
+this project has already had one correction about which statistic a committed edge-ratio value
+was (corrections-log entry 24 — the seed-42 scalars turned out to be medians where the prose
+did not say so). The mean is chosen not on merit but because **it is the statistic the
+seed-42 registered bands were written on** — "near 1.0 = **mean** ratio ≥ 0.8; well below
+1.0 = **mean** ratio ≤ 0.5" ([phase-c-lpips-registration.md](phase-c-lpips-registration.md)) —
+so the comparison across seeds is like-for-like. **The median is reported beside it in every
+table**, and the two must never be interchanged: seed 42's C2 is **0.284 mean / 0.218 median**,
+and both clear the 0.5 threshold, but only one of them is the registered quantity.
+
+Readings, both on the mean, per seed, not pooled:
+
+- **C2 mean edge ratio < 0.5 in both new seeds.**
+- **C5 mean edge ratio highest or tied-highest of the four arms in both new seeds.**
+
+**"Tied" is defined now, operationally, so it is not decided after seeing the data.** C5 counts
+as **tied** with a competing arm if the absolute difference between their per-seed mean ratios
+is **smaller than the standard error of that difference computed across the 130 chips**
+(paired per-chip differences, SE = sd/√130). If C5's mean is below a competitor's by more than
+that SE, C5 is **not** highest and not tied, and the reading fails for that seed.
 
 **Training curves — free corroboration, no extra GPU cost.** Per-epoch reconstruction loss is
 already written to every Kaggle log. Pre-committed prediction, registered before any new seed
@@ -207,6 +265,69 @@ without it**, ≈ 3 h 30 m. **It is recorded here as available and is deliberate
 scheduled** — stage 1's quota does not hold it, and it is listed for a later package rather
 than left as an unstated gap. Until it runs, the training-curve observation is corroboration
 of a pattern, not evidence for a mechanism, and must be written that way.
+
+**Multiplicity, stated in one sentence so five sign tests are not read as five independent
+confirmations.** This registration contains **five sign-based readings** — primary, main effect
+(two contrasts), interaction, secondary, mechanism (two thresholds) — of which **only the
+primary is a protected reading**; the rest are **reported as measured**, and no multiplicity
+correction is applied because none is being claimed as an independent confirmation of the
+primary. A reader should treat the non-primary readings as descriptions of whether the picture
+hangs together, not as four further tests that passed.
+
+## Operational rules registered in advance
+
+### An interrupted run is disclosed, never silently equated
+
+Kaggle sessions die. `--save_epoch_freq 1` means a killed run **resumes** rather than
+restarts (standing practice 7), but **a resumed run does not have the same RNG stream as an
+uninterrupted one**: the dataloader shuffle, the dropout masks and — in the adversarial arms —
+the discriminator's update sequence all restart from a re-seeded state at the resume point. A
+resumed run is therefore **not the same draw of the seed** as an uninterrupted run of that
+seed, and this registration does not pretend otherwise.
+
+Registered now, before any interruption has happened:
+
+1. **Any run that is interrupted and resumed is DISCLOSED in the results document, with its
+   resume epoch recorded.** Not "was resumed" — the epoch number.
+2. **Resumed runs are identified in every table** in which their numbers appear, by a marker
+   in the row, not by a footnote elsewhere.
+3. **If more than one run within a seed is resumed, that seed is flagged in the analysis** and
+   **its position relative to the unresumed seeds is reported** for every primary quantity —
+   the same treatment seed 42 gets for its code-path mixing.
+4. No rule is registered that treats a resumed run as equivalent to an uninterrupted one,
+   because we do not know that it is.
+
+### If stage 1 cannot complete within the quota, the incomplete seed is not analysed
+
+The 3 h 49 m margin covers **exactly one** failed C4 or C5 restart (3 h 28 m / 3 h 33 m). Two
+such failures put stage 1 past the week's quota.
+
+**Registered: if stage 1 cannot complete all eight runs within the week, the incomplete seed is
+NOT analysed, and the package waits for the quota reset.** An unbalanced factorial is not
+scored — a seed missing one of its four cells cannot produce the paired contrast that seed
+exists to supply, and a seed missing its C4 or C5 cannot produce the primary at all.
+
+**The temptation being foreclosed, named so this reads as a decision rather than an
+oversight:** analysing the one complete seed because it is there, and reporting "the primary
+replicated in the seed we finished". That would convert a resource failure into a one-replicate
+result and would reproduce, at the level of seeds, exactly the error this whole package exists
+to correct. The partial seed's runs are kept, disclosed as partial, and finished after the
+reset.
+
+### The seed-level analysis script is committed before any seed is scored
+
+The evaluation harness is already committed (`tubitak/scripts/c45_eval/`, `40cde9b`), but the
+**seed-level analysis is new code**: the per-seed averaging, the log and rank transforms with
+the pairwise exclusion rule, the interaction on all three scales, the seed-level intervals with
+their degrees of freedom, the tie rule, and the seed-42 range check. **Corrections-log entries
+22 and 25 exist because an uncommitted analysis layer cost this project twice** — once when
+B3's harness was deleted and four registered matcher parameters became unverifiable, once when
+phase-C's per-chip layer vanished and took the Gate-1 target with it.
+
+**Registered: `tubitak/scripts/seed_eval/seed_analysis.py` is written and committed BEFORE any
+seed is scored.** Any change to it after scoring begins **must be registered** — an amendment
+to this document, dated, with the original preserved, per standing practice 4. A change made
+silently mid-analysis is the failure mode, not a change as such.
 
 ## Registered consequences — verbatim, decided before the numbers exist
 
@@ -234,11 +355,32 @@ not retroactively bless the completed seed-42 arms**, which stand on the origina
 fired and was not acted on, defended by the mis-specification argument and the epoch-2 /
 epoch-5 counterfactual recorded there.
 
-These runs are the **first genuine test of C45-a**, on curves nobody has seen. The rule: *the
-run stops if the per-epoch reconstruction loss rises more than 10% above the lowest value seen
-so far in the main stage (running minimum), sustained over two consecutive epochs.* The sharp
-half — a generator-loss spike in the first few hundred iterations, the cold-D signature —
-is unchanged.
+These runs are the **first genuine test of C45-a**, on curves nobody has seen. The coarse half:
+*the run stops if the per-epoch reconstruction loss rises more than 10% above the lowest value
+seen so far in the main stage (running minimum), sustained over two consecutive epochs.*
+
+**The sharp half has no committed threshold, and this registration had to find that out rather
+than quote it.** C45-a describes the sharp half as "unchanged", and the intent was to quote the
+original C1 threshold here so that if it fires the record says what fired. There is nothing to
+quote. Searching the repository: [phase-c-config.md](phase-c-config.md) defines it only in
+words — *"a generator-loss spike in the first few hundred iterations, the actual cold-D
+signature"* — with no magnitude; corrections-log entry 5 reports the only quantified trace,
+*"zero spike events against a 20-row running median"*, which fixes a **baseline** but not a
+**threshold**; and there is **no spike-detection code anywhere** — not in
+`tubitak/kaggle/train_c1_c2.py`, not in `tubitak/scripts/`. So for two packages the sharp half
+has been the half that "remains the operative divergence test" while being unspecified and
+unimplemented, and it has never fired because nothing was watching.
+
+**Registered here, and labelled as newly specified rather than quoted:** a spike is a logged
+generator reconstruction-loss row exceeding **3× the trailing 20-row running median** of that
+same quantity, within the **first 500 iterations** of a stage. Two such rows stop the run. The
+20-row running median is inherited from entry 5 so the baseline is continuous with what was
+used to assess C1's warm-up; **the 3× multiplier and the 500-iteration window are new and have
+never been tested against anything**, which is stated plainly because the alternative is to
+carry a rule that cannot fire. `--print_freq 10` is required for the window to contain enough
+rows, as phase-c-config.md item 4 already notes. This specification is a **prospective**
+addition, on the same footing as C45-a: it governs these runs and does not reach back to any
+completed arm.
 
 **If C45-a fires on any new run, that run stops and the firing is reported, whatever it costs
 this package.** Including the case where it fires on an adversarial arm and thereby removes a

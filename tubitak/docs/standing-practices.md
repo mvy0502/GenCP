@@ -50,3 +50,18 @@ Rules of general force, collected where future work will see them. Each carries 
    wrote down ourselves and stopped watching. The corrections log records what went wrong;
    nothing before this rule forced revisiting what we flagged as pending.
 
+9. **Registration audits get a fourth leg: does the design support the inference?**
+   (2026-08-24). The audit method used on T1, B2/B3 and the phase-C pair has three legs —
+   timeline (commit times vs artifact mtimes), recomputation (every reported cell rebuilt from
+   raw), and configuration (run configs diffed against the registration text). All three ask
+   **whether the numbers are what we say they are**. None asks **what the numbers are evidence
+   about**. The fourth leg does: *at what level was the treatment applied, at what level is the
+   error bar computed, and are they the same level?* — and, more generally, whether the design
+   can support the claim the document draws from it. Origin: the C4/C5 package passed all three
+   existing legs on 2026-08-24 and was found the same day, by an adversarial review pass and
+   not by us, to rest on a treatment applied once per cell with every standard error computed
+   at chip level — 130 chips replicating the evaluation, not the intervention, and an
+   interaction term with no run-level error bar at all. The audit that had just cleared it
+   would never have caught that, because no leg was pointed at it.
+   [seed-replication-registration.md](seed-replication-registration.md) is the correction; this
+   practice is so the class is caught next time rather than the instance.
