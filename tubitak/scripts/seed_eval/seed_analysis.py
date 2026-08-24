@@ -37,18 +37,24 @@ Writes:             tubitak/data/tool_runs/seed_eval/seed_summary.json
                     tubitak/data/tool_runs/seed_eval/seed_per_seed.csv
 """
 import argparse
+import hashlib
 import json
-import os
-import warnings
+import subprocess
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-warnings.filterwarnings("ignore")
-ROOT = Path("/Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap")
-RUNS = ROOT / "tubitak/data/tool_runs"
-OUT = RUNS / "seed_eval"
+# No blanket warnings filter. An earlier version carried warnings.filterwarnings("ignore"),
+# which would have hidden numpy invalid-value and divide-by-zero warnings - precisely the
+# signal that the log transform's exclusion rule was NOT doing its job. If numpy complains
+# here, that is information and it must reach the operator.
+
+# Repository root derived from this file's own location, not hardcoded: this script is a
+# committed artifact and a machine-specific absolute path makes it unrunnable elsewhere,
+# which is the class of loss corrections-log entries 22 and 25 record.
+#   .../tubitak/scripts/seed_eval/seed_analysis.py -> parents[3] is the repository root
+DEFAULT_ROOT = Path(__file__).resolve().parents[3]
 
 ARMS = ("pre", "C1", "C2", "C4", "C5")
 # Column names in C45_per_chip.csv, written by c45_eval/c45_score.py.
@@ -58,6 +64,35 @@ EDGE = {"pre": "pretrained", "C1": "C1", "C2": "C2", "C4": "C4", "C5": "C5"}
 
 LOG_MAX_DROPPED = 5      # registered: >5 of 130 chips dropped -> log transform unusable
 N_CHIPS = 130
+
+
+def sha256(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for block in iter(lambda: f.read(1 << 20), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
+def script_commit():
+    """Git commit of this script, so the output is traceable to the code that made it.
+
+    Every audit document in this repository pins hashes; the analysis producing the paper's
+    headline numbers meets the same standard. `dirty` is reported honestly - a result
+    produced from uncommitted code says so.
+    """
+    here = Path(__file__).resolve()
+    try:
+        rev = subprocess.run(["git", "-C", str(here.parent), "log", "-1", "--format=%H",
+                              "--", str(here)],
+                             capture_output=True, text=True, check=True).stdout.strip()
+        dirty = subprocess.run(["git", "-C", str(here.parent), "status", "--porcelain",
+                                "--", str(here)],
+                               capture_output=True, text=True, check=True).stdout.strip()
+        return {"commit": rev or None, "dirty": bool(dirty), "sha256": sha256(here)}
+    except Exception as exc:                       # git absent, or not a checkout
+        return {"commit": None, "dirty": None, "sha256": sha256(here),
+                "note": f"git unavailable: {exc}"}
 
 
 # ----------------------------------------------------------------------------------------
@@ -194,13 +229,18 @@ def c5_highest_or_tied(edf):
 
 
 # ----------------------------------------------------------------------------------------
-def load_seed(seed):
-    d = RUNS / ("C45" if seed == 42 else f"C45_s{seed}")
-    per = pd.read_csv(d / "C45_per_chip.csv")
-    edge = pd.read_csv(d / "C45_edge_ratio.csv")
+def load_seed(runs, seed):
+    """Load one seed's inputs and pin the sha256 of each file actually read."""
+    d = runs / ("C45" if seed == 42 else f"C45_s{seed}")
+    p_per, p_edge = d / "C45_per_chip.csv", d / "C45_edge_ratio.csv"
+    per, edge = pd.read_csv(p_per), pd.read_csv(p_edge)
     if len(per) != N_CHIPS:
-        raise SystemExit(f"seed {seed}: expected {N_CHIPS} chips, found {len(per)} - refusing to score")
-    return per, edge
+        raise SystemExit(f"seed {seed}: expected {N_CHIPS} chips, found {len(per)} "
+                         "- refusing to score")
+    prov = {"per_chip": {"path": str(p_per), "sha256": sha256(p_per), "rows": int(len(per))},
+            "edge_ratio": {"path": str(p_edge), "sha256": sha256(p_edge),
+                           "rows": int(len(edge))}}
+    return per, edge, prov
 
 
 def main():
@@ -209,13 +249,28 @@ def main():
                     help="confirmatory seeds, comma-separated (seed 42 is NOT confirmatory)")
     ap.add_argument("--with-42", action="store_true",
                     help="also load seed 42 and report it as the generating observation")
+    ap.add_argument("--root", default=None,
+                    help="repository root (default: derived from this script's location)")
     args = ap.parse_args()
     new_seeds = [int(s) for s in args.seeds.split(",") if s.strip()]
 
-    OUT.mkdir(parents=True, exist_ok=True)
-    data = {s: load_seed(s) for s in new_seeds}
+    root = Path(args.root).resolve() if args.root else DEFAULT_ROOT
+    runs = root / "tubitak/data/tool_runs"
+    out = runs / "seed_eval"
+    if not runs.is_dir():
+        raise SystemExit(f"no tool_runs directory under {root} - pass --root")
+    out.mkdir(parents=True, exist_ok=True)
+
+    provenance = {"root": str(root), "script": script_commit(), "inputs": {}}
+    data = {}
+    for s in new_seeds:
+        per, edge, prov = load_seed(runs, s)
+        data[s] = (per, edge)
+        provenance["inputs"][str(s)] = prov
     if args.with_42:
-        data[42] = load_seed(42)
+        per, edge, prov = load_seed(runs, 42)
+        data[42] = (per, edge)
+        provenance["inputs"]["42"] = prov
 
     CONTRASTS = [("C5", "C4", "primary: C5 - C4"),
                  ("C1", "C2", "main effect under L1: C1 - C2"),
@@ -244,7 +299,7 @@ def main():
         rows.append(rec)
 
     df = pd.DataFrame(rows).sort_values("seed")
-    df.to_csv(OUT / "seed_per_seed.csv", index=False)
+    df.to_csv(out / "seed_per_seed.csv", index=False)
 
     conf = df[df.confirmatory]
     print("=" * 88)
@@ -255,7 +310,8 @@ def main():
              if args.with_42 else ""))
     print("=" * 88)
 
-    summary = {"confirmatory_seeds": sorted(conf.seed.tolist()),
+    summary = {"provenance": provenance,
+               "confirmatory_seeds": sorted(conf.seed.tolist()),
                "seed_42_included_as_generating_observation": bool(args.with_42),
                "per_seed": df.to_dict(orient="records"),
                "readings": {}, "within_run_consistency": per_seed}
@@ -301,13 +357,33 @@ def main():
     for key, name in (("I_raw", "raw scale (null-expectation scale)"),
                       ("I_log", "ln(residual)"), ("I_rank", "within-chip rank, mid-rank ties")):
         vals = conf[key].tolist()
-        if key == "I_log" and any(v is None or (isinstance(v, float) and not np.isfinite(v))
-                                  for v in vals):
-            bad = conf[conf[key].isna()].seed.tolist()
-            print(f"   {name:38} UNUSABLE for seeds {bad} "
-                  f"(>{LOG_MAX_DROPPED} of {N_CHIPS} chips dropped)")
-            summary["readings"][key] = {"unusable_seeds": bad}
-            continue
+        if key == "I_log":
+            # Registered rule: the log transform is unusable FOR THAT SEED, not for the leg.
+            # Usable seeds are still scored and printed; unusable ones are named with their
+            # drop counts, and the consequence for the monotone requirement is spelled out
+            # rather than left to be inferred from a missing line.
+            bad = [int(r.seed) for _, r in conf.iterrows() if pd.isna(r[key])]
+            good = [int(r.seed) for _, r in conf.iterrows() if pd.notna(r[key])]
+            if bad:
+                drops = "  ".join(
+                    f"s{int(r.seed)}={int(r.I_log_dropped)}"
+                    for _, r in conf.iterrows() if int(r.seed) in bad)
+                print(f"   {name:38} UNUSABLE for seed(s) {bad} "
+                      f"(>{LOG_MAX_DROPPED} of {N_CHIPS} chips dropped: {drops})")
+                if good:
+                    line = "  ".join(f"s{int(r.seed)}={r[key]:+.4f}"
+                                     for _, r in conf.iterrows() if int(r.seed) in good)
+                    print(f"   {'':38} usable seed(s) {good}: {line}")
+                print(f"   {'':38} CONSEQUENCE: the log leg cannot support "
+                      f"\"negative in every confirmatory seed\" while any seed is unusable,")
+                print(f"   {'':38} so the registered monotone requirement falls to the RANK "
+                      f"transform, which has no undefined values.")
+                summary["readings"][key] = {
+                    "unusable_seeds": bad, "usable_seeds": good,
+                    "per_seed_usable": [v for v in vals if v is not None and pd.notna(v)],
+                    "supports_monotone_requirement": False,
+                    "consequence": "monotone requirement falls to the rank transform"}
+                continue
         st = across_seeds(vals)
         line = "  ".join(f"s{int(r.seed)}={r[key]:+.4f}" for _, r in conf.iterrows())
         print(f"   {name:38} {line}   all negative: {st['all_negative']}")
@@ -317,8 +393,10 @@ def main():
                               for _, r in conf.iterrows()))
         summary["readings"][key] = {"per_seed": vals, "across_seeds": st,
                                     "all_negative": bool(st["all_negative"])}
-    mono_ok = (summary["readings"].get("I_log", {}).get("all_negative") or
-               summary["readings"].get("I_rank", {}).get("all_negative"))
+    log_leg = summary["readings"].get("I_log", {})
+    log_ok = bool(log_leg.get("all_negative")) and log_leg.get(
+        "supports_monotone_requirement", True)
+    mono_ok = log_ok or bool(summary["readings"].get("I_rank", {}).get("all_negative"))
     raw_ok = summary["readings"].get("I_raw", {}).get("all_negative")
     print(f"   REGISTERED INTERACTION READING (raw negative AND at least one monotone "
           f"re-scaling negative): {'HOLDS' if (raw_ok and mono_ok) else 'FAILS'}")
@@ -353,9 +431,19 @@ def main():
                   f"(t={w['chip_t']:+.2f}, n={w['n_chips']}, "
                   f"first better on {w['chips_first_better']}/{w['n_chips']})")
 
-    with open(OUT / "seed_summary.json", "w") as f:
+    print("\n" + "-" * 88)
+    print("INPUT PROVENANCE (pinned in seed_summary.json, matching this repository's audits)")
+    sc = provenance["script"]
+    print(f"   script commit {sc.get('commit') or 'UNKNOWN'}"
+          f"{'  *** DIRTY WORKING COPY ***' if sc.get('dirty') else ''}")
+    print(f"   script sha256 {sc['sha256']}")
+    for s_, prov in sorted(provenance["inputs"].items()):
+        for name, rec in prov.items():
+            print(f"   seed {s_} {name:10} {rec['sha256']}  ({rec['rows']} rows)")
+
+    with open(out / "seed_summary.json", "w") as f:
         json.dump(summary, f, indent=2, default=float)
-    print(f"\nwrote {OUT/'seed_per_seed.csv'} and {OUT/'seed_summary.json'}")
+    print(f"\nwrote {out/'seed_per_seed.csv'} and {out/'seed_summary.json'}")
 
 
 if __name__ == "__main__":
