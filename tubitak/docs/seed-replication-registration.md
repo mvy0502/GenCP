@@ -146,20 +146,35 @@ are **never** presented as evidence about the treatment. Every chip-level t-stat
 paper is relabelled accordingly, including the t = −9.18 that currently reads as the primary
 result's strength.
 
-**The statistical weakness of this design, stated now rather than discovered later.** With
-three seeds a t-interval has **two degrees of freedom**; the 95% multiplier is 4.30 against
-1.96 asymptotically, so the interval will be wide and will very likely include zero even if
-the effect is real and large. Five seeds (stage 2) gives four degrees of freedom and a
-multiplier of 2.78 — better, still weak. **This package cannot deliver a tight seed-level
-interval and is not designed to.** Therefore:
+**The statistical weakness of this design, stated now rather than discovered later, and
+counted against the CONFIRMATORY seeds.** *(Corrected 2026-08-24: an earlier version of this
+paragraph counted seed 42 as a replicate and therefore quoted df = 2 at stage 1 and df = 4 at
+stage 2. Demoting seed 42 to the generating observation removes one seed from each count. The
+corrected figures are worse, and they are the ones that govern.)*
 
-- **Sign consistency is the stage-1 read.** Does the effect point the same way in every
-  independently trained replicate? That is a binary, distribution-free question that three
-  seeds can answer, and under a null of no effect the chance of three matching signs is 1/4.
+| stage | confirmatory seeds | df | t*(0.975, df) |
+|---|---|---|---|
+| **stage 1** | **2** (43, 44) | **1** | **12.71** |
+| **stage 2** | **4** (43, 44, 45, 46) | **3** | **3.18** |
+
+At **df = 1 the 95% multiplier is 12.71** against 1.96 asymptotically. An interval built on
+two seeds is therefore about six and a half times wider than a large-sample one and will
+include zero for any effect this package could plausibly produce. **This is not a marginal
+weakness to be noted and worked around: at stage 1 the seed-level interval carries no
+information.** Stage 2's df = 3 and multiplier 3.18 is a real improvement and still weak.
+**This package cannot deliver a tight seed-level interval and is not designed to.**
+Therefore:
+
+- **Sign consistency is the stage-1 read, and at df = 1 that is no longer a judgement call —
+  it is the only read available.** Does the effect point the same way in both independently
+  trained replicates? That is a binary, distribution-free question that two seeds can answer,
+  and with the direction pre-specified by seed 42 the null probability is ½ × ½ = **1/4**.
 - **The interval is the stage-2 read**, and even there it is reported with its degrees of
-  freedom in the sentence, not in a footnote.
+  freedom and its multiplier in the sentence, not in a footnote.
 
 A wide interval at stage 1 is an expected outcome and will not be described as a null result.
+An interval reported at stage 1 must carry "df = 1, t* = 12.71" in the same sentence, so no
+reader mistakes its width for a measurement.
 
 ## Seed 42 generated the hypothesis and therefore cannot confirm it
 
@@ -183,9 +198,27 @@ All contrasts are seed-level means of per-chip paired differences, on the ank130
 STOCH single draw, OVP inputs. **Every reading below is scored on the new seeds only.**
 
 **Primary.** C5 − C4 **negative in both new seeds (43 and 44)** at stage 1, with seed 42
-reported beside them as the generating observation. At stage 2: negative in **at least four of
-the five seeds** — a criterion evaluated across all five because by then four are
-confirmatory — with the seed-level interval excluding zero.
+reported beside them as the generating observation.
+
+**Stage 2's primary reading, re-registered now because the old one no longer maps.**
+*(Corrected 2026-08-24: it read "at least four of the five seeds", which counted seed 42 as a
+replicate. There are **four** confirmatory seeds at stage 2, not five, so "four of five" is
+undefined. The replacement is registered here, before any stage-2 data exists.)*
+
+- **Registered stage-2 primary: C5 − C4 negative in all four confirmatory seeds (43, 44, 45,
+  46)**, and the seed-level interval (df = 3, t* = 3.18) reported with its multiplier whether
+  or not it excludes zero. The interval is **reported, not required** — at four seeds it can
+  fail to exclude zero for an effect that is real, and pre-committing to it as a gate would
+  invite reading a wide interval as a null.
+- **At three of four:** the primary is reported as **replicating with one exception**, the
+  exception seed is named, its value printed, and its position relative to the other three
+  examined for a cause (code path, resume, cold-D draw). The paper may state the effect as
+  replicated **only** with that exception disclosed in the same sentence — never as "four
+  seeds agree" and never with the outlier dropped. Under the null the chance of at least
+  three of four matching a pre-specified direction is 5/16, so three of four is **weak
+  evidence and is written that way**.
+- **At two or fewer of four:** the primary has not replicated. The consequence in the
+  Registered consequences section applies in full.
 
 **The null probability, with the reasoning corrected.** Under a null of no treatment effect,
 each seed's sign is a fair coin, and the direction is **pre-specified** because seed 42 fixed
@@ -337,8 +370,10 @@ silently mid-analysis is the failure mode, not a change as such.
 - **If C5 − C2 is not positive in every seed:** *the LPIPS-alone penalty moves from a result to
   a discussion-section hypothesis and the claim narrows from "plausibility pressure" to "the
   adversarial term".*
-- **If the primary is not negative in all three seeds at stage 1:** *stage 2 is not launched on
-  this design; the package is re-planned and the failure reported.*
+- **If the primary is not negative in BOTH confirmatory seeds at stage 1 (43 and 44):**
+  *stage 2 is not launched on this design; the package is re-planned and the failure
+  reported.* (Corrected 2026-08-24 from "all three seeds", which counted seed 42 as a
+  replicate; seed 42 cannot pass or fail a reading it generated.)
 - **If the edge-ratio ordering is not stable:** *the mechanism is presented as arm-separating
   rather than arm-ordering.*
 
@@ -398,9 +433,22 @@ stage-windows were replayed through the exact implementation and produce **zero 
 rule does not fire on healthy training — which is the necessary condition, not evidence that
 it catches anything.
 
-**The quantity is the reconstruction loss and not `G_GAN`, and the data says why:** `G_GAN` is
-far spikier in normal training — C1 reaches **3.75×** and C4 **2.85×** — so a `G_GAN` detector
-at this threshold would have fired on healthy runs.
+**Why the quantity is the reconstruction loss and not `G_GAN` — the mechanistic reason, with
+the variance figures as supporting evidence rather than as the argument.** The failure this
+gate exists to catch is **cold-D damage to the generator**, and cold-D damage shows up as
+degraded generator *output quality*. The reconstruction loss is a direct measure of output
+quality: it compares G's output to the target. `G_GAN` measures something else entirely — the
+**state of the adversarial game**, i.e. how well D is currently distinguishing G's output —
+and early in training, against a discriminator initialised from noise, that quantity is
+*expected* to swing hard as D learns. A large early `G_GAN` movement is the game equilibrating,
+which is the normal course of the thing we are watching, not evidence that G has been damaged.
+**`G_GAN` is therefore the wrong quantity for a damage detector regardless of its variance**,
+and it would remain the wrong quantity even if it were perfectly stable.
+
+The variance figures corroborate that reasoning rather than carrying it: `G_GAN` in normal
+training reaches **3.75×** on C1 and **2.85×** on C4 against the same trailing-median
+statistic, so a `G_GAN` detector at this threshold would also have false-fired on healthy
+runs. Both facts point the same way; only the first is a reason.
 
 **Label, stated precisely and not overstated.** This rule is **newly specified**, not quoted
 from any prior document; **calibrated on the four completed seed-42 runs**, which is disclosed

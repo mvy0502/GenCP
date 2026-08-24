@@ -314,9 +314,16 @@ if ARM == "C5":                               # LPIPS-only: same patch, LPIPS br
 # exact code and produce zero hits. The margin is printed at run time so a reader sees it
 # rather than trusting it.
 #
-# The quantity is the RECONSTRUCTION loss (G_L1, or G_LPIPS on the C4/C5 arms), not G_GAN:
-# G_GAN is far spikier in normal training (C1 reaches 3.75x, C4 2.85x), so a G_GAN detector
-# at this threshold would have fired on healthy runs.
+# The quantity is the RECONSTRUCTION loss (G_L1, or G_LPIPS on the C4/C5 arms), not G_GAN,
+# for a mechanistic reason and not a convenience one: the failure this gate exists to catch is
+# cold-D damage to the GENERATOR, which shows up as degraded output quality, and the
+# reconstruction loss measures output quality directly. G_GAN measures the state of the
+# adversarial game - how well a discriminator initialised from noise is currently separating
+# G's output - which is EXPECTED to swing hard early as D learns. That swing is the game
+# equilibrating, not evidence of damage, so G_GAN is the wrong quantity for a damage detector
+# regardless of its variance. Supporting evidence, not the argument: G_GAN in normal training
+# reaches 3.75x on C1 and 2.85x on C4 against this same statistic, so a G_GAN detector at this
+# threshold would also have false-fired on healthy runs.
 #
 # It is a NOVELTY detector, not a validated divergence test. It catches a run that looks
 # unlike anything we have seen. It has never been shown to catch divergence, because
