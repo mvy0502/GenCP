@@ -66,3 +66,18 @@ the deliverable's value.
 **Standing state of the ledger:** 24 items, 8 closed, 16 open — every open item carries a
 written reason and none blocks the final report.
 
+| 25 | Cappadocia known-displacement recovery for arms C4/C5 (entry into the paper's main table) | phase-c-lpips-registration evaluation panel ("if cheap") | OPEN — DEFERRED: the T1 harness script was not preserved (inputs/outputs only); adding arms requires reconstructing the distortion/recovery protocol from artifacts, which is not cheap and carries protocol-drift risk (the E3 lesson). Route if wanted: re-derive from `T1_capp/klt/` artifacts + `delivery-registrations.md` §T1, register the reconstruction first |
+
+## Package review 2026-08-24 (standing practice 8, fourth pass — C4/C5 package)
+
+Read top to bottom. **Closed this package:** none of the standing items (none were in this
+package's scope). **Newly opened and triaged:** 25 — deferred with reason, not blocking.
+**Materially affected by C4/C5:** the paper-facing claims widen (adversarial → plausibility
+pressure; [phase-c-lpips-results.md](phase-c-lpips-results.md)); items 6/7/10 remain
+research questions off the critical path — nothing in this package changes that. Item 4
+(checkerboard) now has two more arms whose outputs could feed its within-stratum control if
+it is ever run; still deferred, conclusion unaffected.
+
+**Standing state of the ledger:** 25 items, 8 closed, 17 open — every open item carries a
+written reason and none blocks the final report.
+
