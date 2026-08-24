@@ -371,16 +371,53 @@ signature"* — with no magnitude; corrections-log entry 5 reports the only quan
 has been the half that "remains the operative divergence test" while being unspecified and
 unimplemented, and it has never fired because nothing was watching.
 
-**Registered here, and labelled as newly specified rather than quoted:** a spike is a logged
-generator reconstruction-loss row exceeding **3× the trailing 20-row running median** of that
-same quantity, within the **first 500 iterations** of a stage. Two such rows stop the run. The
-20-row running median is inherited from entry 5 so the baseline is continuous with what was
-used to assess C1's warm-up; **the 3× multiplier and the 500-iteration window are new and have
-never been tested against anything**, which is stated plainly because the alternative is to
-carry a rule that cannot fire. `--print_freq 10` is required for the window to contain enough
-rows, as phase-c-config.md item 4 already notes. This specification is a **prospective**
-addition, on the same footing as C45-a: it governs these runs and does not reach back to any
-completed arm.
+**Registered here, calibrated on the four completed seed-42 runs rather than guessed.** The
+quantity is the logged **reconstruction** loss (`G_L1`, or `G_LPIPS` on the C4/C5 arms). The
+statistic is its ratio to its own **trailing 20-row running median** — the window inherited
+from entry 5, so the baseline stays continuous with what was used to assess C1's warm-up. The
+evaluation window is the **first 500 optimizer steps = the first 2,000 images = the first 100
+logged rows** at `--print_freq 10` with batch 4, which the log emits one row per 5 steps.
+
+**What normal looks like on this model, this data and this schedule** — maximum ratio in that
+window, measured from the four seed-42 logs, per stage and per run (the adversarial arms have
+two stages and the check runs on each):
+
+| run | warm-up stage | main / single stage | **per-run max** |
+|---|---|---|---|
+| C1 (GAN + L1) | 1.3806 | 1.5692 | **1.5692** |
+| C2 (L1 only) | — | 1.5091 | **1.5091** |
+| C4 (GAN + LPIPS) | 1.1626 | 1.1041 | **1.1626** |
+| C5 (LPIPS only) | — | 1.0906 | **1.0906** |
+
+Highest anywhere in those four runs with the window restriction lifted: **1.8792** (C2).
+
+**Registered threshold: 2.5**, with two rows over it required to stop the run. The margin is
+printed rather than asserted: 2.5 is **1.59× the highest windowed value** (1.5692) and **1.33×
+the highest ratio seen anywhere in four runs that all finished normally** (1.8792). All six
+stage-windows were replayed through the exact implementation and produce **zero hits**, so the
+rule does not fire on healthy training — which is the necessary condition, not evidence that
+it catches anything.
+
+**The quantity is the reconstruction loss and not `G_GAN`, and the data says why:** `G_GAN` is
+far spikier in normal training — C1 reaches **3.75×** and C4 **2.85×** — so a `G_GAN` detector
+at this threshold would have fired on healthy runs.
+
+**Label, stated precisely and not overstated.** This rule is **newly specified**, not quoted
+from any prior document; **calibrated on the four completed seed-42 runs**, which is disclosed
+because it means the threshold has seen these arms; **prospective only**, on the same footing
+as C45-a, governing these runs and reaching back to no completed arm; and **a NOVELTY
+detector, not a validated divergence test** — it catches a run that looks unlike anything we
+have seen, and it has never been shown to catch divergence, because divergence has never been
+observed here.
+
+**Where it runs, so it can actually fire.** Implemented in
+[`tubitak/kaggle/train_c1_c2.py`](../kaggle/train_c1_c2.py) as `run_train()`, which streams
+each training stage's output, echoes every line unchanged, and **evaluates the rule at the end
+of the first epoch of every stage** — roughly ten minutes on the LPIPS arms, so the cost of
+watching is bounded. On firing it prints the offending rows with their ratios, terminates the
+child process and exits non-zero. `--print_freq 10` is **explicit in the launch config**, not
+assumed: it is in the `base` argument list every stage is invoked with, and the window
+depends on it.
 
 **If C45-a fires on any new run, that run stops and the firing is reported, whatever it costs
 this package.** Including the case where it fires on an adversarial arm and thereby removes a

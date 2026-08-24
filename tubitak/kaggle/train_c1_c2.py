@@ -42,17 +42,20 @@
 #   C1 warm-up structure are byte-identical to the version registered in phase-c-config.md.
 # ---------------------------------------------------------------------------------------
 
-import os, subprocess, shutil, sys, hashlib, datetime
+import os, subprocess, shutil, sys, hashlib, datetime, re, statistics
 
 ARM  = os.environ.get("ARM", "C1")            # "C2" = L1-only arm; "C3" = C2 + ~20% EU pairs
                                               # "C4" = GAN + LPIPS (C1 protocol); "C5" = LPIPS-only
                                               # (C2 protocol). Registration: phase-c-lpips-registration.md
 ROOT = "/kaggle/working/GenCP"
 DATA = None                                   # resolved below by resolve_data_dir()
-SEED = 42                                     # fixed and recorded. The randomly initialised
-                                              # discriminator is the known instability source
-                                              # in this run; if C1 misbehaves we must be able
-                                              # to separate "the seed" from "the protocol".
+SEED = int(os.environ.get("SEED", "42"))      # recorded in every log line and provenance file.
+                                              # Seeds 43+ are the replication package
+                                              # (seed-replication-registration.md): the seed is
+                                              # the ONLY manipulated factor, and it varies the
+                                              # cold-D draw in the adversarial arms by intent.
+                                              # 42 remains the default so a re-push of the
+                                              # original kernels is byte-identical in behaviour.
 
 BAR = "=" * 78
 
@@ -291,6 +294,111 @@ if ARM == "C5":                               # LPIPS-only: same patch, LPIPS br
     open(p, "w").write(s)
     print("[C5] adversarial term zeroed in the Kaggle copy of pix2pix_model.py", flush=True)
 
+# ---------------------------------------------------------------------------------------
+# Sharp half of the stop rule - the half that has never been able to fire.
+#
+# phase-c-config.md described it in words only ("a generator-loss spike in the first few
+# hundred iterations, the actual cold-D signature"); corrections-log entry 5 gives a 20-row
+# running-median baseline but no magnitude; and until this file there was NO implementation
+# anywhere in the repository. Across two packages it was called the operative divergence
+# test while nothing was watching. Recorded as corrections-log entry 28.
+#
+# CALIBRATED, not guessed, on the four completed seed-42 runs. Max ratio of a logged
+# reconstruction-loss row to its own trailing 20-row running median, inside the window, taken
+# over every stage the run has (the adversarial arms have two, and the check runs on each):
+#     C1 1.5692   C2 1.5091   C4 1.1626   C5 1.0906     (highest per-run: 1.5692, C1 stage 2)
+# Per stage: C1 warm-up 1.3806 / main 1.5692; C2 1.5091; C4 warm-up 1.1626 / main 1.1041;
+# C5 1.0906. Highest anywhere in those four runs, outside the window included: 1.8792 (C2).
+# Threshold 2.5 is 1.59x the highest windowed value and 1.33x the highest value seen anywhere
+# in four runs that all finished normally. All six stage-windows were replayed through this
+# exact code and produce zero hits. The margin is printed at run time so a reader sees it
+# rather than trusting it.
+#
+# The quantity is the RECONSTRUCTION loss (G_L1, or G_LPIPS on the C4/C5 arms), not G_GAN:
+# G_GAN is far spikier in normal training (C1 reaches 3.75x, C4 2.85x), so a G_GAN detector
+# at this threshold would have fired on healthy runs.
+#
+# It is a NOVELTY detector, not a validated divergence test. It catches a run that looks
+# unlike anything we have seen. It has never been shown to catch divergence, because
+# divergence has never been observed here. Prospective only, like AMENDMENT C45-a.
+SPIKE_MULT        = 2.5     # threshold, calibrated above
+SPIKE_WINDOW_ROWS = 100     # first 500 optimizer steps = 2000 images = 100 rows at print_freq 10
+SPIKE_MEDIAN_ROWS = 20      # trailing running-median window, inherited from entry 5
+SPIKE_MIN_HITS    = 2       # two rows over threshold stop the run
+_ROW = re.compile(r"\(epoch: (\d+), iters: (\d+)[^)]*\)(.*)")
+
+
+def _spike_hits(vals):
+    """Rows in the window whose ratio to the trailing 20-row median reaches the threshold."""
+    v = vals[:SPIKE_WINDOW_ROWS]
+    hits = []
+    for i in range(SPIKE_MEDIAN_ROWS, len(v)):
+        med = statistics.median(v[i - SPIKE_MEDIAN_ROWS:i])
+        if med <= 0:
+            continue
+        r = v[i] / med
+        if r >= SPIKE_MULT:
+            hits.append((i, v[i], med, r))
+    return hits
+
+
+def run_train(cmd, env, stage):
+    """Run one training stage, streaming its log, and evaluate the sharp half after epoch 1.
+
+    The check runs at the END OF THE FIRST EPOCH of the stage - roughly ten minutes on the
+    LPIPS arms - so the cost of watching is bounded and the rule can actually terminate a
+    run. Every line the child prints is echoed unchanged, so the Kaggle log is exactly what
+    it would have been without the monitor.
+    """
+    proc = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT, text=True, bufsize=1)
+    vals, first_epoch, checked = [], None, False
+    for line in proc.stdout:
+        sys.stdout.write(line)
+        sys.stdout.flush()
+        m = _ROW.search(line)
+        if not m:
+            continue
+        ep, tail = int(m.group(1)), m.group(3)
+        if first_epoch is None:
+            first_epoch = ep
+        if ep == first_epoch and not checked:
+            for key in ("G_LPIPS", "G_L1"):
+                mm = re.search(key + r": ([\d.]+)", tail)
+                if mm:
+                    vals.append(float(mm.group(1)))
+                    break
+        elif ep > first_epoch and not checked:
+            checked = True
+            hits = _spike_hits(vals)
+            obs = max((v / statistics.median(vals[i - SPIKE_MEDIAN_ROWS:i])
+                       for i, v in enumerate(vals[:SPIKE_WINDOW_ROWS])
+                       if i >= SPIKE_MEDIAN_ROWS
+                       and statistics.median(vals[i - SPIKE_MEDIAN_ROWS:i]) > 0),
+                      default=float("nan"))
+            print(f"\n[stop-rule/sharp] {ARM} seed {SEED} stage {stage}: evaluated after epoch "
+                  f"{first_epoch} on {min(len(vals), SPIKE_WINDOW_ROWS)} rows. "
+                  f"max ratio observed {obs:.4f}; threshold {SPIKE_MULT} "
+                  f"(seed-42 calibration: max windowed 1.5692, max anywhere 1.8792); "
+                  f"hits {len(hits)}/{SPIKE_MIN_HITS} needed.", flush=True)
+            if len(hits) >= SPIKE_MIN_HITS:
+                print(f"[stop-rule/sharp] FIRED - terminating {ARM} seed {SEED}. "
+                      f"Report this, whatever it costs the package "
+                      f"(seed-replication-registration.md, Stop rule).", flush=True)
+                for i, v, med, r in hits:
+                    print(f"    row {i}: value {v:.4f}, trailing median {med:.4f}, "
+                          f"ratio {r:.3f}", flush=True)
+                proc.terminate()
+                try:
+                    proc.wait(timeout=60)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                sys.exit(3)
+    rc = proc.wait()
+    if rc != 0:
+        raise subprocess.CalledProcessError(rc, cmd)
+
+
 base = [sys.executable, f"{ROOT}/train.py",
         "--dataroot", f"{ROOT}/datasets/tr", "--name", ARM,
         "--model","pix2pix","--direction","BtoA","--netG","unet_256","--norm","batch",
@@ -313,12 +421,12 @@ if ARM in ("C1", "C4"):   # stage 1: low-LR joint warm-up (D catches up, G barel
     # the registered warm-up was dead. StepLR(step_size=50) cannot trigger inside a 2-epoch
     # stage. Stock CLI flags only; stage 2 and C2 keep the default linear policy untouched.
     # Registered as a dated amendment in phase-c-config.md before any C1 result existed.
-    subprocess.run(base+["--lr","2e-5","--n_epochs","2","--n_epochs_decay","0",
-                         "--epoch_count","1","--lr_policy","step","--lr_decay_iters","50"],
-                   check=True, env=ENV)
+    run_train(base+["--lr","2e-5","--n_epochs","2","--n_epochs_decay","0",
+                    "--epoch_count","1","--lr_policy","step","--lr_decay_iters","50"],
+              ENV, "1 (warm-up)")
     banner(PROVENANCE)
-    subprocess.run(base+["--lr","1e-4","--n_epochs","10","--n_epochs_decay","10",
-                         "--epoch_count","3"], check=True, env=ENV)
+    run_train(base+["--lr","1e-4","--n_epochs","10","--n_epochs_decay","10",
+                    "--epoch_count","3"], ENV, "2 (main)")
 else:               # C2/C3/C5: no adversarial gradient -> no warm-up needed.
                     # C3 deliberately reuses C2's EXACT invocation (linear 10+10 schedule).
                     # A work-package instruction had also said "same lr_policy step /
@@ -326,6 +434,6 @@ else:               # C2/C3/C5: no adversarial gradient -> no warm-up needed.
                     # their error (the flag belonged to the discarded C1 warm-up run).
                     # Controlled arm: nothing changes except the data mix.
     banner(PROVENANCE)
-    subprocess.run(base+["--lr","1e-4","--n_epochs","10","--n_epochs_decay","10",
-                         "--epoch_count","1"], check=True, env=ENV)
+    run_train(base+["--lr","1e-4","--n_epochs","10","--n_epochs_decay","10",
+                    "--epoch_count","1"], ENV, "1 (single)")
 print(f"{ARM} done; checkpoints in /kaggle/working/checkpoints/{ARM}")
