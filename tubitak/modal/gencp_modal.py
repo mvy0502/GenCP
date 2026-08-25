@@ -72,12 +72,74 @@ vol = modal.Volume.from_name("gencp-data")
 out_vol = modal.Volume.from_name("gencp-out", create_if_missing=True)
 
 DATA = "/data/gencp-tr"
+DATA_TAR = "/data/gencp-tr.tar"
 OUT = "/out"
 
 # Expected wall time per arm on A10G, from the Kaggle T4 times divided by ~3.5, with the
 # timeout set to roughly TWICE that. A hung job left to Modal's 24-hour maximum would burn
 # most of the monthly credit for nothing.
 TIMEOUTS = {"C1": 2 * 60 * 60, "C2": 2 * 60 * 60, "C4": 4 * 60 * 60, "C5": 4 * 60 * 60}
+
+
+LOCAL_DATA = "/scratch/gencp-tr"
+
+
+def _ordered_list_hash(root, sort_files=False):
+    """Hash the ORDERED dataset file list exactly as pix2pix's make_dataset() builds it.
+
+    data/image_folder.py:make_dataset does `for root, _, fnames in sorted(os.walk(dir))` -
+    which sorts the WALK TUPLES but NOT `fnames`, so the per-directory file order is whatever
+    the filesystem enumeration returns. A network-backed Modal Volume and a local ext4 can
+    enumerate the same directory differently. If they do, the seeded shuffle maps to different
+    files, batch composition changes, and the run is not the same run.
+
+    So the hash is over the ordered sequence of names, not over file contents: contents being
+    identical is already established by the pretrained sha256 and does not answer this.
+    Names are made relative to `root` so the differing path prefixes cannot cause a spurious
+    mismatch.
+    """
+    IMG = (".jpg", ".jpeg", ".png", ".ppm", ".bmp", ".pgm", ".tif", ".tiff", ".webp")
+    names = []
+    for r, _, fnames in sorted(os.walk(root)):
+        for fname in (sorted(fnames) if sort_files else fnames):  # mirrors the patched/unpatched code path
+            if fname.lower().endswith(IMG):
+                names.append(os.path.relpath(os.path.join(r, fname), root))
+    import hashlib
+    h = hashlib.sha256("\n".join(names).encode()).hexdigest()
+    return h, len(names), names[:3]
+
+
+def _sha256_file(path):
+    import hashlib
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for b in iter(lambda: f.read(1 << 20), b""):
+            h.update(b)
+    return h.hexdigest()
+
+
+def _stage_local():
+    """Stage the dataset onto container-local disk from a SINGLE tar on the Volume.
+
+    Measured cause (AMENDMENT SEED-b): the Volume is network-backed and pix2pix reads 5,577
+    individual small files per epoch. Training on it stalled the dataloader at 0.120-0.491 s
+    per image against Kaggle's steady 0.003 s - a 4.9x faster GPU produced a 2x slower run.
+
+    The first fix attempted `cp -r` from the Volume, which is the SAME small-file network cost
+    and blew a 30-minute timeout without finishing. So the dataset is staged as one 2.06 GB
+    tar: a single sequential read, extracted locally. One large read replaces 5,577 small ones.
+    """
+    if os.path.exists(LOCAL_DATA):
+        return
+    os.makedirs("/scratch", exist_ok=True)
+    t = time.time()
+    # --warning=no-unknown-keyword: the tar was created on macOS and carries
+    # com.apple.provenance xattrs, which GNU tar warns about once per file - 1,884 lines
+    # that swamped the run output on the first attempt.
+    subprocess.run(["tar", "--warning=no-unknown-keyword", "-xf", DATA_TAR, "-C", "/scratch"],
+                   check=True, stderr=subprocess.DEVNULL)
+    os.rename("/scratch/kaggle_stage", LOCAL_DATA)
+    print(f"[stage] extracted tar -> local disk in {time.time()-t:.1f}s", flush=True)
 
 
 def _cuda_smoke_test():
@@ -145,7 +207,7 @@ def _disable_tf32():
           f"cuda.matmul.allow_tf32={torch.backends.cuda.matmul.allow_tf32}  (both must be False)")
 
 
-def _run_arm(arm: str, seed: int):
+def _run_arm(arm: str, seed: int, sort_files: bool = True, label: str = None):
     """Run one arm by invoking the UNCHANGED tubitak/kaggle/train_c1_c2.py.
 
     The script is used verbatim, including its sharp-half stop rule (run_train / _spike_hits),
@@ -160,10 +222,36 @@ def _run_arm(arm: str, seed: int):
     subprocess.run(["git", "clone", "--depth", "1", "-b", "tubitak-tr",
                     "https://github.com/mvy0502/GenCP.git", repo], check=True)
 
+    # Enumeration-order patch: COMMITTED as a file, applied with `git apply`, never sed'd in.
+    # `git apply` verifies the pre-state and fails loudly if upstream ever differs, so this is
+    # a recorded code path rather than an ad hoc one (corrections-log entries 22 and 25).
+    # It RESTORES the order the Modal Volume was already giving, on local disk - it is not a
+    # new ordering imposed on Modal. See tubitak/modal/patches/README.md.
+    patch = f"{repo}/tubitak/modal/patches/image_folder_sorted.patch"
+    if sort_files:
+        subprocess.run(["git", "apply", "--check", patch], cwd=repo, check=True)
+        subprocess.run(["git", "apply", patch], cwd=repo, check=True)
+        print("[patch] image_folder_sorted.patch APPLIED (sorted enumeration)", flush=True)
+    else:
+        print("[patch] image_folder_sorted.patch NOT applied (unsorted control arm)", flush=True)
+    ifsha = _sha256_file(f"{repo}/data/image_folder.py")
+    print(f"[patch] data/image_folder.py sha256: {ifsha}", flush=True)
+
     # The training script expects the Kaggle mount layout; the Volume provides the same tree.
+    _stage_local()
+    # Post-copy verification, not only on the Volume: the initialisation for every arm and
+    # every seed must be the same file after staging as before it.
+    sha = _sha256_file(f"{LOCAL_DATA}/latest_net_G.pth")
+    print(f"[stage] pretrained sha256 after copy: {sha}", flush=True)
+    assert sha == "5938576369544301bb5241daf0581330042286dab215abe1d55defeea297a022", \
+        f"pretrained generator changed during staging: {sha}"
+    oh, n, first = _ordered_list_hash(f"{LOCAL_DATA}/pairs/train", sort_files=sort_files)
+    print(f"[stage] ordered file-list sha256 (as this run will read it): {oh}  n={n}", flush=True)
+    print(f"[stage] first three: {first}", flush=True)
+
     os.makedirs("/kaggle/input", exist_ok=True)
     if not os.path.exists("/kaggle/input/gencp-tr"):
-        os.symlink(DATA, "/kaggle/input/gencp-tr")
+        os.symlink(LOCAL_DATA, "/kaggle/input/gencp-tr")
     os.makedirs("/kaggle/working", exist_ok=True)
 
     env = dict(os.environ, ARM=arm, SEED=str(seed),
@@ -175,17 +263,20 @@ def _run_arm(arm: str, seed: int):
                        cwd=repo, env=env)
     elapsed = time.time() - t0
 
-    dst = f"{OUT}/seed{seed}/{arm}"
+    tag = label or arm
+    dst = f"{OUT}/seed{seed}/{tag}"
     os.makedirs(dst, exist_ok=True)
     subprocess.run(["cp", "-r", f"/kaggle/working/checkpoints/{arm}", dst], check=False)
     out_vol.commit()
 
     gpu_seconds = elapsed
-    print(f"[cost] arm={arm} seed={seed} rc={p.returncode} "
+    print(f"[cost] arm={tag} seed={seed} sorted={sort_files} rc={p.returncode} "
           f"wall={elapsed/3600:.3f} h  GPU-seconds={gpu_seconds:.0f}")
     if p.returncode != 0:
         raise RuntimeError(f"{arm} seed {seed} exited {p.returncode}")
-    return {"arm": arm, "seed": seed, "gpu_seconds": gpu_seconds}
+    return {"arm": tag, "seed": seed, "sorted": bool(sort_files),
+            "gpu_seconds": float(gpu_seconds), "image_folder_sha256": ifsha,
+            "order_hash": oh}
 
 
 @app.function(image=image, gpu="A10G", volumes={"/data": vol, OUT: out_vol},
@@ -198,6 +289,19 @@ def train_c1(seed: int):
               timeout=TIMEOUTS["C2"])
 def train_c2(seed: int):
     return _run_arm("C2", seed)
+
+
+@app.function(image=image, gpu="A10G", volumes={"/data": vol, OUT: out_vol},
+              timeout=TIMEOUTS["C2"])
+def train_c2_unsorted(seed: int):
+    """C2 with the enumeration patch NOT applied - the order-effect control.
+
+    Registered reading (AMENDMENT SEED-b): the difference between this and the sorted C2, at
+    fixed hardware and fixed seed, IS the order effect. It is reported beside the s43-to-s44
+    seed spread and the larger of the two is stated. This converts "we cannot know what order
+    Kaggle used" from an unresolved ambiguity into a measured bound.
+    """
+    return _run_arm("C2", seed, sort_files=False, label="C2_unsorted")
 
 
 @app.function(image=image, gpu="A10G", volumes={"/data": vol, OUT: out_vol},
@@ -248,7 +352,7 @@ def gate_seed43():
     seed = 43
     t0 = time.time()
     results = []
-    for fn in (train_c1, train_c2, train_c4, train_c5):
+    for fn in (train_c1, train_c2, train_c4, train_c5, train_c2_unsorted):
         results.append(fn.remote(seed))
     total = sum(r["gpu_seconds"] for r in results)
     print("\n" + "=" * 78)
@@ -260,4 +364,51 @@ def gate_seed43():
     print(f"  TOTAL {total:.0f} GPU-seconds = {total/3600:.2f} A10G-hours "
           f"~ ${total/3600*A10G_USD_PER_HOUR:.2f} of the $30 monthly credit")
     print(f"  wall clock {(time.time()-t0)/3600:.2f} h")
+    print("=" * 78)
+
+
+@app.function(image=image, volumes={"/data": vol}, timeout=60 * 60)
+def order_check():
+    """Compare the ORDERED dataset file list on the Volume against the local copy.
+
+    This is the precondition for calling the local-copy fix scientifically neutral. Content
+    identity is not enough: if enumeration order differs, the seeded shuffle maps to different
+    files and the run changes.
+    """
+    vol_h, vol_n, vol_first = _ordered_list_hash(f"{DATA}/pairs/train")
+    print(f"[order] VOLUME  sha256={vol_h}  n={vol_n}")
+    print(f"[order]   first three: {vol_first}")
+    _stage_local()
+    loc_h, loc_n, loc_first = _ordered_list_hash(f"{LOCAL_DATA}/pairs/train")
+    print(f"[order] LOCAL   sha256={loc_h}  n={loc_n}")
+    print(f"[order]   first three: {loc_first}")
+    match = vol_h == loc_h
+    print(f"[order] ORDER IDENTICAL: {match}")
+    if not match:
+        vs = set(vol_first) ^ set(loc_first)
+        print(f"[order] the fix is NOT order-neutral; an explicit sort must be applied "
+              f"and recorded. head symmetric difference: {vs}")
+    sha_vol = _sha256_file(f"{DATA}/latest_net_G.pth")
+    sha_loc = _sha256_file(f"{LOCAL_DATA}/latest_net_G.pth")
+    print(f"[order] pretrained on Volume: {sha_vol}")
+    print(f"[order] pretrained local    : {sha_loc}   match={sha_vol == sha_loc}")
+    return {"volume_order_sha256": vol_h, "local_order_sha256": loc_h,
+            "order_identical": bool(match), "n_files": int(vol_n),
+            "pretrained_volume": sha_vol, "pretrained_local": sha_loc}
+
+
+@app.local_entrypoint()
+def check_order():
+    """Print the order-check result from the returned dict, so it cannot be lost in stdout."""
+    r = order_check.remote()
+    print("\n" + "=" * 78)
+    print("ORDERED DATASET FILE-LIST HASH - Volume vs container-local copy")
+    print("=" * 78)
+    print(f"  n files                : {r['n_files']}")
+    print(f"  VOLUME order sha256    : {r['volume_order_sha256']}")
+    print(f"  LOCAL  order sha256    : {r['local_order_sha256']}")
+    print(f"  ORDER IDENTICAL        : {r['order_identical']}")
+    print(f"  pretrained on Volume   : {r['pretrained_volume']}")
+    print(f"  pretrained after copy  : {r['pretrained_local']}")
+    print(f"  pretrained match       : {r['pretrained_volume'] == r['pretrained_local']}")
     print("=" * 78)

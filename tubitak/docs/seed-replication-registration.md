@@ -589,7 +589,7 @@ the adversarial arms. That is the manipulated factor.
 >
 > **Re-run seed 43, all four arms, on Modal A10G** — identical in every other respect: same
 > 5,577 pairs, same schedules, same 20 epochs, same seed 43, TF32 off, evaluated through the
-> same `seed_eval_run.py`. Cost approximately 3 A10G-hours (~$3.30 of the $30 monthly credit).
+> same `seed_eval_run.py`. Cost approximately 3 A10G-hours (~$3.30 of the $30 monthly credit). **SUPERSEDED — see the throughput measurement above: on the Volume this projected to ~15 h and ~$16.50; with tar staging it returns to roughly the original estimate. The wrong figure is kept here rather than edited away.**
 >
 > Compared against the **Kaggle T4 seed-43 values already measured**:
 >
@@ -615,6 +615,82 @@ the adversarial arms. That is the manipulated factor.
 >   block, never pooled.** The seed count is reported per block, not summed across blocks.
 >
 > Both branches are written here so neither is chosen after seeing the number.
+>
+> ### Data staging, enumeration order, and the throughput inversion
+>
+> **The measured problem.** Training directly off the Modal Volume stalled the dataloader at
+> **0.120–0.491 s per image** against Kaggle's steady **0.003 s**, because pix2pix reads 5,577
+> individual small files per epoch and the Volume is network-backed. Compute was **4.9× faster
+> than the T4** (0.014 vs 0.0690 s/image) and the run was still **~2× slower end to end**
+> (13.2 img/s vs 24.6). Projected **~15 h and ~$16.50** against the ~3 h / $3.30 first
+> recorded here. **That first estimate was wrong and is preserved below rather than edited
+> away**, with the measurement that replaced it.
+>
+> **What caught it: end-to-end throughput, not the component speedup.** A sample of
+> **1,580 images in 120 seconds** contradicted a GPU that was genuinely five times faster.
+> Stated as the general lesson: **a 4.9× faster component produced a 2× slower system, and
+> only the end-to-end number showed it.** Component benchmarks would have confirmed the move
+> and been wrong.
+>
+> **The fix, and the first attempt at it that also failed.** `cp -r` from the Volume was tried
+> first and blew a 30-minute timeout without finishing — the same small-file network cost.
+> Staging is therefore a **single 2.06 GB tar** on the Volume, one sequential read, extracted
+> to container-local disk in seconds.
+>
+> **Enumeration order — the precondition that made the fix non-neutral.**
+> `data/image_folder.py:make_dataset()` does `for root, _, fnames in sorted(os.walk(dir))`,
+> which sorts the walk tuples but **not** `fnames`, so per-directory order is whatever the
+> filesystem returns. Measured under both paths:
+>
+> | path | ordered file-list sha256 | n |
+> |---|---|---|
+> | Modal Volume | `4b5f232034261ed1a2b051db6e17d1dd6a1424ba9225bb49c5e3433e8493cad9` | 5,577 |
+> | container-local copy | `a4171d8815059227fc8d61afd956ead164eea695e186c7913625f9faa8006099` | 5,577 |
+>
+> **They differ.** Without this check the gate would have run on a different file order — the
+> seeded shuffle mapping to different files, batch composition changed — and nothing would
+> have reported it. The pretrained generator is byte-identical after staging
+> (`5938…a022` both sides), which is exactly why content hashing alone was insufficient.
+>
+> **The sort restores the Volume's own order on local disk; it does not impose a new one.**
+> The Volume already enumerated sorted (`36SVJ_0_0.tif`, `36SVJ_0_1.tif`, `36SVJ_0_10.tif`);
+> the local copy did not. Sorting explicitly **preserves the network layer's behaviour after
+> the data moves**, rather than changing how the data is ordered.
+>
+> **The patch is committed, not applied at runtime.** `tubitak/modal/patches/image_folder_sorted.patch`
+> is applied with `git apply`, which verifies the pre-state and fails loudly if upstream ever
+> differs, and the **sha256 of the resulting `data/image_folder.py`** is logged at preflight
+> beside the **ordered file-list hash**. A `sed` against a fresh clone would have been an
+> unrecorded code path — the class entries 22 and 25 record.
+>
+> **Registered before it runs: the order effect is measured, not left ambiguous.** Kaggle's
+> enumeration order was never recorded and cannot be recovered, so the gate alone cannot
+> separate hardware from ordering. **C2 is therefore run twice inside the gate — once sorted,
+> once unsorted — at fixed hardware and fixed seed. That difference IS the order effect.**
+> Registered reading: report the C2 sorted-vs-unsorted difference **beside the s43-to-s44 seed
+> spread and state which is larger.** If the order effect is small relative to the seed spread,
+> the gate's interpretation is clean whatever Kaggle's order was, and the paper carries a
+> number instead of a "we cannot know". If it is large, that must be known before any further
+> seed is added. Cost ≈ 30 minutes, ≈ $0.50.
+>
+> **Enumeration order is a THIRD unrecorded axis**, beside the image version and the seed-42
+> code path. From now on the ordered file-list hash is captured at preflight, per the
+> generalised prevention on corrections-log entry 29.
+>
+> ### Three things this move caught, all before they cost anything
+>
+> Recorded as evidence the practice works, not only the failures it records:
+>
+> 1. **`sm_89` absent from the pinned build's arch list** — found while pinning the image,
+>    changed the GPU choice on paper instead of producing a run that needed a
+>    binary-compatibility argument to defend.
+> 2. **The throughput inversion** — found by measuring end-to-end images/second, stopped a
+>    15-hour, $16.50 gate at 20 minutes and $0.35.
+> 3. **The enumeration-order difference** — found by hashing the ordered list rather than the
+>    file contents, stopped a gate that would have silently trained on a different file order.
+>
+> None of the three was visible in the thing that looked like the obvious check: the GPU was
+> real, the bytes were identical, the versions matched.
 >
 > ### Environment pins
 >
