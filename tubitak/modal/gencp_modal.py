@@ -95,6 +95,19 @@ out_vol = modal.Volume.from_name("gencp-out", create_if_missing=True)
 DATA = "/data/gencp-tr"
 DATA_TAR = "/data/gencp-tr.tar"
 
+# The repository commit every container checks out. PINNED, not `-b tubitak-tr`, because a
+# bare branch clone takes whatever HEAD happens to be at container start: on 2026-08-25 three
+# commits landed at 19:16:15 WHILE the gate was running, one of which modified
+# tubitak/kaggle/train_c1_c2.py - the training script itself. C1/C2/C4/C5 had already cloned
+# the older code, so the next arm would have run a different code version inside the same
+# gate. That diff turned out to be behaviour-preserving (open() -> with open()), but the
+# hazard is structural and this closes it.
+#
+# f2dc962 carries the train_c1_c2.py that ALL FOUR completed seed-43 arms ran:
+#     sha256(train_c1_c2.py) 839e1aadd8b88a7be6b7...  at 4817b90 (C1,C2) and f2dc962 (C4,C5)
+#     sha256(train_c1_c2.py) 878fa2009683277e28f1...  at 96503b7 (the mid-run commit)
+GIT_COMMIT = "f2dc962"
+
 # The ordered file-list hash the SORTED code path must produce - the Modal Volume's own
 # enumeration, which the committed patch restores on local disk (AMENDMENT SEED-b). Asserting
 # this covers BOTH failure classes at once: a count change (the AppleDouble doubling) and a
@@ -247,8 +260,13 @@ def _run_arm(arm: str, seed: int, sort_files: bool = True, label: str = None):
     _disable_tf32()
 
     repo = "/work/GenCP"
-    subprocess.run(["git", "clone", "--depth", "1", "-b", "tubitak-tr",
-                    "https://github.com/mvy0502/GenCP.git", repo], check=True)
+    subprocess.run(["git", "clone", "https://github.com/mvy0502/GenCP.git", repo], check=True)
+    subprocess.run(["git", "checkout", "--detach", GIT_COMMIT], cwd=repo, check=True)
+    head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo,
+                          capture_output=True, text=True, check=True).stdout.strip()
+    print(f"[repo] pinned checkout {GIT_COMMIT} -> HEAD {head}", flush=True)
+    tsha = _sha256_file(f"{repo}/tubitak/kaggle/train_c1_c2.py")
+    print(f"[repo] train_c1_c2.py sha256: {tsha}", flush=True)
 
     # Enumeration-order patch: COMMITTED as a file, applied with `git apply`, never sed'd in.
     # `git apply` verifies the pre-state and fails loudly if upstream ever differs, so this is
