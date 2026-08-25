@@ -45,6 +45,8 @@
 import os, subprocess, shutil, sys, hashlib, datetime, re, statistics
 
 ARM  = os.environ.get("ARM", "C1")            # "C2" = L1-only arm; "C3" = C2 + ~20% EU pairs
+                                              # "C2_warmup"/"C5_warmup" = C2/C5 losses under
+                                              # C1's warm-up schedule (de-confound probe)
                                               # "C4" = GAN + LPIPS (C1 protocol); "C5" = LPIPS-only
                                               # (C2 protocol). Registration: phase-c-lpips-registration.md
 ROOT = "/kaggle/working/GenCP"
@@ -319,7 +321,7 @@ PROVENANCE = make_cold_start_D(ck)            # writes latest_net_D.pth + the no
 banner(PROVENANCE)
 ENV = install_seed_hook()
 
-if ARM in ("C2", "C3"):                       # L1-only: zero the GAN term (Kaggle copy only)
+if ARM in ("C2", "C3", "C2_warmup"):          # L1-only: zero the GAN term (Kaggle copy only)
     p = f"{ROOT}/models/pix2pix_model.py"
     with open(p) as f:
         s = f.read()
@@ -331,7 +333,7 @@ if ARM in ("C2", "C3"):                       # L1-only: zero the GAN term (Kagg
         f.write(s)
     print("[C2] adversarial term zeroed in the Kaggle copy of pix2pix_model.py", flush=True)
 
-if ARM == "C5":                               # LPIPS-only: same patch, LPIPS branch (Kaggle copy only)
+if ARM in ("C5", "C5_warmup"):                # LPIPS-only: same patch, LPIPS branch (Kaggle copy only)
     p = f"{ROOT}/models/pix2pix_model.py"
     with open(p) as f:
         s = f.read()
@@ -462,14 +464,19 @@ base = [sys.executable, f"{ROOT}/train.py",
         "--checkpoints_dir","/kaggle/working/checkpoints",
         "--continue_train","--epoch","latest",
         "--save_epoch_freq","1","--display_id","-1","--print_freq","10"]
-if ARM in ("C4", "C5"):
+if ARM in ("C4", "C5", "C5_warmup"):
     # Reconstruction term = LPIPS instead of L1, by the repository's own stock flag:
     # pix2pix_model.py replaces criterionL1 with LearnedPerceptualImagePatchSimilarity
     # (net_type='vgg'), weighted by the same lambda_L1 (default 100). This is the
     # published HR objective per the paper's Table 5 (Adversarial + lambda*LPIPS);
     # see phase-c-lpips-registration.md, Gate 0.
     base += ["--LPIPS"]
-if ARM in ("C1", "C4"):   # stage 1: low-LR joint warm-up (D catches up, G barely moves)
+if ARM in ("C1", "C4", "C2_warmup", "C5_warmup"):
+    # stage 1: low-LR joint warm-up (D catches up, G barely moves).
+    # C2_warmup / C5_warmup (warm-up de-confound, warmup-deconfound-registration.md): the
+    # L1-only / LPIPS-only losses of C2 / C5 under C1's EXACT two-stage schedule, so the
+    # LR-jump window exists without an adversarial gradient. Everything below is shared
+    # with C1/C4 verbatim - the schedule IS the manipulation.
     banner(PROVENANCE)
     # --lr_policy step --lr_decay_iters 50: hold 2e-5 CONSTANT across both warm-up epochs.
     # The default 'linear' policy steps its lambda at the START of each epoch and with
