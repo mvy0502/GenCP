@@ -690,6 +690,17 @@ the adversarial arms. That is the manipulated factor.
 > code path. From now on the ordered file-list hash is captured at preflight, per the
 > generalised prevention on corrections-log entry 29.
 >
+> **Code version for the unsorted arm, decided 2026-08-25 before its launch.** C2_unsorted
+> checks out the pinned `f2dc962` — the commit whose `train_c1_c2.py` (sha256 `839e1aad…`)
+> every completed seed-43 Modal arm ran — not the branch head, which by launch time carried a
+> later code-review pass (96503b7). One commit for every arm of the replication is simpler
+> and stricter than proving equivalence for each change; 96503b7 touches nothing in the
+> training path, and if a training-path fix ever becomes necessary it gets its own
+> equivalence run against a completed arm before adoption. corrections-log entry 29 (sixth
+> instance) records the near-miss that forced the pin: 96503b7 landed at 19:16 while C5 was
+> still training, and the pin (80206b4) was committed at 19:51 — after the exposure, not
+> before.
+>
 > ### The LPIPS backbone weights — a fifth unrecorded axis
 >
 > `vgg16-397923af.pth` was being **downloaded at run time** on both platforms. Those weights
