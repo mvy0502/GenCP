@@ -107,6 +107,11 @@ DATA_TAR = "/data/gencp-tr.tar"
 #     sha256(train_c1_c2.py) 839e1aadd8b88a7be6b7...  at 4817b90 (C1,C2) and f2dc962 (C4,C5)
 #     sha256(train_c1_c2.py) 878fa2009683277e28f1...  at 96503b7 (the mid-run commit)
 GIT_COMMIT = "f2dc962"
+# The warm-up de-confound arms (C2_warmup, C5_warmup) exist only from a782aa5 - a
+# membership-only edit on the training script's ARM conditionals (schedule/loss code shared
+# verbatim with the existing arms). The replication arms above NEVER move off f2dc962.
+# Registration: tubitak/docs/warmup-deconfound-registration.md.
+WARMUP_COMMIT = "a782aa5"
 
 # The ordered file-list hash the SORTED code path must produce - the Modal Volume's own
 # enumeration, which the committed patch restores on local disk (AMENDMENT SEED-b). Asserting
@@ -119,7 +124,8 @@ OUT = "/out"
 # Expected wall time per arm on A10G, from the Kaggle T4 times divided by ~3.5, with the
 # timeout set to roughly TWICE that. A hung job left to Modal's 24-hour maximum would burn
 # most of the monthly credit for nothing.
-TIMEOUTS = {"C1": 2 * 60 * 60, "C2": 2 * 60 * 60, "C4": 4 * 60 * 60, "C5": 4 * 60 * 60}
+TIMEOUTS = {"C1": 2 * 60 * 60, "C2": 2 * 60 * 60, "C4": 4 * 60 * 60, "C5": 4 * 60 * 60,
+            "C2_warmup": 2 * 60 * 60, "C5_warmup": 4 * 60 * 60}
 
 
 LOCAL_DATA = "/scratch/gencp-tr"
@@ -248,23 +254,29 @@ def _disable_tf32():
           f"cuda.matmul.allow_tf32={torch.backends.cuda.matmul.allow_tf32}  (both must be False)")
 
 
-def _run_arm(arm: str, seed: int, sort_files: bool = True, label: str = None):
+def _run_arm(arm: str, seed: int, sort_files: bool = True, label: str = None,
+             checkout: str = None):
     """Run one arm by invoking the UNCHANGED tubitak/kaggle/train_c1_c2.py.
 
     The script is used verbatim, including its sharp-half stop rule (run_train / _spike_hits),
     which therefore behaves on Modal exactly as it does on Kaggle. Only the two environment
     variables it already reads are set here.
+
+    `checkout` defaults to GIT_COMMIT (the replication pin, f2dc962). The warm-up de-confound
+    arms pass WARMUP_COMMIT instead - their schedule exists only there. Always an explicit
+    commit, never a branch head (corrections-log entry 29, sixth instance).
     """
     t0 = time.time()
+    checkout = checkout or GIT_COMMIT
     _cuda_smoke_test()
     _disable_tf32()
 
     repo = "/work/GenCP"
     subprocess.run(["git", "clone", "https://github.com/mvy0502/GenCP.git", repo], check=True)
-    subprocess.run(["git", "checkout", "--detach", GIT_COMMIT], cwd=repo, check=True)
+    subprocess.run(["git", "checkout", "--detach", checkout], cwd=repo, check=True)
     head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo,
                           capture_output=True, text=True, check=True).stdout.strip()
-    print(f"[repo] pinned checkout {GIT_COMMIT} -> HEAD {head}", flush=True)
+    print(f"[repo] pinned checkout {checkout} -> HEAD {head}", flush=True)
     tsha = _sha256_file(f"{repo}/tubitak/kaggle/train_c1_c2.py")
     print(f"[repo] train_c1_c2.py sha256: {tsha}", flush=True)
 
@@ -383,6 +395,25 @@ def train_c2_unsorted(seed: int):
 
 
 @app.function(image=image, gpu="A10G", volumes={"/data": vol, OUT: out_vol},
+              timeout=TIMEOUTS["C2_warmup"])
+def train_c2_warmup(seed: int):
+    """C2's L1-only loss under C1's exact two-stage warm-up schedule, at WARMUP_COMMIT.
+
+    The warm-up de-confound probe (warmup-deconfound-registration.md): entry 26's window is
+    perfectly collinear with discriminator presence; this arm supplies the LR jump without
+    the adversarial gradient. Sorted enumeration, same data, same seed handling as C2.
+    """
+    return _run_arm("C2_warmup", seed, checkout=WARMUP_COMMIT)
+
+
+@app.function(image=image, gpu="A10G", volumes={"/data": vol, OUT: out_vol},
+              timeout=TIMEOUTS["C5_warmup"])
+def train_c5_warmup(seed: int):
+    """C5's LPIPS-only loss under C1's exact two-stage warm-up schedule, at WARMUP_COMMIT."""
+    return _run_arm("C5_warmup", seed, checkout=WARMUP_COMMIT)
+
+
+@app.function(image=image, gpu="A10G", volumes={"/data": vol, OUT: out_vol},
               timeout=TIMEOUTS["C4"])
 def train_c4(seed: int):
     return _run_arm("C4", seed)
@@ -440,7 +471,8 @@ def gate_driver(seed: int, arms=None):
     """
     t0 = time.time()
     fns = {"C1": train_c1, "C2": train_c2, "C4": train_c4, "C5": train_c5,
-           "C2_unsorted": train_c2_unsorted}
+           "C2_unsorted": train_c2_unsorted,
+           "C2_warmup": train_c2_warmup, "C5_warmup": train_c5_warmup}
     order = arms or ["C1", "C2", "C4", "C5", "C2_unsorted"]
     results, failures = [], []
     for name in order:
@@ -482,6 +514,28 @@ def gate_seed43():
     print("[launch] progress: modal app logs, or check the gencp-out Volume.")
 
 
+@app.local_entrypoint()
+def seed_block_wave():
+    """AMENDMENT SEED-c wave: six confirmatory seed drivers plus the warm-up de-confound.
+
+    Arm order ["C5", "C4", "C2", "C1"] - longest and most load-bearing first, C2 before C1
+    because C2 is a leg of C5-C2, the contrast that carries the paper's title claim; a
+    ceiling stop costs C1 (which feeds only C1-C2) before it costs anything else. The
+    warm-up driver runs C5_warmup then C2_warmup at seed 43, checkout WARMUP_COMMIT, and
+    touches no replication directory (tags C2_warmup/C5_warmup cannot collide with
+    seed43/C2 or seed43/C5). Seven GPU containers peak, within the workspace's limit of 10.
+    """
+    calls = []
+    for seed in (45, 46, 47, 48, 49, 50):
+        c = gate_driver.spawn(seed, ["C5", "C4", "C2", "C1"])
+        calls.append((f"seed{seed}", c.object_id))
+    c = gate_driver.spawn(43, ["C5_warmup", "C2_warmup"])
+    calls.append(("warmup_s43", c.object_id))
+    for name, cid in calls:
+        print(f"[launch] {name}: {cid}", flush=True)
+    print("[launch] the laptop can be closed - sequencing runs inside Modal, not here.")
+
+
 @app.function(image=image, volumes={OUT: out_vol}, timeout=30 * 60)
 def verify_latest(seed: int):
     """Per arm on the output Volume: latest_net_G.pth tensor-equal to 20_net_G.pth, plus the
@@ -497,8 +551,11 @@ def verify_latest(seed: int):
     res = {}
     base = f"{OUT}/seed{seed}"
     for tag in sorted(os.listdir(base)):
-        arm = "C2" if tag.startswith("C2") else tag        # C2_unsorted stores under .../C2
-        d = f"{base}/{tag}/{arm}"
+        # Inner directory = the ARM env value the training script ran under: the tag itself
+        # for warm-up arms (ARM=C2_warmup), the base arm for C2_unsorted (ARM=C2).
+        cands = [c for c in (tag, tag.split("_")[0]) if os.path.isdir(f"{base}/{tag}/{c}")]
+        assert cands, f"no checkpoint directory under {base}/{tag}"
+        d = f"{base}/{tag}/{cands[0]}"
         a = torch.load(f"{d}/latest_net_G.pth", map_location="cpu")
         b = torch.load(f"{d}/20_net_G.pth", map_location="cpu")
         eq = set(a) == set(b) and all(torch.equal(a[k], b[k]) for k in a)
