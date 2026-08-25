@@ -73,6 +73,13 @@ out_vol = modal.Volume.from_name("gencp-out", create_if_missing=True)
 
 DATA = "/data/gencp-tr"
 DATA_TAR = "/data/gencp-tr.tar"
+
+# The ordered file-list hash the SORTED code path must produce - the Modal Volume's own
+# enumeration, which the committed patch restores on local disk (AMENDMENT SEED-b). Asserting
+# this covers BOTH failure classes at once: a count change (the AppleDouble doubling) and a
+# same-count change to contents or order, which a count check cannot see.
+EXPECTED_ORDER_SHA256 = "4b5f232034261ed1a2b051db6e17d1dd6a1424ba9225bb49c5e3433e8493cad9"
+EXPECTED_N_FILES = 5577
 OUT = "/out"
 
 # Expected wall time per arm on A10G, from the Kaggle T4 times divided by ~3.5, with the
@@ -254,8 +261,24 @@ def _run_arm(arm: str, seed: int, sort_files: bool = True, label: str = None):
     # came to n=11154 - exactly double - half of it 4 KB metadata junk, and training would
     # have run on it. Content hashes all still matched, so only a count/order check could see
     # it. The tar is now built with --no-xattrs; this assertion is the standing guard.
-    assert n == 5577, (f"staged training set has {n} files, expected 5577 - refusing to train. "
-                       f"first three: {first}")
+    # Count first: when it IS the count that broke, this gives the clearer message.
+    assert n == EXPECTED_N_FILES, (
+        f"staged training set has {n} files, expected {EXPECTED_N_FILES} - refusing to train. "
+        f"first three: {first}")
+    # Then the ordered-list hash, which is the real guard: it also catches a corruption that
+    # preserves the count while changing contents or order, which the count cannot.
+    if sort_files:
+        assert oh == EXPECTED_ORDER_SHA256, (
+            f"staged file list does not match the expected ordered hash - refusing to train.\n"
+            f"  expected {EXPECTED_ORDER_SHA256}\n  got      {oh}\n  first three: {first}")
+        print("[stage] ordered-list hash matches the expected value", flush=True)
+    else:
+        # The unsorted control cannot be asserted against a fixed value: raw ext4 enumeration
+        # depends on the per-directory hash seed, so it is not stable across containers. That
+        # is a property of the control, not a gap - it measures "an unsorted order", not one
+        # specific alternative ordering. Recorded so the asymmetry is not read as an oversight.
+        print(f"[stage] unsorted control - order hash {oh} NOT asserted "
+              f"(raw ext4 order is not stable across containers)", flush=True)
 
     os.makedirs("/kaggle/input", exist_ok=True)
     if not os.path.exists("/kaggle/input/gencp-tr"):
