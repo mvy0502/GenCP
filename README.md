@@ -3,51 +3,81 @@
 # CycleGAN and pix2pix in PyTorch for GenCP: Generative Control Point
 
 GenCP is a project funded by ESA (European Space Agency) based on **CycleGAN and pix2pix in PyTorch**. 
-Please refer to the original [README](#original-readme-from-cyclegan-and-pix2pix-in-pytorch) for more information.
+See the original [README](#original-readme-from-cyclegan-and-pix2pix-in-pytorch) for more information.
 
 The original code is licensed under the **BSD 3-Clause License**, and all copyright notices have been retained.
 
-Minor changes have been made:
-* LPIPS loss option has been added for training, see [training section](#training)
-* Demonstration notebooks for high resolution (HR) and very high resolution (VHR) GenCP images have been added
+We made two minor changes:
+* an LPIPS loss option for training, see the [training section](#training)
+* demonstration notebooks for high resolution (HR) and very high resolution (VHR) GenCP images
+
+
+## TÜBİTAK study on this branch (`tubitak-tr`)
+
+This branch additionally carries an independent measurement and validation study of the released
+GenCP HR pipeline (TÜBİTAK UZAY internship, August 2026). It does not modify the upstream
+pipeline; everything lives under [`tubitak/`](tubitak/), with pre-registered experiments and a
+running [corrections log](tubitak/docs/corrections-log.md). Main threads:
+
+* **Georeferencing scale error** — a confirmed +1/256 scale error in `gencp_georeferencing.py`
+  (up to 14.1 m at the tile corner), with the corrected transform hard-wired into a deterministic
+  reference generator, [`tubitak/tool/gencp_ref.py`](tubitak/tool/gencp_ref.py) —
+  [geometry-finding.md](tubitak/docs/geometry-finding.md), [tool-results.md](tubitak/docs/tool-results.md)
+* **KARIOS validation** — a three-arm run against real ground truth, reconciling the statistics
+  reported upstream — [karios-validation.md](tubitak/docs/karios-validation.md)
+* **Hallucinated structure** — the generator emits ~2.1× the edge density of its OSM input,
+  informing GCP site selection — [hallucinated-structure.md](tubitak/docs/hallucinated-structure.md)
+* **Loss-function factorial** — a 2×2 (GAN × L1/LPIPS) retraining and evaluation, currently being
+  replicated at the seed level on Modal GPUs — [phase-c-results.md](tubitak/docs/phase-c-results.md),
+  [phase-c-lpips-results.md](tubitak/docs/phase-c-lpips-results.md),
+  [seed-replication-registration.md](tubitak/docs/seed-replication-registration.md)
+* **Positioning measurements (E1–E3)** — testing the premises behind a synthetic reference —
+  [positioning-results.md](tubitak/docs/positioning-results.md)
+* **Turkish generalisation pipeline** — Ankara data acquisition and an OSM rasteriser fitted to
+  the released palette — [ankara-acquisition.md](tubitak/docs/ankara-acquisition.md),
+  [osm-palette.md](tubitak/docs/osm-palette.md)
+
+See [`tubitak/README.md`](tubitak/README.md) for the workspace guide. Turkish progress/final
+reports are under [`tubitak/rapor2/`](tubitak/rapor2/) and [`tubitak/rapor3/`](tubitak/rapor3/)
+(source versioned; rendered PDFs are reproducible and stay out of git).
 
 
 ## GenCP
-The scope of this project is to develop a proof of concept prototype prototype aiming to provide Generated Control Point (GenCP) image chips which are computed with generative AI techniques. The Ground Control Points (GCP) are involved in geometric Calibration / Validation activities of remote sensing images and are reference measurements.
+This project is a proof-of-concept prototype that produces Generated Control Point (GenCP) image chips with generative AI techniques. Ground Control Points (GCP) are reference measurements used in the geometric calibration and validation (Cal/Val) of remote sensing images.
 
-The following picture illustrates the GenCP concept: image translation from map to synthetic satellite image
+The picture below illustrates the GenCP concept: image translation from a map to a synthetic satellite image.
 
 <img src="gencp_imgs/gencp_concept.png" alt="Texte alternatif" width="400" height="150">
 
 
-Currently, there are two common approaches to get GCP set:
-*	Ground-based surveys, mostly using GNSS receivers with mm/cm level accuracy, that are suitable for manual labelling in images
-*	Extraction from reference raster datasets, often Sentinel-2 mosaics (S2 GRI) or any other VHR images, for which uncertainties are known, and that is suitable for automatic image matching procedures.
+There are currently two common ways to build a GCP set:
+*	Ground-based surveys, mostly with GNSS receivers at mm/cm accuracy, suited to manual labelling in images
+*	Extraction from reference raster datasets with known uncertainties, often Sentinel-2 mosaics (S2 GRI) or other VHR images, suited to automatic image matching.
 
-In both cases, the reference points are provided to the user along with GCP image chips from an EO Sensor, including vector data and GNSS measurement (if available), or more straightforwardly a full raster reference data to sufficiently describe the point location. ESA is also aiming at the development and sharing of a comprehensive GCP DB, which requires clearly explained point locations together with accurate coordinates that need to be identified in the target image.
+In both cases, the user receives the reference points along with GCP image chips from an EO sensor, including vector data and GNSS measurements (if available), or simply a full raster reference that describes the point location. ESA also aims to develop and share a comprehensive GCP database, which requires clearly described point locations and accurate coordinates that can be identified in the target image.
 
-However, although the provision of GCP image chips is an efficient approach for user interpretation of a GCP in a target image (labelling), the sharing / distribution among community of original VHR data remain a critical issue because of copyright law / licensing policy.
+GCP image chips help users interpret a GCP in a target image (labelling), but sharing the original VHR data with the community remains a problem because of copyright and licensing.
 
-Furthermore, even if some free ground photos or screenshots are available and so can be utilized as part of GCP description report, the photos or the views are not georeferenced, so GCP should be identified manually. As consequences, it limits considerably the usefulness of GCP data for geometric Cal/Val purposes.
+Free ground photos or screenshots can be part of a GCP description report, but they are not georeferenced, so the GCP still has to be identified manually. This limits how useful GCP data is for geometric Cal/Val.
 
-The last but not least critical point is related to reference image chip; radiometric and geometric differences still exist between reference and target images; it results in accuracy loss in matching process.
+Reference image chips raise one more problem: radiometric and geometric differences between reference and target images cause accuracy loss during matching.
 
-In order to overcome these issues, an appropriate and ideal solution would be to generate synthetic GCP images, so called GenCP, with main purposes of using them as a geometric raster reference.
+Generating synthetic GCP images, called GenCP, addresses these issues. Their main purpose is to serve as a geometric raster reference.
 
-In the scope of this project, two AI models have been developed to support two different resolutions:
+The project developed two AI models for two resolutions:
 *	VHR with 50 cm images
 *	HR with 10 m images
 
-The following diagram illustrates the GenCP workflow:
+The diagram below illustrates the GenCP workflow:
 
 ![concept](gencp_imgs/workflow.png)
 
-Note: image patches used for training and generated images are 8 bits images.
+Note: the image patches used for training and the generated images are 8-bit images.
 
 
 ### Examples of generated images
 
-Below are some examples of HR generated images along with the corresponding reference S2 patches and OSM rasters.
+Below are some HR generated images with the corresponding reference S2 patches and OSM rasters.
 
 OSM raster            |  Reference Image            |  Generated Image
 :-------------------------:|:-------------------------:|:-------------------------:
@@ -57,7 +87,7 @@ OSM raster            |  Reference Image            |  Generated Image
 ![](gencp_imgs/31TGH_0155_00_real_A.png)  |  ![](gencp_imgs/31TGH_0155_00_real_B.png) |  ![](gencp_imgs/31TGH_0155_00_fake_B.png)
 ![](gencp_imgs/31TGH_0216_00_real_A.png)  |  ![](gencp_imgs/31TGH_0216_00_real_B.png) |  ![](gencp_imgs/31TGH_0216_00_fake_B.png)
 
-VHR examples are illustrated below, from UAV images.
+The VHR examples below come from UAV images.
 
 OSM raster            |  Reference Image            |  Generated Image
 :-------------------------:|:-------------------------:|:-------------------------:
@@ -69,26 +99,26 @@ OSM raster            |  Reference Image            |  Generated Image
 
 ## Demo Notebooks
 
-Two notebooks are available to demonstrates how to generate synthetic [HR](GenCP_HR_demo/GenCP_demo_HR.ipynb) and [VHR](GenCP_VHR_demo/GenCP_demo_VHR.ipynb) images from OSM rasters. 
+Two notebooks demonstrate how to generate synthetic [HR](GenCP_HR_demo/GenCP_demo_HR.ipynb) and [VHR](GenCP_VHR_demo/GenCP_demo_VHR.ipynb) images from OSM rasters. 
 
-Demonstration data is available for [HR](GenCP_HR_demo/data/dataset) and [VHR](GenCP_VHR_demo/gencp_VHR_data_test). The notebooks can also be used on users' OSM rasters. Please refer to the [data section](#data) to see guidelines on how to generate OSM rasters compatible with the models' weights provided.
+Demonstration data is available for [HR](GenCP_HR_demo/data/dataset) and [VHR](GenCP_VHR_demo/gencp_VHR_data_test). The notebooks also work on your own OSM rasters. See the [data section](#data) for guidelines on generating OSM rasters compatible with the provided model weights.
 
 
 ## Data
 
-For HR images, we provide a training dadaset of image pairs (S2 patches and correspond OSM rasters), avaible in [Zenodo](https://zenodo.org/records/15044428).
+For HR images, we provide a training dataset of image pairs (S2 patches and corresponding OSM rasters), available on [Zenodo](https://zenodo.org/records/15044428).
 
-To generate your own OSM rasters, here are some guidelines:
-* Use [osmnx library](https://osmnx.readthedocs.io/en/stable/getting-started.html) to download OSM vectors over your area of interest
-* Define OSM feature's color for the rasterization based on the colors used in this project. [HR colors](GenCP_HR_demo/genCP_HR_osm_colors.py) and [VHR colors and width](GenCP_VHR_demo/genCP_VHR_osm_colors_and_width.py) describe the OSM features used in the GenCP project and their assigned colors (and width) to create OSM rasters. Note: for HR case, [CLC 10m raster](https://land.copernicus.eu/en/products/clc-backbone/clc-backbone-2021) was used in addition to OSM to fill missing values in OSM rasters, colors used are also defined in [HR colors](GenCP_HR_demo/genCP_HR_osm_colors.py).
-* Use [GDAL](https://gdal.org/en/stable/programs/gdal_rasterize.html) to rasterize OSM vectors
+To generate your own OSM rasters:
+* Use the [osmnx library](https://osmnx.readthedocs.io/en/stable/getting-started.html) to download OSM vectors over your area of interest
+* Rasterize each OSM feature with the colors used in this project. [HR colors](GenCP_HR_demo/genCP_HR_osm_colors.py) and [VHR colors and width](GenCP_VHR_demo/genCP_VHR_osm_colors_and_width.py) describe the OSM features used in GenCP and the colors (and widths) assigned to them for the OSM rasters. Note: for the HR case, the [CLC 10m raster](https://land.copernicus.eu/en/products/clc-backbone/clc-backbone-2021) was used in addition to OSM to fill missing values in the OSM rasters; its colors are also defined in [HR colors](GenCP_HR_demo/genCP_HR_osm_colors.py).
+* Use [GDAL](https://gdal.org/en/stable/programs/gdal_rasterize.html) to rasterize the OSM vectors
 
 
 ## Training
 
-Please refer to the original [README](#original-readme-from-cyclegan-and-pix2pix-in-pytorch) for guidelines on training.
+See the original [README](#original-readme-from-cyclegan-and-pix2pix-in-pytorch) for training guidelines.
 
-For training on an aligned dataset, such as the HR dataset available in Zenodo, the following options and command can be used:
+To train on an aligned dataset, such as the HR dataset on Zenodo, use the following options and command:
 
 * Use `--dataroot` to indicate path to training dataset
 * Use `--name` to name the experiment
@@ -109,9 +139,9 @@ All options to select parameters and hyperparameters values are described in the
 
 ## Testing
    
-Please refer to the original [README](#original-readme-from-cyclegan-and-pix2pix-in-pytorch) for guidelines on testing.
+See the original [README](#original-readme-from-cyclegan-and-pix2pix-in-pytorch) for testing guidelines.
 
-For testing on source images only (map rasters) with the trained GenCP HR model, run the following command:
+To test on source images only (map rasters) with the trained GenCP HR model, run the following command:
 
 * Set `--model` to "test" to indicate testing mode
 * Set `--dataset_mode` to "single" to indicate that only OSM rasters will be provided as inputs
@@ -126,7 +156,7 @@ For testing on source images only (map rasters) with the trained GenCP HR model,
 
 ## Geo-referencing
 
-Generated images by the AI model or not georeferenced. Use the following command to georeference generated images based on corresponding OSM rasters and create a GenCP database:
+The images generated by the AI model are not georeferenced. Use the following command to georeference them from the corresponding OSM rasters and create a GenCP database:
 
 ```
    python GenCP_HR_demo/gencp_georeferencing.py -t "path/to/generated/images" -i "path/to/input/OSM/rasters" -o "path/to/output/genCP_DB"
@@ -135,11 +165,11 @@ Generated images by the AI model or not georeferenced. Use the following command
 
 ## Quality Control
 
-Quality control is done with [KARIOS](https://github.com/telespazio-tim/karios) to evaluate the geometric accuracy of the geo-referenced generated images.
+[KARIOS](https://github.com/telespazio-tim/karios) evaluates the geometric accuracy of the georeferenced generated images.
 
 ### HR results
 
-The following figure illustrates geometric error distribution results obtained with KARIOS on a test site (not used for training) for RGB HR generated images. Results show a mean error around 0.7 pixel (7m) and a RMSE around 2.5 pixels (24m) due to outliers, mostly in rural areas.
+The figure below shows the geometric error distribution measured with KARIOS on a test site (not used for training) for RGB HR generated images. The mean error is around 0.7 pixel (7 m) and the RMSE around 2.5 pixels (24 m) due to outliers, mostly in rural areas.
 
 <img src="gencp_imgs/karios_HR.png" alt="Texte alternatif" width="600" height="500">
 
@@ -160,7 +190,7 @@ KLT Matching:
 
 ### VHR results
 
-The following figure illustrates geometric error distribution results obtained with KARIOS on a test site (not used for training) for RGB VHR generated images. Results show a mean error around 0.6 pixel and a RMSE around 3 pixels.
+The figure below shows the geometric error distribution measured with KARIOS on a test site (not used for training) for RGB VHR generated images. The mean error is around 0.6 pixel and the RMSE around 3 pixels.
 
 <img src="gencp_imgs/karios_VHR.png" alt="Texte alternatif" width="600" height="500">
 

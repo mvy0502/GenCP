@@ -8,12 +8,17 @@ separate so it never collides with upstream (`telespazio-tim/GenCP`) files.
 - **Repository root:** `~/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap`
 - **Working branch:** `tubitak-tr` (upstream's default branch is `master`)
 - **Hardware:** MacBook Pro, Apple M4 Max (arm64), 36 GB RAM — no CUDA, runs on CPU
+- **GPU work:** Kaggle (2× T4) for the phase-C trainings; Modal (A10G) for the seed
+  replication since 25 August 2026 — see `kaggle/` and `modal/`
+- **Taking over this project?** Start from the handover guide: [DEVIR.md](DEVIR.md)
 
 ## Findings summary
 
-Six findings, each measured rather than asserted, and each written up with its method, numbers and
-falsification criteria. Nothing below has been fixed in the pipeline — Options A-E remain
-unimplemented and `GenCP_DB` is untouched.
+Six findings from the first week, each measured rather than asserted, and each written up with its
+method, numbers and falsification criteria. When this summary was written nothing had been fixed in
+the pipeline; since then the affine correction (Option A) has been hard-wired into the reference
+tool ([`tool/gencp_ref.py`](tool/gencp_ref.py)) — the rest of the later work is summarised in
+[Where things moved since](#where-things-moved-since-updated-25-august-2026) below.
 
 | # | finding | status | where |
 |---|---|---|---|
@@ -23,6 +28,34 @@ unimplemented and `GenCP_DB` is untouched.
 | 4 | **The generator invents structure.** It emits **2.1× the edge density of its OSM input** and matches the real satellite's busyness (ratio 0.996) *regardless* of what the input specifies. | Confirmed; **no usable threshold** — rank sites, don't filter them | [hallucinated-structure.md](docs/hallucinated-structure.md) |
 | 5 | **Sparse OSM chips lose positional accuracy — and this is GenCP-specific.** rho = **−0.61** (partial, controlling for point count) between OSM edge density and residual. A ceiling control on *real* imagery gives **rho ≈ +0.06, null** — so it is not generic matchability. | Confirmed with the real instrument | [karios-validation.md §10](docs/karios-validation.md) |
 | 6 | **Dataset defects** for an upstream report: 9 leaked test chips, 25 demo/train overlaps, 323 of 566 OSM halves not byte-identical to their georeferenced raster. | Recorded | [geometry-finding.md §12](docs/geometry-finding.md) |
+
+### Where things moved since (updated 25 August 2026)
+
+The findings above are the end-of-week-1 state. The later work, in rough order (full record in the
+git log and [docs/corrections-log.md](docs/corrections-log.md)):
+
+* **Reference tool.** [`tool/gencp_ref.py`](tool/gencp_ref.py) — deterministic GenCP reference
+  generator with the Option-A corrected transform hard-wired (no uncorrected code path exists);
+  byte-exact reruns verified — [tool-results.md](docs/tool-results.md).
+* **Phase C: 2×2 loss factorial.** C1 (GAN+L1) and C2 (L1-only) retrained from scratch on Kaggle,
+  then the LPIPS halves (C4/C5) — [phase-c-results.md](docs/phase-c-results.md),
+  [phase-c-lpips-results.md](docs/phase-c-lpips-results.md); headline measurements B1–B3 in
+  [headline-results.md](docs/headline-results.md).
+* **Benchmarks against real imagery.** T1: real imagery outperforms the synthetic reference
+  decisively where it exists — [T1-benchmark-results.md](docs/T1-benchmark-results.md); T3:
+  reliability layer ships as a recommendation — [T3-reliability-results.md](docs/T3-reliability-results.md).
+* **Positioning (E1–E3).** All three measured premises behind the synthetic-reference rationale
+  fail as stated, with caveats recorded — [positioning-results.md](docs/positioning-results.md).
+* **Turkish pipeline.** Ankara acquisition complete and verified
+  ([ankara-acquisition.md](docs/ankara-acquisition.md)); the rasteriser failed its KARIOS
+  acceptance gate pending a land-cover base layer ([renderer-tolerance.md](docs/renderer-tolerance.md)).
+* **Seed-level replication.** All factorial inference moved to the seed level
+  ([seed-replication-registration.md](docs/seed-replication-registration.md)); the GPU work moved
+  from Kaggle to Modal (A10G) via [`modal/gencp_modal.py`](modal/gencp_modal.py) — gate running as
+  of 25 August.
+* **Paper.** A GRSL letter scoped to the loss-function result — [paper-roadmap.md](docs/paper-roadmap.md).
+* **Reports.** Turkish progress report in `rapor2/`, final report in `rapor3/` (sources versioned,
+  rendered PDFs reproducible via `rapor3/build_pdf.py` and kept out of git).
 
 ### What the KARIOS run established
 
@@ -98,6 +131,11 @@ tubitak/
 │   ├── build_karios_arms.py     # the three KARIOS arms on a common grid
 │   ├── run_karios_arms.py       # drive KARIOS (runs in the `karios` env)
 │   └── analyse_karios.py        # arm comparison + residual figure
+├── tool/               # gencp_ref.py — deterministic GenCP reference generator (Option A)
+├── kaggle/             # phase-C training on Kaggle (kernel builder + training script)
+├── modal/              # Modal app for the seed replication (A10G)
+├── rapor2/             # Turkish progress report (source versioned; rendered PDF not tracked)
+├── rapor3/             # Turkish final report (source versioned; rendered PDF not tracked)
 ├── configs/
 ├── notebooks/
 ├── docs/
