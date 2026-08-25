@@ -484,7 +484,7 @@ invariances does not know what it is measuring:
 | schedules | C1/C4 = 2-epoch warm-up 2e-5 (`step`, `lr_decay_iters 50`) + linear 10+10 at 1e-4, `epoch_count 3`; C2/C5 = linear 10+10 at 1e-4, `epoch_count 1` |
 | model and optimiser | `unet_256`, batch 4, load 286 / crop 256, BtoA, norm batch, `gan_mode vanilla` (BCE) where a D exists, λ = 100, `save_epoch_freq 1` |
 | initialisation | the released `latest_net_G.pth`, identical file, every arm and every seed |
-| hardware and image | Kaggle T4, same image, same torchmetrics 1.9.0 (recorded from each log and reported) |
+| hardware and image | Kaggle T4, same image, same torchmetrics 1.9.0 (recorded from each log and reported) — **superseded for runs after 2026-08-25 by AMENDMENT SEED-b below** |
 | data source | OSM/CLC+ archived **OVP** evaluation inputs — the same files seed 42 used |
 | render path | none; no rendering occurs in this package, the inputs are archived rasters |
 | code path | the current build for **all** new runs; the seed-42 C1/C2 exception is the disclosed one above |
@@ -532,6 +532,95 @@ the adversarial arms. That is the manipulated factor.
 > the standing-practice-2 procedure already used for the B2 production row. If it is ever
 > wanted it can be added as its own registered question, and nothing in this package forecloses
 > it.
+
+> **AMENDMENT SEED-b, 2026-08-25 — remaining GPU work moves from Kaggle T4 to Modal L4.
+> Dated; the original invariance row is preserved above verbatim. Written and committed
+> BEFORE any Modal run. The hardware gate defined here has NOT run at the time of writing,
+> and its acceptance rule is registered below before it does.**
+>
+> **The move, and why.** Remaining runs execute on **Modal, GPU L4 (Ada, sm_89)** instead of
+> Kaggle T4 (Turing, sm_75). Reasons: no weekly quota; roughly **3.5x the T4 in fp32** on this
+> workload; detached execution, so the machine driving it can be closed; and the whole
+> remaining program fits inside Modal's **$30/month free credits**.
+>
+> **TF32 is explicitly DISABLED** — `torch.backends.cudnn.allow_tf32 = False` and
+> `torch.backends.cuda.matmul.allow_tf32 = False`, set before any model is constructed. The
+> reason is the point of the whole exercise: **the T4 is Turing and has no TF32 at all**, so
+> leaving Ada's TF32 on would change convolution and matmul precision *as well as* hardware,
+> and two factors would move where we intend one. This costs speed on the L4 and **we accept
+> that cost knowingly**.
+>
+> **Hardware becomes a second factor across the seed set, and is registered as an additional
+> source of training variation rather than as contamination.** If the effect survives across
+> seeds AND across hardware, that is a *stronger* replication than seeds alone — it rules out
+> a per-architecture numerical artefact that no number of same-hardware seeds could exclude.
+> What must not happen is pooling across hardware when hardware shifts the result
+> systematically; the gate below is what decides which case we are in.
+>
+> **Every contrast must be internally clean: both arms of any comparison run on the same
+> hardware.** A Modal arm is never compared against a Kaggle arm. Contrasts are formed within
+> a seed, and a seed is trained entirely on one platform.
+>
+> ### The hardware gate, with its reading registered in advance
+>
+> **Re-run seed 43, all four arms, on Modal L4** — identical in every other respect: same
+> 5,577 pairs, same schedules, same 20 epochs, same seed 43, TF32 off, evaluated through the
+> same `seed_eval_run.py`. Cost approximately 3 L4-hours.
+>
+> Compared against the **Kaggle T4 seed-43 values already measured**:
+>
+> | quantity | Kaggle T4 seed 43 |
+> |---|---|
+> | C5 − C4 | −0.5485 |
+> | C1 − C2 | +0.6636 |
+> | C4 − C5 | +0.5485 |
+> | C5 − C2 | +0.1275 |
+> | I_raw | −0.1151 |
+> | edge mean pretrained / C1 / C2 / C4 / C5 | 1.021 / 1.083 / 0.279 / 1.121 / 1.154 |
+>
+> **Registered acceptance rule, committed before the gate runs.** The reference scale is the
+> **observed seed-to-seed spread between seeds 43 and 44** on each quantity — the amount that
+> quantity already moves when only the training seed changes.
+>
+> - **If every Modal-vs-Kaggle difference at seed 43 is smaller than the corresponding
+>   s43-to-s44 spread:** hardware behaves like seed noise or less. **Modal runs may be pooled
+>   with Kaggle runs, with the hardware difference disclosed** wherever the pooled set is
+>   reported.
+> - **If any quantity exceeds its s43-to-s44 spread:** hardware is a larger factor than seed.
+>   **Modal runs are then analysed as their own homogeneous block and compared to the Kaggle
+>   block, never pooled.** The seed count is reported per block, not summed across blocks.
+>
+> Both branches are written here so neither is chosen after seeing the number.
+>
+> ### Environment pins
+>
+> Pinned exactly, read from the Kaggle seed-43 logs:
+>
+> | package | pinned version | source |
+> |---|---|---|
+> | torch | **2.10.0+cu128** | `[preflight] torch=2.10.0+cu128` in every seed-42/43/44 log |
+> | torchmetrics | **1.9.0** | `[deps] torchmetrics 1.9.0 already in the image` |
+>
+> **OPEN — and the gate does not run until it is resolved.** `torchvision`, `Pillow`, `numpy`
+> and the Python minor version were **never recorded on the Kaggle side**: the run script logs
+> only torch and torchmetrics, and the repository's `requirements.txt` carries floors
+> (`torchvision>=0.5.0`) rather than pins. There is therefore **no recorded target to match**,
+> and this registration will not substitute a near version silently.
+>
+> Why it is not a formality here — the training transform chain
+> (`data/base_dataset.py:get_transform`, `preprocess=resize_and_crop`, load 286 / crop 256) is
+> `Resize([286,286], BICUBIC) → RandomCrop(256) → RandomHorizontalFlip → ToTensor → Normalize`:
+>
+> - `RandomCrop` and `RandomHorizontalFlip` **consume the seeded torch RNG**. If a torchvision
+>   version changes how many draws they take, the augmentation stream diverges and the run is
+>   a different experiment, not a hardware comparison.
+> - `Resize(..., BICUBIC)` on PIL input **delegates to PIL**, so the resampled pixel values
+>   depend on **Pillow's** version, which is likewise unrecorded.
+>
+> So an unpinned image would make the gate a test of "hardware **plus** library versions",
+> which is exactly what it must not be. This gap is itself a defect in the record — the
+> invariance table has claimed "same image" since the package was registered, while the
+> image's contents were never captured — and it is recorded here rather than papered over.
 
 **Known asymmetries, inherited and disclosed rather than removed** (they are part of the
 comparison being replicated, identical in kind and size to seed 42's): the adversarial arms
