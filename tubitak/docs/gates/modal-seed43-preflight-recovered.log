@@ -1,0 +1,52 @@
+# Recovered preflight evidence, Modal seed-43 arms (assembled 2026-08-25, sources: laptop-side stream/poll captures; Modal log retention had already dropped the originals)
+
+## C4 - app ap-pWlFQtOLIqmnjU8q56Weu5, image build + first container (gate4_polled lines 1-26)
+Building image im-CRd9BvZz8XvhZ4P73wkOWe
+
+=> Step 0: FROM base
+
+=> Step 1: RUN mkdir -p /root/.cache/torch/hub/checkpoints
+
+=> Step 2: RUN python -c "import urllib.request; urllib.request.urlretrieve('https://download.pytorch.org/models/vgg16-397923af.pth','/root/.cache/torch/hub/checkpoints/vgg16-397923af.pth')"
+
+=> Step 3: RUN python -c "import hashlib,sys; h=hashlib.sha256(open('/root/.cache/torch/hub/checkpoints/vgg16-397923af.pth','rb').read()).hexdigest(); assert h=='397923af8e79cdbb6a7127f12361acd7a2f83e06b05044ddf496e83de57a5bf0', h; print('[image] vgg16 sha256 verified', h)"
+[image] vgg16 sha256 verified 397923af8e79cdbb6a7127f12361acd7a2f83e06b05044ddf496e83de57a5bf0
+Saving image...
+Image saved, took 1.36s
+
+Built image im-CRd9BvZz8XvhZ4P73wkOWe in 8.12s
+
+
+[smoke] device=NVIDIA A10 capability=(8, 6) -> sm_86
+[smoke] torch arch list=['sm_70', 'sm_75', 'sm_80', 'sm_86', 'sm_90', 'sm_100', 'sm_120']
+[smoke] sm_86 natively in arch list: True
+[smoke] matmul  max|GPU-CPU| = 6.104e-05  (relative 5.502e-07)
+[smoke] conv2d  max|GPU-CPU| = 4.768e-07
+[smoke] GPU agrees with CPU within 1e-03 - proceeding
+[tf32] cudnn.allow_tf32=False  cuda.matmul.allow_tf32=False  (both must be False)
+Cloning into '/work/GenCP'...
+[patch] image_folder_sorted.patch APPLIED (sorted enumeration)
+[weights] vgg16-397923af.pth sha256: 397923af8e79cdbb6a7127f12361acd7a2f83e06b05044ddf496e83de57a5bf0
+
+## C5 - preflight fragment following C4 epoch 20 (gate4_polled lines 2843-2850); arm stamp lost between polls
+(epoch: 20, iters: 4320, time: 0.106, data: 0.003) G_GAN: 2.198 G_LPIPS: 54.787 D_real: 0.020 D_fake: 0.171 
+(epoch: 20, iters: 4340, time: 0.136, data: 0.003) G_GAN: 2.394 G_LPIPS: 57.769 D_real: 0.076 D_fake: 0.129 
+(epoch: 20, iters: 4360, time: 0.106, data: 0.003) G_GAN: 2.574 G_LPIPS: 56.913 D_real: 0.046 D_fake: 0.114 
+(epoch: 20, iters: 4380, time: 0.105, data: 0.003) G_GAN: 2.525 G_LPIPS: 57.122 D_real: 0.295 D_fake: 0.115 
+(epoch: 20, iters: 4400, time: 0.136, data: 0.004) G_GAN: 2.609 G_LPIPS: 56.284 D_real: 0.260 D_fake: 0.105 
+(epoch: 20, iters: 4420, time: 0.106, data: 0.003) G_GAN: 2.220 G_LPIPS: 53.268 D_real: 0.189 D_fake: 0.170 
+(epoch: 20, iters: 4440, time: 0.115, data: 0.003) G_GAN: 2.332 G_LPIPS: 51.812 D_real: 0.359 D_fake: 0.139 
+(epoch: 20, iters: 4460, time: 0.138, data: 0.003) G_GAN: 2.604 G_LPIPS: 53.109 D_real: 0.162 D_fake: 0.113 
+
+## C5 - task-level completion (gate4_stream)
+  C4           sorted=True  6647 s (1.85 h)
+  TOTAL 6647 GPU-seconds = 1.85 A10G-hours ~ $2.03
+[cost] arm=C5 seed=43 sorted=True rc=0 wall=2.158 h  GPU-seconds=7770
+
+## C2 - NO CAPTURE EXISTS. See hardware-gate-results.md, provenance gap.
+
+## C2_unsorted - driver-returned record (FunctionCall fc-01M0WY25PQN8Q4MNJ0V827C04F) and final app log
+{"arm":"C2_unsorted","seed":43,"sorted":false,"gpu_seconds":1517.13,"image_folder_sha256":"f47c3b60d8ccc05246acb3392518c79de21d1d9459a6bae6924239b8395ab008","order_hash":"f28d521512f0cc590b9b6f2affe495913f535eb9e694ef2a9b0624a8e9669d2c","usd":0.4636}
+[cost] arm=C2_unsorted seed=43 sorted=False rc=0 wall=0.421 h  GPU-seconds=1517
+[driver] OK C2_unsorted in 0.42 h
+  TOTAL 1517 GPU-seconds = 0.42 A10G-hours ~ $0.46
