@@ -248,6 +248,14 @@ def _run_arm(arm: str, seed: int, sort_files: bool = True, label: str = None):
     oh, n, first = _ordered_list_hash(f"{LOCAL_DATA}/pairs/train", sort_files=sort_files)
     print(f"[stage] ordered file-list sha256 (as this run will read it): {oh}  n={n}", flush=True)
     print(f"[stage] first three: {first}", flush=True)
+    # Hard gate on the file count. The first tar was built on macOS and libarchive stored an
+    # xattr header per entry; GNU tar on Linux materialised each as an AppleDouble "._name"
+    # file, which is_image_file() then accepted because it still ends in .tif. The staged set
+    # came to n=11154 - exactly double - half of it 4 KB metadata junk, and training would
+    # have run on it. Content hashes all still matched, so only a count/order check could see
+    # it. The tar is now built with --no-xattrs; this assertion is the standing guard.
+    assert n == 5577, (f"staged training set has {n} files, expected 5577 - refusing to train. "
+                       f"first three: {first}")
 
     os.makedirs("/kaggle/input", exist_ok=True)
     if not os.path.exists("/kaggle/input/gencp-tr"):
@@ -369,46 +377,46 @@ def gate_seed43():
 
 @app.function(image=image, volumes={"/data": vol}, timeout=60 * 60)
 def order_check():
-    """Compare the ORDERED dataset file list on the Volume against the local copy.
+    """Four hashes, so the framing claim in AMENDMENT SEED-b is verified and not asserted.
 
-    This is the precondition for calling the local-copy fix scientifically neutral. Content
-    identity is not enough: if enumeration order differs, the seeded shuffle maps to different
-    files and the run changes.
+    The claim is that sorting RESTORES the order the Volume was already giving, rather than
+    imposing a new one on Modal. That is only true if (a) the Volume's own enumeration is
+    already sorted and (b) the sorted local enumeration equals it. Both are checked here.
     """
-    vol_h, vol_n, vol_first = _ordered_list_hash(f"{DATA}/pairs/train")
-    print(f"[order] VOLUME  sha256={vol_h}  n={vol_n}")
-    print(f"[order]   first three: {vol_first}")
+    v_raw, v_n, v_first = _ordered_list_hash(f"{DATA}/pairs/train", sort_files=False)
+    v_srt, _, _ = _ordered_list_hash(f"{DATA}/pairs/train", sort_files=True)
     _stage_local()
-    loc_h, loc_n, loc_first = _ordered_list_hash(f"{LOCAL_DATA}/pairs/train")
-    print(f"[order] LOCAL   sha256={loc_h}  n={loc_n}")
-    print(f"[order]   first three: {loc_first}")
-    match = vol_h == loc_h
-    print(f"[order] ORDER IDENTICAL: {match}")
-    if not match:
-        vs = set(vol_first) ^ set(loc_first)
-        print(f"[order] the fix is NOT order-neutral; an explicit sort must be applied "
-              f"and recorded. head symmetric difference: {vs}")
+    l_raw, l_n, l_first = _ordered_list_hash(f"{LOCAL_DATA}/pairs/train", sort_files=False)
+    l_srt, _, l_sfirst = _ordered_list_hash(f"{LOCAL_DATA}/pairs/train", sort_files=True)
     sha_vol = _sha256_file(f"{DATA}/latest_net_G.pth")
     sha_loc = _sha256_file(f"{LOCAL_DATA}/latest_net_G.pth")
-    print(f"[order] pretrained on Volume: {sha_vol}")
-    print(f"[order] pretrained local    : {sha_loc}   match={sha_vol == sha_loc}")
-    return {"volume_order_sha256": vol_h, "local_order_sha256": loc_h,
-            "order_identical": bool(match), "n_files": int(vol_n),
-            "pretrained_volume": sha_vol, "pretrained_local": sha_loc}
+    return {"volume_raw": v_raw, "volume_sorted": v_srt, "volume_n": int(v_n),
+            "local_raw": l_raw, "local_sorted": l_srt, "local_n": int(l_n),
+            "volume_already_sorted": bool(v_raw == v_srt),
+            "sort_restores_volume_order": bool(l_srt == v_raw),
+            "local_raw_differs_from_volume": bool(l_raw != v_raw),
+            "pretrained_volume": sha_vol, "pretrained_local": sha_loc,
+            "volume_first": v_first, "local_raw_first": l_first, "local_sorted_first": l_sfirst}
 
 
 @app.local_entrypoint()
 def check_order():
-    """Print the order-check result from the returned dict, so it cannot be lost in stdout."""
     r = order_check.remote()
     print("\n" + "=" * 78)
-    print("ORDERED DATASET FILE-LIST HASH - Volume vs container-local copy")
+    print("ENUMERATION ORDER - does sorting RESTORE the Volume's order, or impose a new one?")
     print("=" * 78)
-    print(f"  n files                : {r['n_files']}")
-    print(f"  VOLUME order sha256    : {r['volume_order_sha256']}")
-    print(f"  LOCAL  order sha256    : {r['local_order_sha256']}")
-    print(f"  ORDER IDENTICAL        : {r['order_identical']}")
-    print(f"  pretrained on Volume   : {r['pretrained_volume']}")
-    print(f"  pretrained after copy  : {r['pretrained_local']}")
+    print(f"  file count   volume {r['volume_n']}   local {r['local_n']}   (must both be 5577)")
+    print(f"  volume, raw enumeration   : {r['volume_raw']}")
+    print(f"  volume, sorted            : {r['volume_sorted']}")
+    print(f"  local,  raw enumeration   : {r['local_raw']}")
+    print(f"  local,  sorted            : {r['local_sorted']}")
+    print()
+    print(f"  Volume was ALREADY sorted            : {r['volume_already_sorted']}")
+    print(f"  local raw DIFFERS from volume        : {r['local_raw_differs_from_volume']}")
+    print(f"  sorting RESTORES the volume order    : {r['sort_restores_volume_order']}")
+    print()
+    print(f"  volume first three     : {r['volume_first']}")
+    print(f"  local raw first three  : {r['local_raw_first']}")
+    print(f"  local sorted first     : {r['local_sorted_first']}")
     print(f"  pretrained match       : {r['pretrained_volume'] == r['pretrained_local']}")
     print("=" * 78)
