@@ -538,15 +538,39 @@ the adversarial arms. That is the manipulated factor.
 > BEFORE any Modal run. The hardware gate defined here has NOT run at the time of writing,
 > and its acceptance rule is registered below before it does.**
 >
-> **The move, and why.** Remaining runs execute on **Modal, GPU L4 (Ada, sm_89)** instead of
-> Kaggle T4 (Turing, sm_75). Reasons: no weekly quota; roughly **3.5x the T4 in fp32** on this
+> **The move, and why.** Remaining runs execute on **Modal** instead of Kaggle T4 (Turing,
+> sm_75). *(GPU choice: L4 as first written, superseded by A10G below before any run.)* Reasons: no weekly quota; roughly **3.5x the T4 in fp32** on this
 > workload; detached execution, so the machine driving it can be closed; and the whole
 > remaining program fits inside Modal's **$30/month free credits**.
+>
+> **SUPERSEDED BEFORE ANY RUN, 2026-08-25: A10G (Ampere, sm_86), not L4.** The L4 choice
+> above is preserved rather than deleted, because the reason it was replaced is the record's
+> whole point.
+>
+> **The deciding fact: `sm_89` is not in the pinned build's arch list.** The recovered arch
+> list is `['sm_70','sm_75','sm_80','sm_86','sm_90','sm_100','sm_120']`. L4 is Ada = sm_89 and
+> is absent; **A10G is Ampere = sm_86 and is present**, natively supported, no JIT, no
+> compatibility argument to make.
+>
+> **The reason is not speed.** fp32 throughput is **31.2 TFLOPS (A10) vs 30.3 (L4)** —
+> effectively identical, and either would have done. The reason is that running on an
+> architecture outside the pinned build's arch list means the paper would have to carry the
+> argument *"CUDA guarantees binary compatibility within a major version, so sm_86 code runs
+> on sm_89."* That argument is **probably right**. Corrections-log **entry 9** exists because
+> a probably-right hardware assumption — `torch.cuda.is_available()` returning True on a P100
+> torch could not emit code for — cost this project an entire preflight. **About $4.50 across
+> the whole remaining program removes the argument entirely**, and an argument not made cannot
+> be attacked.
+>
+> **The sm_89 gap was found BEFORE any run, not after.** It surfaced while pinning the Modal
+> image against the recovered Kaggle arch list, which is the same act that surfaced entry 29.
+> That is the practice working as intended: the cost was a decision changed on paper instead
+> of a result withdrawn later.
 >
 > **TF32 is explicitly DISABLED** — `torch.backends.cudnn.allow_tf32 = False` and
 > `torch.backends.cuda.matmul.allow_tf32 = False`, set before any model is constructed. The
 > reason is the point of the whole exercise: **the T4 is Turing and has no TF32 at all**, so
-> leaving Ada's TF32 on would change convolution and matmul precision *as well as* hardware,
+> leaving Ampere's TF32 on would change convolution and matmul precision *as well as* hardware,
 > and two factors would move where we intend one. This costs speed on the L4 and **we accept
 > that cost knowingly**.
 >
@@ -563,9 +587,9 @@ the adversarial arms. That is the manipulated factor.
 >
 > ### The hardware gate, with its reading registered in advance
 >
-> **Re-run seed 43, all four arms, on Modal L4** — identical in every other respect: same
+> **Re-run seed 43, all four arms, on Modal A10G** — identical in every other respect: same
 > 5,577 pairs, same schedules, same 20 epochs, same seed 43, TF32 off, evaluated through the
-> same `seed_eval_run.py`. Cost approximately 3 L4-hours.
+> same `seed_eval_run.py`. Cost approximately 3 A10G-hours (~$3.30 of the $30 monthly credit).
 >
 > Compared against the **Kaggle T4 seed-43 values already measured**:
 >

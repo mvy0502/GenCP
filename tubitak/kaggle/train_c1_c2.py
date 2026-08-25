@@ -108,9 +108,18 @@ def log_environment():
               f"cudnn={torch.backends.cudnn.version()}", flush=True)
     except Exception as exc:
         print(f"[env] torch cuda/cudnn probe failed: {exc}", flush=True)
+    # The name filter below is a narrow allowlist and, checked against the 16 environment
+    # variables the recovery probe actually observed on Kaggle, prints exactly one:
+    # KAGGLE_DOCKER_IMAGE, the image digest. It does NOT match KAGGLE_API_V1_TOKEN,
+    # KAGGLE_DATA_PROXY_TOKEN or KAGGLE_USER_SECRETS_TOKEN. But it is one careless addition
+    # away from doing so - a variable called MODAL_IMAGE_TOKEN would match - and this runs at
+    # preflight on EVERY run, permanently, on both platforms. So the suppression is enforced
+    # here too, not only in the throwaway probe that first exposed the tokens.
+    SECRET_MARKERS = ("TOKEN", "SECRET", "KEY", "PASSWORD", "CREDENTIAL", "AUTH")
     for k in sorted(os.environ):
         if any(s in k.upper() for s in ("KAGGLE_DOCKER", "IMAGE_TAG", "MODAL_IMAGE")):
-            print(f"[env] {k}={os.environ[k]}", flush=True)
+            v = "<redacted>" if any(x in k.upper() for x in SECRET_MARKERS) else os.environ[k]
+            print(f"[env] {k}={v}", flush=True)
     fr = subprocess.run([sys.executable, "-m", "pip", "freeze"],
                         capture_output=True, text=True).stdout.strip()
     print("[env] pip freeze BEGIN", flush=True)
