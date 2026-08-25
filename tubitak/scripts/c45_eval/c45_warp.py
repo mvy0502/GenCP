@@ -14,7 +14,7 @@ import rasterio
 from rasterio.transform import Affine
 from rasterio.warp import reproject, Resampling
 
-ROOT = Path("/Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap")
+ROOT = Path(__file__).resolve().parents[3]
 C45 = ROOT / "tubitak/data/tool_runs/C45"
 REF = ROOT / "tubitak/data/ankara/run/ref"
 INP = ROOT / "tubitak/data/ankara/run/inputs"
@@ -22,8 +22,9 @@ CRS = "EPSG:32636"
 GRID_N, INSET, PX = 228, 145.0, 10.0
 GSD_SRC = 257 * 10.0 / 256  # 10.0390625
 
-sel = {f"ank_{r['gx']}_{r['gy']}": (float(r["easting"]), float(r["northing"]))
-       for r in csv.DictReader(open(ROOT / "tubitak/data/ankara/final_selection.csv"))}
+with open(ROOT / "tubitak/data/ankara/final_selection.csv") as fh:
+    sel = {f"ank_{r['gx']}_{r['gy']}": (float(r["easting"]), float(r["northing"]))
+           for r in csv.DictReader(fh)}
 stems = sorted(p.name[:-4] for p in INP.glob("*.png"))
 assert len(stems) == 130 and all(s in sel for s in stems)
 

@@ -24,7 +24,7 @@ warnings.filterwarnings("ignore")
 import rasterio
 from scipy.ndimage import sobel
 
-ROOT = Path("/Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap")
+ROOT = Path(__file__).resolve().parents[3]
 C45 = ROOT / "tubitak/data/tool_runs/C45"
 PKGA = ROOT / "tubitak/data/tool_runs/pkgA/gray"
 THRESH = 20.0
@@ -57,7 +57,8 @@ ARMS = {
 
 rows, skipped = [], []
 for st in stems:
-    mask = grad_mag(bt601(rasterio.open(C45 / f"warp/input/{st}.tif").read())) <= THRESH
+    with rasterio.open(C45 / f"warp/input/{st}.tif") as s:
+        mask = grad_mag(bt601(s.read())) <= THRESH
     r = read1(PKGA / f"ref_ank/bt601/{st}.tif")
     r_edge = float((grad_mag(r)[mask] > THRESH).mean()) if mask.any() else 0.0
     if not mask.any() or r_edge == 0.0:

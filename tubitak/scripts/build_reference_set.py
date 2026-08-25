@@ -61,7 +61,9 @@ def main() -> int:
     ap.add_argument("--split", default="test", choices=["test", "train"])
     ap.add_argument("--out", default=str(ROOT / "tubitak/data/karios/reference"))
     ap.add_argument("--limit", type=int, default=0)
-    ap.add_argument("--exclude-leaked", action="store_true", default=True)
+    ap.add_argument("--exclude-leaked", action=argparse.BooleanOptionalAction, default=True,
+                    help="drop test chips whose filename also appears in the train split "
+                         "(pass --no-exclude-leaked to keep them)")
     a = ap.parse_args()
 
     pair_dir = DB / "image_pairs" / a.split

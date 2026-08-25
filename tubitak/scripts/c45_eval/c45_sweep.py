@@ -11,10 +11,10 @@ from pathlib import Path
 import numpy as np
 
 warnings.filterwarnings("ignore")
-ROOT = Path("/Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap")
+ROOT = Path(__file__).resolve().parents[3]
 C45 = ROOT / "tubitak/data/tool_runs/C45"
-GP = "/opt/homebrew/Caskroom/miniforge/base/envs/gencp/bin/python"
-KARIOS = "/opt/homebrew/Caskroom/miniforge/base/envs/karios/bin/karios"
+GP = os.environ.get("GENCP_PYTHON", "/opt/homebrew/Caskroom/miniforge/base/envs/gencp/bin/python")
+KARIOS = os.environ.get("KARIOS_BIN", "/opt/homebrew/Caskroom/miniforge/base/envs/karios/bin/karios")
 CONF = str(ROOT / "tubitak/configs/karios_gencp.json")
 REF = ROOT / "tubitak/data/ankara/run/ref"
 SRCCK = {"C4": ROOT / "tubitak/outputs/c4_checkpoints/checkpoints",
@@ -70,8 +70,9 @@ from rasterio.transform import Affine
 from rasterio.warp import reproject, Resampling
 CRS, GRID_N, INSET, PX = "EPSG:32636", 228, 145.0, 10.0
 GSD_SRC = 257 * 10.0 / 256
-sel = {f"ank_{r['gx']}_{r['gy']}": (float(r["easting"]), float(r["northing"]))
-       for r in csv.DictReader(open(ROOT / "tubitak/data/ankara/final_selection.csv"))}
+with open(ROOT / "tubitak/data/ankara/final_selection.csv") as fh:
+    sel = {f"ank_{r['gx']}_{r['gy']}": (float(r["easting"]), float(r["northing"]))
+           for r in csv.DictReader(fh)}
 for cell in CELLS:
     arm = cell.split("_")[0]
     outdir = C45 / f"warp/{cell}"

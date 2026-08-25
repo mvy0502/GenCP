@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 
 warnings.filterwarnings("ignore")
-ROOT = Path("/Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap")
+ROOT = Path(__file__).resolve().parents[3]
 B2 = ROOT / "tubitak/data/tool_runs/B2"
 C45 = ROOT / "tubitak/data/tool_runs/C45"
 ARMS = ("pretrained", "C1", "C2", "C3", "C4", "C5")

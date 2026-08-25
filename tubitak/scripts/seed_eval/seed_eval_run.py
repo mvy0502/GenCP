@@ -44,8 +44,8 @@ import numpy as np
 import pandas as pd
 
 DEFAULT_ROOT = Path(__file__).resolve().parents[3]
-GP = "/opt/homebrew/Caskroom/miniforge/base/envs/gencp/bin/python"
-KARIOS = "/opt/homebrew/Caskroom/miniforge/base/envs/karios/bin/karios"
+GP = os.environ.get("GENCP_PYTHON", "/opt/homebrew/Caskroom/miniforge/base/envs/gencp/bin/python")
+KARIOS = os.environ.get("KARIOS_BIN", "/opt/homebrew/Caskroom/miniforge/base/envs/karios/bin/karios")
 
 FINE_TUNED = ("C1", "C2", "C4", "C5")     # the four cells of the 2x2; all vary with the seed
 CRS = "EPSG:32636"
@@ -73,7 +73,7 @@ def ckpt_dir(root, arm, seed):
 
 
 # ----------------------------------------------------------------------------- step 1
-def step_infer(root, out, seed, stems):
+def step_infer(root, out, seed):
     """c45_infer.py verbatim, over four arms instead of two, shim pinned to 42."""
     shim = out / "_shims/s42"
     shim.mkdir(parents=True, exist_ok=True)
@@ -140,8 +140,9 @@ def step_warp(root, out, stems):
 
     REF = root / "tubitak/data/ankara/run/ref"
     INP = root / "tubitak/data/ankara/run/inputs"
-    sel = {f"ank_{r['gx']}_{r['gy']}": (float(r["easting"]), float(r["northing"]))
-           for r in csv.DictReader(open(root / "tubitak/data/ankara/final_selection.csv"))}
+    with open(root / "tubitak/data/ankara/final_selection.csv") as fh:
+        sel = {f"ank_{r['gx']}_{r['gy']}": (float(r["easting"]), float(r["northing"]))
+               for r in csv.DictReader(fh)}
     assert all(s in sel for s in stems)
 
     def warp_one(src_png, out_tif, stem, E, N):
@@ -254,7 +255,8 @@ def step_edge(root, out, stems):
 
     rows, skipped = [], []
     for st in stems:
-        mask = grad_mag(bt601(rasterio.open(out / f"warp/input/{st}.tif").read())) <= EDGE_THRESH
+        with rasterio.open(out / f"warp/input/{st}.tif") as s:
+            mask = grad_mag(bt601(s.read())) <= EDGE_THRESH
         r = read1(PKGA / f"ref_ank/bt601/{st}.tif")
         r_edge = float((grad_mag(r)[mask] > EDGE_THRESH).mean()) if mask.any() else 0.0
         if not mask.any() or r_edge == 0.0:
@@ -354,7 +356,7 @@ def main():
 
     print(f"seed {args.seed} -> {out}   arms {FINE_TUNED} (pretrained from B1_per_chip.csv)")
     print(f"inference shim pinned to seed 42 (AMENDMENT SEED-a)\n")
-    print("step 1/5 inference");   step_infer(root, out, args.seed, stems)
+    print("step 1/5 inference");   step_infer(root, out, args.seed)
     print("step 2/5 warp");        step_warp(root, out, stems)
     print("step 3/5 KARIOS");      step_karios(root, out, stems)
     print("step 4/5 edge ratio");  step_edge(root, out, stems)

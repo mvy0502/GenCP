@@ -32,12 +32,6 @@ INSET_M = 145.0
 PRED_SLOPE = (257 / 256 - 1) / (257 / 256)
 
 
-def flatness(a, top=5):
-    px = a.reshape(-1, a.shape[2]).astype(np.uint8)
-    _, c = np.unique(px, axis=0, return_counts=True)
-    return float(np.sort(c)[::-1][:top].sum() / c.sum())
-
-
 def osm_scores(path):
     import rasterio
     from rasterio.errors import NotGeoreferencedWarning

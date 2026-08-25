@@ -1,5 +1,7 @@
 """Markdown -> PDF via reportlab with DejaVu (Turkish glyphs). Rebuilt: the Report 2 helper was purged."""
 import re, sys, os
+from pathlib import Path
+import matplotlib
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.lib import colors
@@ -8,7 +10,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.platypus import (BaseDocTemplate, PageTemplate, Frame, Paragraph,
                                 Spacer, Image as RLImage, HRFlowable, KeepTogether)
-F="/opt/homebrew/Caskroom/miniforge/base/pkgs/matplotlib-base-3.11.1-py311h3c3ad35_2/lib/python3.11/site-packages/matplotlib/mpl-data/fonts/ttf"
+F = str(Path(matplotlib.get_data_path()) / "fonts" / "ttf")
 pdfmetrics.registerFont(TTFont("DJ", f"{F}/DejaVuSans.ttf"))
 pdfmetrics.registerFont(TTFont("DJ-B", f"{F}/DejaVuSans-Bold.ttf"))
 pdfmetrics.registerFont(TTFont("DJ-I", f"{F}/DejaVuSans-Oblique.ttf"))
@@ -30,7 +32,7 @@ def inl(t):
     t=re.sub(r"(?<!\*)\*([^*]+?)\*(?!\*)", r'<font name="DJ-I">\1</font>', t)
     t=re.sub(r"`(.+?)`", r'<font name="DJ" color="#1f4e79">\1</font>', t)
     return t
-story=[]; lines=open(SRC,encoding="utf-8").read().split("\n"); i=0
+story=[]; lines=Path(SRC).read_text(encoding="utf-8").split("\n"); i=0
 while i < len(lines):
     L=lines[i].rstrip(); i+=1
     if not L.strip(): continue

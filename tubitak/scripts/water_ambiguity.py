@@ -65,7 +65,7 @@ def ankara():
     import rasterio, osm_to_raster as OTR
     from rasterio.windows import Window
     tci=ROOT/"tubitak/data/ankara/TCI_36TVK_20260430.tif"
-    N=257; rows=[]
+    N=257; rows=[]; skipped=0
     with rasterio.open(tci) as s:
         W,H=s.width,s.height; T=s.transform; crs=s.crs
         nx,ny=W//N,H//N
@@ -82,8 +82,9 @@ def ankara():
                 bx=(wt.c, wt.f+N*wt.e, wt.c+N*wt.a, wt.f)
                 try:
                     wc=OTR.fetch_worldcover(bx,crs).reshape(257,4,257,4)[:,0,:,0]
-                except Exception:
-                    continue
+                except Exception as e:
+                    print(f"  chip ({gx},{gy}): WC fetch failed {type(e).__name__}", flush=True)
+                    skipped+=1; continue
                 amb=float((wm&(wc==40)).mean())
                 amb2=float((wm&np.isin(wc,(30,40))).mean())
                 rows.append((gx,gy,float(wm.mean()),amb,amb2))
@@ -94,6 +95,7 @@ def ankara():
         w.writerows(rows)
     a=np.array([r[3] for r in rows])
     print(f"\nAnkara chips: {len(rows)}")
+    if skipped: print(f"  skipped {skipped} chips (WC fetch errors)")
     for q in (50,75,90,95,99):
         print(f"  p{q}: {np.percentile(a,q)*100:.4f}%")
     print(f"  mean {a.mean()*100:.4f}%  chips amb>0.1%: {(a>0.001).sum()} ({100*(a>0.001).mean():.1f}%)")

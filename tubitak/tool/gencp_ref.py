@@ -69,8 +69,7 @@ def utm_for(lon, lat):
 def resolve_extent(args):
     from pyproj import Transformer
     if args.vector:
-        import json as _json
-        gj = _json.loads(Path(args.vector).read_text())
+        gj = json.loads(Path(args.vector).read_text())
         from shapely.geometry import shape
         geoms = [shape(f["geometry"]) for f in gj.get("features", [gj])]
         from shapely.ops import unary_union
@@ -301,7 +300,7 @@ def mosaic(tiles, imgs_dir, work_crs, extent, overlap_m, out_tif, dst_crs, bands
     return out_tif, (H, W), valid, target
 
 
-def seam_metric(mosaic_tif, tiles, stride, extent, work_crs):
+def seam_metric(mosaic_tif, tiles):
     """Gradient energy in ±2 px buffers around interior tile edges vs elsewhere."""
     import rasterio
     from scipy.ndimage import sobel
@@ -360,7 +359,14 @@ def reliability(tiles, render_dir, extent, work_crs, out_tif, out_csv):
         wmask = lab == names.index("water")
         wedge = float(((np.diff(wmask.astype(int), axis=0) != 0).mean()
                        + (np.diff(wmask.astype(int), axis=1) != 0).mean()) / 2)
-        road_bldg = 1.0 - sum(frac.values()) + frac["building"] + frac["gray"]  # non-palette = cased roads etc.
+        # NOTE: the argmin above assigns EVERY pixel a palette class, so
+        # 1.0 - sum(frac.values()) is identically ~0 (float dust only). This term
+        # therefore reduces to building + gray — i.e. building is effectively
+        # double-weighted in the score, and the original "non-palette = cased
+        # roads" reading never applied. The expression is kept verbatim because
+        # the delivered rankings (tool-results.md) were produced with it;
+        # changing the formula requires a re-registration, not a silent edit.
+        road_bldg = 1.0 - sum(frac.values()) + frac["building"] + frac["gray"]
         score = (1.0 * dens + 0.5 * bnd + 0.5 * max(road_bldg, 0.0)
                  + 0.5 * frac["building"] + 0.5 * wedge
                  - 0.3 * frac["forest"] - 0.5 * frac["water"])
@@ -467,7 +473,7 @@ def main():
     if not a.bbox and not a.vector:
         ap.error("need --bbox or --vector")
     out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
-    extent, work_crs, in_crs = resolve_extent(a)
+    extent, work_crs, _ = resolve_extent(a)
     tiles, stride = tile_grid(extent, a.overlap_m, tuple(a.align_origin) if a.align_origin else None)
     log(f"extent {tuple(round(v,1) for v in extent)} in {work_crs}; {len(tiles)} tiles, "
         f"stride {stride} m, overlap {a.overlap_m} m")
@@ -475,9 +481,9 @@ def main():
     png_dir = render_tiles(tiles, work_crs, pbf, out / "renders")
     imgs, ck_sha = infer(png_dir, a.arm, out, len(tiles), a.seed, not a.stochastic)
     mosaic_tif = out / "reference.tif"
-    mosaic_tif, shape, valid, target = mosaic(tiles, imgs, work_crs, extent, a.overlap_m,
-                                              mosaic_tif, a.crs, a.bands)
-    sm = seam_metric(mosaic_tif, tiles, stride, extent, work_crs) if len(tiles) > 1 else None
+    mosaic_tif, shape, _, _ = mosaic(tiles, imgs, work_crs, extent, a.overlap_m,
+                                     mosaic_tif, a.crs, a.bands)
+    sm = seam_metric(mosaic_tif, tiles) if len(tiles) > 1 else None
     if sm:
         log(f"SEAM METRIC: seam grad {sm['seam_grad']:.3f} vs background {sm['background_grad']:.3f} "
             f"-> ratio {sm['ratio']:.3f} over {sm['seam_px']} px")

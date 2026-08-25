@@ -2,9 +2,9 @@
 """Define the Ankara chip grid over T36TVK and screen every candidate.
 
 Grid: 257x257 px at 10 m in EPSG:32636, anchored at the granule's NW corner —
-the project-wide chip convention. For each candidate: nodata completeness, a
-cloud proxy measured from the TCI itself (the SCL band was deliberately not
-downloaded), and basic radiometry.
+the project-wide chip convention. For each candidate: nodata completeness, cloud
+screening from the granule's own SCL band (a TCI brightness proxy is kept as a
+reference column), and basic radiometry.
 
 Cloud screening uses the scene's own SCL band (classes 3 cloud-shadow, 8/9
 cloud, 10 thin cirrus), which the first attempt did not: a TCI-only brightness

@@ -3,14 +3,14 @@
 run/ref/<stem>_warp.tif, config tubitak/configs/karios_gencp.json UNCHANGED
 (cited per corrections-log lesson 16). Checkpointed: a run whose KLT csv
 exists is skipped. Liveness every 20."""
-import glob, subprocess, sys
+import glob, os, subprocess, sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-ROOT = Path("/Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap")
+ROOT = Path(__file__).resolve().parents[3]
 C45 = ROOT / "tubitak/data/tool_runs/C45"
 REF = ROOT / "tubitak/data/ankara/run/ref"
-KARIOS = "/opt/homebrew/Caskroom/miniforge/base/envs/karios/bin/karios"
+KARIOS = os.environ.get("KARIOS_BIN", "/opt/homebrew/Caskroom/miniforge/base/envs/karios/bin/karios")
 CONF = str(ROOT / "tubitak/configs/karios_gencp.json")
 
 stems = sorted(p.name[:-4] for p in (ROOT / "tubitak/data/ankara/run/inputs").glob("*.png"))

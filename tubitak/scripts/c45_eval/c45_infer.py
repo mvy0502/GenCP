@@ -8,9 +8,9 @@ import os, subprocess, sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-ROOT = Path("/Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap")
+ROOT = Path(__file__).resolve().parents[3]
 C45 = ROOT / "tubitak/data/tool_runs/C45"
-GP = "/opt/homebrew/Caskroom/miniforge/base/envs/gencp/bin/python"
+GP = os.environ.get("GENCP_PYTHON", "/opt/homebrew/Caskroom/miniforge/base/envs/gencp/bin/python")
 ARMS = {"C4": ROOT / "tubitak/outputs/c4_checkpoints/checkpoints",
         "C5": ROOT / "tubitak/outputs/c5_checkpoints/checkpoints"}
 

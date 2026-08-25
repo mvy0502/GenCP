@@ -15,9 +15,12 @@ import numpy as np
 
 import os
 ROOT = Path(__file__).resolve().parents[2]
+# ACC_TAG: optional suffix selecting a rasteriser variant's chip/acc directories (e.g. "_v2")
 _TAG = os.environ.get("ACC_TAG", "")
 CH   = ROOT/f"tubitak/data/rasteriser/chips{_TAG}"
 SENS = ROOT/"tubitak/data/sensitivity"
+# ACC_BASE: baseline source for score(); "armB" uses karios all_points.csv arm B,
+# anything else uses the sensitivity-run base results
 ACC  = ROOT/f"tubitak/data/rasteriser/acc{_TAG}"
 REFS = ROOT/"tubitak/data/karios/reference"
 GRID_N, INSET, PX = 228, 145.0, 10.0
@@ -67,11 +70,13 @@ def warp():
 
 def score():
     import pandas as pd
-    rows=[]
+    rows=[]; skipped=0
     for f in glob.glob(str(ACC/"results/*/*/KLT_matcher_*.csv")):
         st=f.split("/")[-3]
         try: d=pd.read_csv(f,sep=None,engine="python")
-        except Exception: continue
+        except Exception as e:
+            print(f"  {st}: CSV read failed {type(e).__name__}", flush=True)
+            skipped+=1; continue
         if len(d): rows.append(dict(stem=st,n=len(d),
                                     med=float(np.median(np.hypot(d.dx,d.dy)))))
     ours=pd.DataFrame(rows).set_index("stem")
@@ -84,7 +89,9 @@ def score():
         for f in glob.glob(str(SENS/"results/base/*/*/KLT_matcher_*.csv")):
             st=f.split("/")[-3]
             try: d=pd.read_csv(f,sep=None,engine="python")
-            except Exception: continue
+            except Exception as e:
+                print(f"  {st}: baseline CSV read failed {type(e).__name__}", flush=True)
+                skipped+=1; continue
             if len(d): base_rows.append(dict(stem=st,n=len(d),
                                              med=float(np.median(np.hypot(d.dx,d.dy)))))
         base=pd.DataFrame(base_rows).set_index("stem")
@@ -101,7 +108,8 @@ def score():
           f"(t={d.mean()/se:.2f}); chips worse: {(d>0).sum()}/{len(d)}")
     print(f"point-count change: {100*(o.n.sum()-b.n.sum())/b.n.sum():+.1f}%")
     verdict = "PASS" if abs(d.mean()) < PASS_BAND else "FAIL"
-    print(f"\nACCEPTANCE ({PASS_BAND} px band): {verdict}   (measured {d.mean():+.4f} px)")
+    print(f"\nACCEPTANCE ({PASS_BAND} px band): {verdict}   (measured {d.mean():+.4f} px)"
+          + (f"   [{skipped} chips skipped: CSV read errors]" if skipped else ""))
     # subgroup: sparse vs dense OSM
     import rasterio
     from scipy.ndimage import sobel
@@ -179,11 +187,14 @@ def graded():
         print(f"  {n:<18} {100*conf[i,i]/row:5.1f}%  of {100*row/tot:5.2f}% of px"
               + (f"   mostly -> {alt}" if alt else ""))
 
+def emit_list():
+    for st in stems(): print(st)
+
+PHASES = {"prep": prep, "warp": warp, "list": emit_list, "score": score, "graded": graded}
+
 if __name__ == "__main__":
     ap=argparse.ArgumentParser()
-    ap.add_argument("--phase",choices=["prep","warp","list","score","graded"],required=True)
+    ap.add_argument("--phase",choices=sorted(PHASES),required=True)
     a=ap.parse_args()
     warnings.filterwarnings("ignore")
-    if a.phase=="list":
-        for st in stems(): print(st)
-    else: globals()[a.phase]()
+    PHASES[a.phase]()

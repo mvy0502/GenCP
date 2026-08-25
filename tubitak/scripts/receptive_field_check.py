@@ -140,7 +140,8 @@ def empirical(pixels, use_real_weights=True, ngf=64, seeds=(0,), quiet=False):
                   f"{f'  peak ({py},{px})':>18}")
 
     if not offs:
-        return False
+        raise RuntimeError("empirical(): no probe produced a usable sensitivity map "
+                           "(all gradients were zero) — cannot locate any offset")
     o = np.array(offs)
     print("-" * 92)
     print(f"{'MEAN offset':<16}{'':>24}{o[:,0].mean():>+12.4f}{o[:,1].mean():>+12.4f}")
@@ -159,14 +160,11 @@ def empirical(pixels, use_real_weights=True, ngf=64, seeds=(0,), quiet=False):
     print("pixel: the sensitivity map of a trained net is not a clean delta. The MEAN is")
     print("the meaningful statistic, and it is consistent with zero.")
     return float(o[:, 0].mean()), float(o[:, 1].mean()), bound
-    return True
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--random-weights", action="store_true",
-                    help="use random init instead of the trained checkpoint")
     ap.add_argument("--quiet", action="store_true", help="summary only")
     ap.add_argument("--no-control", action="store_true", help="skip the random-weight control")
     a = ap.parse_args()
@@ -204,7 +202,6 @@ def main() -> int:
     print("centre, and ConvTranspose2d with the same (k,s,p) and output_padding=0 is the")
     print("exact adjoint. The absolute offset is exactly zero BY CONSTRUCTION of the")
     print("sampling geometry, independent of what the weights learned.")
-    return 0
     return 0
 
 

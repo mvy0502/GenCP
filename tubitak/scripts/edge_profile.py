@@ -66,7 +66,7 @@ def scan(img, grad_ang, axis, res):
             n = e - s
             cx = (s+e)//2
             # edge normal angle at run centre relative to scan direction
-            phi = ga[y, cx] if axis == 1 else ga[y, cx]  # ga already transposed
+            phi = ga[y, cx]  # ga already transposed above, so one indexing serves both axes
             wperp = n * abs(np.cos(phi))
             seg = R - L; ss = seg @ seg
             if ss > 25:               # flanks differ: area-area candidate

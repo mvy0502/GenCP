@@ -241,7 +241,8 @@ def make_cold_start_D(ck):
     (probe.module if hasattr(probe, "module") else probe).load_state_dict(state)
 
     n_params = sum(p.numel() for p in state.values())
-    sha = hashlib.sha256(open(path, "rb").read()).hexdigest()
+    with open(path, "rb") as f:
+        sha = hashlib.sha256(f.read()).hexdigest()
     note = f"""latest_net_D.pth in this directory was NOT released with the GenCP weights.
 No discriminator has ever been published for the GenCP HR model.
 
@@ -320,22 +321,26 @@ ENV = install_seed_hook()
 
 if ARM in ("C2", "C3"):                       # L1-only: zero the GAN term (Kaggle copy only)
     p = f"{ROOT}/models/pix2pix_model.py"
-    s = open(p).read()
+    with open(p) as f:
+        s = f.read()
     needle = "self.loss_G = self.loss_G_GAN + self.loss_G_L1"
     assert s.count(needle) == 1, "C2 patch target not found exactly once - refusing to run"
     s = s.replace(needle,
         "self.loss_G = 0.0 * self.loss_G_GAN + self.loss_G_L1   # C2: L1-only arm")
-    open(p, "w").write(s)
+    with open(p, "w") as f:
+        f.write(s)
     print("[C2] adversarial term zeroed in the Kaggle copy of pix2pix_model.py", flush=True)
 
 if ARM == "C5":                               # LPIPS-only: same patch, LPIPS branch (Kaggle copy only)
     p = f"{ROOT}/models/pix2pix_model.py"
-    s = open(p).read()
+    with open(p) as f:
+        s = f.read()
     needle = "self.loss_G = self.loss_G_GAN + self.loss_G_LPIPS"
     assert s.count(needle) == 1, "C5 patch target not found exactly once - refusing to run"
     s = s.replace(needle,
         "self.loss_G = 0.0 * self.loss_G_GAN + self.loss_G_LPIPS   # C5: LPIPS-only arm")
-    open(p, "w").write(s)
+    with open(p, "w") as f:
+        f.write(s)
     print("[C5] adversarial term zeroed in the Kaggle copy of pix2pix_model.py", flush=True)
 
 # ---------------------------------------------------------------------------------------
