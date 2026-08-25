@@ -642,6 +642,31 @@ the adversarial arms. That is the manipulated factor.
 > ([gates/](gates/)`seed-eval-runner-gate42-at-*`; the gate path takes the defaults, so it
 > exercises the modified code).
 >
+> **EVALUATION CODE FREEZE, 2026-08-25, while the four-arm Modal evaluation runs and before
+> C2_unsorted is scored.** The five Modal arms must be scored by ONE version of the
+> evaluation code — the same requirement the f2dc962 training pin enforces on the training
+> side, imposed here before it can be violated rather than after. The code is frozen as it
+> stands at commit `48ced64`, sha256 pinned per file:
+>
+> | file | sha256 |
+> |---|---|
+> | `seed_eval/seed_eval_run.py` | `3df87c807cefce860b4c870a36ba5e7e9c3d09051a63395ffed945b8ad46f977` |
+> | `seed_eval/seed_analysis.py` | `d22053e1c3640f548c726cd4e871a3fc949f98a19d6a2c8fbd072c9bcee6e1f8` |
+> | `c45_eval/c45_b2_score.py` | `ec35efc7f095b397422ce23cd2bed04ebef145be7e3cbee9f532aa48cf599f6c` |
+> | `c45_eval/c45_e1.py` | `be6ecc8979c6d78df30358fb4d84d440fd47ebb424b94654c773bd89ff715174` |
+> | `c45_eval/c45_edge_ratio.py` | `93819668ed7c60c0d46f41547e3f097af9007e15aa59b0b8eee755a057f5f269` |
+> | `c45_eval/c45_infer.py` | `3b220f4e217a2df489125a536b75a8c271fb931d089a3e2c68a377f3c1516a86` |
+> | `c45_eval/c45_karios.py` | `d4826fa07188d6227eb38a9fa8130e6701fddb52d814bab2751e5159fa92f231` |
+> | `c45_eval/c45_score.py` | `02d3063d455334de3eb1c4dae65ed8b8b3bdfd8e911396be697ee5a5eab566ce` |
+> | `c45_eval/c45_sweep.py` | `38bc9d58da2edd189170a62a8e36853b98d53a446f09d0f153a80676e82279e2` |
+> | `c45_eval/c45_warp.py` | `3d965bcd610f060beb3b817ca2871f647cbc884b43d155ea73426946c4d37541` |
+>
+> No file above is edited until all five Modal arms are scored. **If a change becomes
+> necessary before then, it INVALIDATES the four-arm evaluation already produced: both
+> evaluations must be re-run from scratch on the changed code, after a fresh seed-42 gate.**
+> That is the price of breaking the freeze, stated here so it is paid knowingly, not
+> discovered afterwards.
+>
 > ### Data staging, enumeration order, and the throughput inversion
 >
 > **The measured problem.** Training directly off the Modal Volume stalled the dataloader at
