@@ -455,6 +455,27 @@ def smoke():
             "torch": str(torch.__version__), "cuda": str(torch.version.cuda)}
 
 
+def _arm_complete(seed: int, tag: str) -> bool:
+    """Complete = BOTH latest_net_G.pth AND 20_net_G.pth present in the arm's directory.
+
+    The previous predicate was a bare isdir(). _run_arm creates the directory and copies
+    whatever checkpoints exist BEFORE the returncode check, so an arm that died mid-training
+    left a directory and was skipped as complete on resume - its latest_net_G.pth a mid-run
+    epoch that would have flowed into evaluation as a finished run. A ceiling stop produces
+    exactly that shape. Requiring the epoch-20 checkpoint alongside latest closes it.
+    Bookkeeping only: no number, threshold, gate or numerical path is touched.
+    """
+    base = f"{OUT}/seed{seed}/{tag}"
+    if not os.path.isdir(base):
+        return False
+    for inner in (tag, tag.split("_")[0]):        # C2_unsorted stores under .../C2
+        d = f"{base}/{inner}"
+        if os.path.isdir(d):
+            return (os.path.exists(f"{d}/latest_net_G.pth")
+                    and os.path.exists(f"{d}/20_net_G.pth"))
+    return False
+
+
 @app.function(image=image, timeout=24 * 60 * 60, retries=0,
               volumes={OUT: out_vol})
 def gate_driver(seed: int, arms=None):
@@ -477,8 +498,21 @@ def gate_driver(seed: int, arms=None):
     results, failures = [], []
     for name in order:
         out_vol.reload()
+        if _arm_complete(seed, name):
+            print(f"[driver] SKIP {name} - complete on the output Volume "
+                  f"(latest_net_G.pth AND 20_net_G.pth both present)", flush=True)
+            continue
         if os.path.isdir(f"{OUT}/seed{seed}/{name}"):
-            print(f"[driver] SKIP {name} - already present in the output Volume", flush=True)
+            # A directory without both checkpoints is a PARTIAL from a dead arm - _run_arm
+            # copies before the returncode check. Refuse to treat it as complete AND refuse
+            # to run into it: a re-run would mix two attempts' checkpoints in one directory.
+            # The operator moves it to {OUT}/_partial/ (never deletes) and re-runs.
+            failures.append({"arm": name,
+                             "error": "PARTIAL directory present (missing latest and/or "
+                                      "20_net_G.pth) - move it aside before re-running"})
+            print(f"[driver] PARTIAL {name} - directory exists without both checkpoints; "
+                  f"refusing to skip and refusing to overwrite. Move it to "
+                  f"{OUT}/_partial/seed{seed}/ and re-run.", flush=True)
             continue
         try:
             r = fns[name].remote(seed)
