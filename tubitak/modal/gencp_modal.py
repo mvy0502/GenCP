@@ -57,7 +57,28 @@ image = (
         "setuptools==81.0.0",
         "wheel==0.47.0",
     )
+    # LPIPS backbone weights baked in at BUILD time, not downloaded at run time.
+    # These weights ARE PART OF C4/C5's objective function: torchmetrics' LPIPS uses this
+    # VGG-16 as its feature extractor, so if the file differed between platforms those two
+    # arms would be training against a different loss and nothing would report it.
+    # Kaggle fetched the same URL on every LPIPS run (verified in all six c4/c5 logs).
+    # torchvision verifies only the 8-hex (32-bit) prefix in the filename; the FULL sha256 is
+    # pinned here and asserted at preflight. See AMENDMENT SEED-b.
+    .run_commands(
+        "mkdir -p /root/.cache/torch/hub/checkpoints",
+        "python -c \"import urllib.request; urllib.request.urlretrieve("
+        "'https://download.pytorch.org/models/vgg16-397923af.pth',"
+        "'/root/.cache/torch/hub/checkpoints/vgg16-397923af.pth')\"",
+        "python -c \"import hashlib,sys; "
+        "h=hashlib.sha256(open('/root/.cache/torch/hub/checkpoints/vgg16-397923af.pth','rb')"
+        ".read()).hexdigest(); "
+        "assert h=='" + "397923af8e79cdbb6a7127f12361acd7a2f83e06b05044ddf496e83de57a5bf0" + "', h; "
+        "print('[image] vgg16 sha256 verified', h)\"",
+    )
 )
+
+VGG_PATH = "/root/.cache/torch/hub/checkpoints/vgg16-397923af.pth"
+EXPECTED_VGG_SHA256 = "397923af8e79cdbb6a7127f12361acd7a2f83e06b05044ddf496e83de57a5bf0"
 # NOTE on visdom/dominate, recorded because it looks like a missing pin and is not one.
 # The Kaggle GPU image contained NEITHER (verified in the recovery probe's pip freeze).
 # train_c1_c2.py installs them itself with check=False, so a failure there is non-fatal on
@@ -244,6 +265,14 @@ def _run_arm(arm: str, seed: int, sort_files: bool = True, label: str = None):
     ifsha = _sha256_file(f"{repo}/data/image_folder.py")
     print(f"[patch] data/image_folder.py sha256: {ifsha}", flush=True)
 
+    # LPIPS backbone: part of C4/C5's objective, so it is pinned and checked like any other
+    # input, not left to a runtime download.
+    vggsha = _sha256_file(VGG_PATH) if os.path.exists(VGG_PATH) else None
+    print(f"[weights] vgg16-397923af.pth sha256: {vggsha}", flush=True)
+    assert vggsha == EXPECTED_VGG_SHA256, (
+        f"LPIPS VGG weights differ from the pinned value - refusing to train.\n"
+        f"  expected {EXPECTED_VGG_SHA256}\n  got      {vggsha}")
+
     # The training script expects the Kaggle mount layout; the Volume provides the same tree.
     _stage_local()
     # Post-copy verification, not only on the Volume: the initialisation for every arm and
@@ -377,43 +406,59 @@ def smoke():
             "torch": str(torch.__version__), "cuda": str(torch.version.cuda)}
 
 
-@app.function(image=image, timeout=24 * 60 * 60)
-def gate_driver(seed: int):
-    """Sequence the five gate arms FROM INSIDE MODAL, not from the laptop.
+@app.function(image=image, timeout=24 * 60 * 60, retries=0,
+              volumes={OUT: out_vol})
+def gate_driver(seed: int, arms=None):
+    """Sequence the gate arms from inside Modal, with three fixes from the C4 failure.
 
-    The previous version was an @app.local_entrypoint() whose loop called fn.remote() on the
-    client. `modal run --detach` keeps already-running containers alive, but the loop issuing
-    the NEXT .remote() executes locally - so closing the laptop lid would have left C4, C5 and
-    C2_unsorted never launched, silently, with the gate looking merely slow.
-
-    Running the sequencing inside a Modal function puts the whole chain on Modal's
-    infrastructure. The local process only spawns this and exits.
+    1. retries=0. Retrying a SEQUENCER is never correct: it re-executes completed work, which
+       is exactly what happened - C4 failed, the driver was retried, and it began re-running
+       C1 and C2 that had already succeeded. Retries belong on individual arms if anywhere,
+       never on the thing that orders them.
+    2. Per-arm failure isolation. One arm failing no longer kills the chain or discards
+       completed work; the failure is recorded and the remaining arms still run.
+    3. Skip-completed. An arm already present in the output Volume is not re-run, which also
+       makes the whole gate resumable after any interruption.
     """
     t0 = time.time()
-    results = []
-    for fn in (train_c1, train_c2, train_c4, train_c5, train_c2_unsorted):
-        r = fn.remote(seed)
-        results.append(r)
-        print(f"[driver] finished {r['arm']} seed {r['seed']} "
-              f"in {r['gpu_seconds']/3600:.2f} h", flush=True)
+    fns = {"C1": train_c1, "C2": train_c2, "C4": train_c4, "C5": train_c5,
+           "C2_unsorted": train_c2_unsorted}
+    order = arms or ["C1", "C2", "C4", "C5", "C2_unsorted"]
+    results, failures = [], []
+    for name in order:
+        out_vol.reload()
+        if os.path.isdir(f"{OUT}/seed{seed}/{name}"):
+            print(f"[driver] SKIP {name} - already present in the output Volume", flush=True)
+            continue
+        try:
+            r = fns[name].remote(seed)
+            results.append(r)
+            print(f"[driver] OK {r['arm']} in {r['gpu_seconds']/3600:.2f} h", flush=True)
+        except Exception as exc:
+            failures.append({"arm": name, "error": repr(exc)[:2000]})
+            print(f"[driver] FAILED {name}: {exc!r}", flush=True)
+            print(f"[driver] continuing with the remaining arms", flush=True)
     total = sum(r["gpu_seconds"] for r in results)
     A10G_USD_PER_HOUR = 1.10
     print("\n" + "=" * 78, flush=True)
     for r in results:
-        print(f"  {r['arm']:12} sorted={r['sorted']}  {r['gpu_seconds']:.0f} GPU-seconds "
+        print(f"  {r['arm']:12} sorted={r['sorted']}  {r['gpu_seconds']:.0f} s "
               f"({r['gpu_seconds']/3600:.2f} h)", flush=True)
+    for f in failures:
+        print(f"  {f['arm']:12} FAILED  {f['error'][:200]}", flush=True)
     print(f"  TOTAL {total:.0f} GPU-seconds = {total/3600:.2f} A10G-hours "
-          f"~ ${total/3600*A10G_USD_PER_HOUR:.2f} of the $30 monthly credit", flush=True)
+          f"~ ${total/3600*A10G_USD_PER_HOUR:.2f}", flush=True)
     print(f"  driver wall clock {(time.time()-t0)/3600:.2f} h", flush=True)
     print("=" * 78, flush=True)
-    return {"results": results, "total_gpu_seconds": float(total),
+    return {"results": results, "failures": failures,
+            "total_gpu_seconds": float(total),
             "usd": float(total / 3600 * A10G_USD_PER_HOUR)}
 
 
 @app.local_entrypoint()
 def gate_seed43():
     """Spawn the Modal-side driver and exit. Nothing after this depends on this machine."""
-    call = gate_driver.spawn(43)
+    call = gate_driver.spawn(43, ["C4", "C5", "C2_unsorted"])
     print(f"[launch] gate driver spawned on Modal, call id {call.object_id}")
     print("[launch] the laptop can be closed - sequencing runs inside Modal, not here.")
     print("[launch] progress: modal app logs, or check the gencp-out Volume.")

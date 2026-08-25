@@ -690,7 +690,34 @@ the adversarial arms. That is the manipulated factor.
 > code path. From now on the ordered file-list hash is captured at preflight, per the
 > generalised prevention on corrections-log entry 29.
 >
-> ### Three things this move caught, all before they cost anything
+> ### The LPIPS backbone weights — a fifth unrecorded axis
+>
+> `vgg16-397923af.pth` was being **downloaded at run time** on both platforms. Those weights
+> are not an incidental dependency: torchmetrics' LPIPS uses this VGG-16 as its feature
+> extractor, so **they are part of C4 and C5's objective function.** If the file differed
+> between Kaggle and Modal, those two arms would be training against a different loss and
+> nothing in the pipeline would report it.
+>
+> **Now baked into the image at build time**, with the full sha256 pinned and asserted at
+> preflight beside the ordered-list hash and the patched-file hash:
+>
+>     vgg16-397923af.pth
+>     sha256 397923af8e79cdbb6a7127f12361acd7a2f83e06b05044ddf496e83de57a5bf0
+>     553,433,881 bytes
+>
+> **What is confirmed for Kaggle, and what is not.** All six Kaggle LPIPS runs (c4/c5 at seeds
+> 42, 43, 44) log the identical line — `Downloading:
+> "https://download.pytorch.org/models/vgg16-397923af.pth" to
+> /root/.cache/torch/hub/checkpoints/vgg16-397923af.pth` — so **the URL is confirmed identical
+> on both platforms**, and torchvision's own download check verified the filename's hash tag,
+> which did not error. But that check validates only the **8-hex, 32-bit prefix**, and **no
+> Kaggle run ever recorded the full sha256**. So the Kaggle-side file is **strongly evidenced
+> to be the same file and not verified to be** — recorded as an **unverifiable axis** rather
+> than assumed. From this point forward it is pinned and checked; retrospectively it cannot be.
+>
+> The runtime download disappearing is a **side effect of pinning, not the reason for it**.
+>
+> ### Things this move caught
 >
 > Recorded as evidence the practice works, not only the failures it records:
 >
@@ -701,6 +728,15 @@ the adversarial arms. That is the manipulated factor.
 >    15-hour, $16.50 gate at 20 minutes and $0.35.
 > 3. **The enumeration-order difference** — found by hashing the ordered list rather than the
 >    file contents, stopped a gate that would have silently trained on a different file order.
+> 4. **The AppleDouble doubling** — the staged set was 11,154 files, not 5,577; caught by the
+>    preflight capture added the same day, before any training step ran.
+> 5. **The LPIPS backbone weights** — part of C4/C5's loss, downloaded at run time on both
+>    platforms and never hash-recorded on either.
+>
+> The first three were caught before costing anything. The fourth cost nothing but was found
+> only because the capture had just been added. **The fifth was found after a C4 failure whose
+> cause was never established — see below; it must not be recorded as that failure's
+> diagnosis.**
 >
 > None of the three was visible in the thing that looked like the obvious check: the GPU was
 > real, the bytes were identical, the versions matched.
