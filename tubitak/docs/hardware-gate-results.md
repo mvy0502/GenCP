@@ -17,10 +17,39 @@ homogeneous block and compared to the Kaggle block, never pooled; seed counts ar
 per block.** Both branches were committed before the gate ran; this is the branch the number
 selected, not a judgment made after seeing it.
 
-The failing quantity is the mechanism-side edge ratio of the L1-adversarial arm, not any of
-the four registered residual contrasts or the interaction, all of which sit at 27–92% of
-their seed spreads. That pattern (contrasts robust, one edge mean shifted) is disclosed as
-observed; it is not an argument against the rule's verdict.
+### Interpretation, beside the verdict, not instead of it
+
+The failing quantity is the mechanism metric, and the difference is scientifically
+immaterial: edge_C1 1.0827 vs 1.0650 is **1.6% relative**, and the arm ordering is untouched
+on both platforms (C2 0.28 < pretrained 1.02 < C1 1.07 < C4 1.12 < C5 1.15). Why the rule
+fired anyway: the edge ratio's seed-to-seed spread is **0.0042 — an order of magnitude
+tighter than the positional quantities' 0.0232–0.0745**. A hardware difference of the same
+absolute size clears every positional bar comfortably and fails the edge bar. **The rule
+caught the tightness of the reference scale, not a material hardware effect.** The four
+registered residual contrasts and the interaction sit at 27–92% of their spreads. All of
+this is interpretation; the verdict above is not conditioned on any of it.
+
+### A specification flaw in the rule, recorded and not repaired
+
+The acceptance rule was written as a **single global verdict** while scaling each quantity
+to **its own spread**. The consequence, visible now: the most reproducibly-measured quantity
+governs the whole package — the tighter a quantity's seed spread, the lower its bar for
+failing the gate, and one such quantity vetoes ten. A per-quantity verdict would have been
+the better specification. **This flaw was noticed only after seeing which quantity failed —
+precisely the moment at which fixing it is forbidden**: refining the rule now would be
+indistinguishable from adjusting a gate to pass. So the flaw is recorded, the post-hoc
+timing of noticing it is recorded, and **the verdict stands unchanged under the rule as
+written.** For the future, registered in
+[seed-replication-registration.md](seed-replication-registration.md): gates of this shape
+return a verdict **per quantity**, not one for the package.
+
+### The provenance gap is not connected to the failure
+
+The failing quantity is edge_C1, and **C1 is the arm whose preflight block was fully
+captured** — image id, environment, pip freeze, ordered-list hash, patched-file hash, all of
+it. The arm with the provenance gap, C2, passes its quantities (edge 0.0015 vs spread
+0.0064; arm mean inside spread). The gap and the failure touch different arms; a reader
+should not link them.
 
 ## Four-arm results against the Kaggle values
 

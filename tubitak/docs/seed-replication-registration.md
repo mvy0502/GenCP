@@ -667,6 +667,34 @@ the adversarial arms. That is the manipulated factor.
 > That is the price of breaking the freeze, stated here so it is paid knowingly, not
 > discovered afterwards.
 >
+> **POST-VERDICT NOTES, 2026-08-25, written after the gate returned NOT POOLED
+> ([hardware-gate-results.md](hardware-gate-results.md)). Nothing here alters the verdict.**
+>
+> **1. Specification flaw in the acceptance rule, noticed post-hoc, not repaired.** The rule
+> above issues one global verdict while scaling each quantity to its own spread, so the most
+> reproducibly-measured quantity governs the package: edge_C1's spread (0.0042) set a bar an
+> order of magnitude lower than the positional quantities', and one quantity vetoed ten. A
+> per-quantity verdict would have been the better specification. The flaw was noticed only
+> after seeing which quantity failed — when refining it would be indistinguishable from
+> adjusting a gate to pass — so the verdict stands under the rule as written, and the fix is
+> registered forward only: **future gates of this shape return a verdict per quantity, not
+> one for the package.**
+>
+> **2. Platform allocation under the no-pooling verdict, decided before either package is
+> designed.** The extra {C2, C5} seeds for the secondary reading (which needs n = 6; two
+> Kaggle seeds are held) **move back to Kaggle T4**: under NOT POOLED, Modal seeds cannot
+> contribute to that count, and Kaggle's quota is free — four seeds of the two short arms is
+> roughly 19 hours, inside one week. Slower, but **poolable, which is the property that
+> matters for that count**. The **warm-up de-confound stays on Modal**: that package is
+> self-contained — warm-up on versus off, all arms on Modal, compared only to each other —
+> so no pooling with Kaggle is required and the faster platform is free to be used there.
+> **Neither package runs until its own registration is written.**
+>
+> **3. A Modal seed-44 replication was considered and DECLINED.** It would exist only to
+> give the Modal block a seed spread of its own. Under the allocation above, the Modal
+> block never has to carry a spread — the only package that lives there is internally
+> self-contained. Recorded so it does not resurface as an open item.
+>
 > ### Data staging, enumeration order, and the throughput inversion
 >
 > **The measured problem.** Training directly off the Modal Volume stalled the dataloader at
