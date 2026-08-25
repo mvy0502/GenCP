@@ -62,18 +62,21 @@ def sha256(path):
     return h.hexdigest()
 
 
-def ckpt_dir(root, arm, seed):
+def ckpt_dir(root, arm, seed, variant=None):
     """Checkpoints for one arm at one seed.
 
     Seed 42 lives in the original directories; replication seeds carry an _s{seed} suffix,
-    matching how the kernel outputs are downloaded.
+    matching how the kernel outputs are downloaded. A variant (e.g. "modal") appends a
+    further suffix so hardware-gate checkpoints never collide with the Kaggle ones.
     """
     base = f"{arm.lower()}_checkpoints" if seed == 42 else f"{arm.lower()}_checkpoints_s{seed}"
+    if variant:
+        base += f"_{variant}"
     return root / "tubitak/outputs" / base / "checkpoints"
 
 
 # ----------------------------------------------------------------------------- step 1
-def step_infer(root, out, seed):
+def step_infer(root, out, seed, arms=FINE_TUNED, variant=None):
     """c45_infer.py verbatim, over four arms instead of two, shim pinned to 42."""
     shim = out / "_shims/s42"
     shim.mkdir(parents=True, exist_ok=True)
@@ -88,13 +91,23 @@ def step_infer(root, out, seed):
     (out / "_logs").mkdir(parents=True, exist_ok=True)
 
     import torch
-    for arm in FINE_TUNED:
-        ck = ckpt_dir(root, arm, seed)
-        a = torch.load(ck / arm / "latest_net_G.pth", map_location="cpu")
-        b = torch.load(ck / arm / "20_net_G.pth", map_location="cpu")
-        assert set(a) == set(b) and all(torch.equal(a[k], b[k]) for k in a), \
-            f"{arm}: latest_net_G.pth is not tensor-equal to 20_net_G.pth"
-        print(f"  {arm}: latest_net_G.pth tensor-equal to 20_net_G.pth", flush=True)
+    for arm in arms:
+        ck = ckpt_dir(root, arm, seed, variant)
+        p20 = ck / arm / "20_net_G.pth"
+        if p20.exists():
+            a = torch.load(ck / arm / "latest_net_G.pth", map_location="cpu")
+            b = torch.load(p20, map_location="cpu")
+            assert set(a) == set(b) and all(torch.equal(a[k], b[k]) for k in a), \
+                f"{arm}: latest_net_G.pth is not tensor-equal to 20_net_G.pth"
+            print(f"  {arm}: latest_net_G.pth tensor-equal to 20_net_G.pth", flush=True)
+        else:
+            # Modal downloads are latest-only; the tensor-equality against the 20-epoch
+            # checkpoint is verified Modal-side (gencp_modal.py::verify_latest), where both
+            # files live. The local sha256 is printed so the record can assert that the
+            # downloaded file is the one Modal verified.
+            print(f"  {arm}: 20_net_G.pth absent (latest-only download); "
+                  f"latest sha256 {sha256(ck / arm / 'latest_net_G.pth')} "
+                  f"- assert against the Modal-side verify_latest record", flush=True)
 
     def n_fakes(arm):
         d = out / f"out/{arm}/{arm}/test_latest/images"
@@ -109,7 +122,7 @@ def step_infer(root, out, seed):
         cmd = [GP, "test.py",
                "--dataroot", "tubitak/data/ankara/run/inputs",
                "--name", arm,
-               "--checkpoints_dir", str(ckpt_dir(root, arm, seed)),
+               "--checkpoints_dir", str(ckpt_dir(root, arm, seed, variant)),
                "--model", "test", "--netG", "unet_256", "--norm", "batch",
                "--dataset_mode", "single", "--load_size", "256", "--crop_size", "256",
                "--num_test", "130", "--gpu_ids", "-1",
@@ -120,7 +133,7 @@ def step_infer(root, out, seed):
 
     bad = []
     with ThreadPoolExecutor(max_workers=2) as ex:
-        for f in as_completed([ex.submit(run, a) for a in FINE_TUNED]):
+        for f in as_completed([ex.submit(run, a) for a in arms]):
             arm, rc, note = f.result()
             print(f"  infer {arm}: rc={rc} {note}", flush=True)
             if rc != 0 or n_fakes(arm) < 130:
@@ -130,7 +143,7 @@ def step_infer(root, out, seed):
 
 
 # ----------------------------------------------------------------------------- step 2
-def step_warp(root, out, stems):
+def step_warp(root, out, stems, arms=FINE_TUNED):
     """c45_warp.py geometry verbatim; four arms plus the input renders."""
     import warnings
     warnings.filterwarnings("ignore", category=UserWarning)   # rasterio NotGeoreferenced
@@ -162,7 +175,7 @@ def step_warp(root, out, stems):
         with rasterio.open(out_tif, "w", **prof) as d:
             d.write(dst)
 
-    jobs = [(a, st) for a in FINE_TUNED for st in stems] + [("input", st) for st in stems]
+    jobs = [(a, st) for a in arms for st in stems] + [("input", st) for st in stems]
     n = done = 0
     for cell, st in jobs:
         n += 1
@@ -183,11 +196,11 @@ def step_warp(root, out, stems):
 
 
 # ----------------------------------------------------------------------------- step 3
-def step_karios(root, out, stems):
+def step_karios(root, out, stems, arms=FINE_TUNED):
     """c45_karios.py verbatim; four arms instead of two. Config unchanged."""
     REF = root / "tubitak/data/ankara/run/ref"
     CONF = str(root / "tubitak/configs/karios_gencp.json")
-    jobs = [(a, st) for a in FINE_TUNED for st in stems]
+    jobs = [(a, st) for a in arms for st in stems]
 
     def run(job):
         arm, st = job
@@ -219,7 +232,7 @@ def step_karios(root, out, stems):
 
 
 # ----------------------------------------------------------------------------- step 4
-def step_edge(root, out, stems):
+def step_edge(root, out, stems, arms=FINE_TUNED):
     """c45_edge_ratio.py definition verbatim: input-silent = grad_mag(BT.601 of the warped
     input render) <= 20; edge = grad_mag > 20 on the arm's output and on the real chip over
     the SAME pixels; per-chip ratio = edge_fraction(fake) / edge_fraction(real).
@@ -250,7 +263,7 @@ def step_edge(root, out, stems):
         return a[0] if a.shape[0] == 1 else bt601(a)
 
     srcs = {"pretrained": lambda st: PKGA / f"ank130/pretrained/bt601/{st}.tif"}
-    for arm in FINE_TUNED:
+    for arm in arms:
         srcs[arm] = (lambda a: (lambda st: out / f"warp/{a}/{st}.tif"))(arm)
 
     rows, skipped = [], []
@@ -273,7 +286,7 @@ def step_edge(root, out, stems):
 
 
 # ----------------------------------------------------------------------------- step 5
-def step_score(root, out, stems):
+def step_score(root, out, stems, arms=FINE_TUNED):
     """c45_score.py formula verbatim: per-chip statistic = median hypot(dx, dy) over the KLT
     rows. Column names match the committed C45_per_chip.csv exactly, so seed_analysis.py
     reads either without a special case. PRETRAINED comes from B1_per_chip.csv - it is
@@ -293,11 +306,11 @@ def step_score(root, out, stems):
     for st in stems:
         r = {"stem": st,
              "pre_med": float(b1.loc[st, "pre_med"]), "pre_n": int(b1.loc[st, "pre_n"])}
-        for arm in FINE_TUNED:
+        for arm in arms:
             m, n = med_n(arm, st)
             r[f"{arm}_med"], r[f"{arm}_n"] = m, n
         rows.append(r)
-    cols = ["stem", "pre_med", "pre_n"] + [f"{a}_{k}" for a in FINE_TUNED for k in ("med", "n")]
+    cols = ["stem", "pre_med", "pre_n"] + [f"{a}_{k}" for a in arms for k in ("med", "n")]
     pd.DataFrame(rows)[cols].to_csv(out / "C45_per_chip.csv", index=False)
     print(f"  scored {len(rows)} chips -> {out/'C45_per_chip.csv'}", flush=True)
 
@@ -342,25 +355,36 @@ def main():
     ap.add_argument("--root", default=None)
     ap.add_argument("--reproduce", action="store_true",
                     help="seed 42 only: write to C45_s42_repro and diff against committed C45")
+    ap.add_argument("--variant", default=None,
+                    help="ROUTING ONLY: checkpoints read from *_checkpoints_s{seed}_{variant} "
+                         "and outputs written to C45_s{seed}_{variant}; numeric logic unchanged")
+    ap.add_argument("--arms", default=None,
+                    help="ROUTING ONLY: comma-separated subset of C1,C2,C4,C5 (default: all)")
     args = ap.parse_args()
 
+    arms = tuple(a.strip() for a in args.arms.split(",")) if args.arms else FINE_TUNED
+    assert all(a in FINE_TUNED for a in arms), f"unknown arm in {arms}"
     root = Path(args.root).resolve() if args.root else DEFAULT_ROOT
     runs = root / "tubitak/data/tool_runs"
-    out = runs / ("C45_s42_repro" if args.reproduce else f"C45_s{args.seed}")
+    suffix = f"_{args.variant}" if args.variant else ""
+    out = runs / ("C45_s42_repro" if args.reproduce else f"C45_s{args.seed}{suffix}")
     if args.reproduce and args.seed != 42:
         raise SystemExit("--reproduce is the seed-42 gate")
+    if args.reproduce and (args.variant or args.arms):
+        raise SystemExit("--reproduce is the fixed-shape gate; --variant/--arms not allowed")
     out.mkdir(parents=True, exist_ok=True)
 
     stems = sorted(p.name[:-4] for p in (root / "tubitak/data/ankara/run/inputs").glob("*.png"))
     assert len(stems) == 130, f"expected 130 chips, found {len(stems)}"
 
-    print(f"seed {args.seed} -> {out}   arms {FINE_TUNED} (pretrained from B1_per_chip.csv)")
+    print(f"seed {args.seed} -> {out}   arms {arms} (pretrained from B1_per_chip.csv)"
+          + (f"   variant {args.variant}" if args.variant else ""))
     print(f"inference shim pinned to seed 42 (AMENDMENT SEED-a)\n")
-    print("step 1/5 inference");   step_infer(root, out, args.seed)
-    print("step 2/5 warp");        step_warp(root, out, stems)
-    print("step 3/5 KARIOS");      step_karios(root, out, stems)
-    print("step 4/5 edge ratio");  step_edge(root, out, stems)
-    print("step 5/5 score");       step_score(root, out, stems)
+    print("step 1/5 inference");   step_infer(root, out, args.seed, arms, args.variant)
+    print("step 2/5 warp");        step_warp(root, out, stems, arms)
+    print("step 3/5 KARIOS");      step_karios(root, out, stems, arms)
+    print("step 4/5 edge ratio");  step_edge(root, out, stems, arms)
+    print("step 5/5 score");       step_score(root, out, stems, arms)
 
     for f in ("C45_per_chip.csv", "C45_edge_ratio.csv"):
         print(f"sha256 {f}: {sha256(out/f)}")

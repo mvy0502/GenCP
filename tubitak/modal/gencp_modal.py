@@ -482,6 +482,34 @@ def gate_seed43():
     print("[launch] progress: modal app logs, or check the gencp-out Volume.")
 
 
+@app.function(image=image, volumes={OUT: out_vol}, timeout=30 * 60)
+def verify_latest(seed: int):
+    """Per arm on the output Volume: latest_net_G.pth tensor-equal to 20_net_G.pth, plus the
+    sha256 of latest.
+
+    The local evaluation downloads latest_net_G.pth ONLY, so the equality check that
+    seed_eval_run.py::step_infer performs when both files are present is performed HERE,
+    where both files live. The printed sha256 is what the local run asserts its downloaded
+    file against - transfer integrity and identity in one line.
+    """
+    import hashlib
+    import torch
+    res = {}
+    base = f"{OUT}/seed{seed}"
+    for tag in sorted(os.listdir(base)):
+        arm = "C2" if tag.startswith("C2") else tag        # C2_unsorted stores under .../C2
+        d = f"{base}/{tag}/{arm}"
+        a = torch.load(f"{d}/latest_net_G.pth", map_location="cpu")
+        b = torch.load(f"{d}/20_net_G.pth", map_location="cpu")
+        eq = set(a) == set(b) and all(torch.equal(a[k], b[k]) for k in a)
+        h = hashlib.sha256(open(f"{d}/latest_net_G.pth", "rb").read()).hexdigest()
+        res[tag] = {"tensor_equal_latest_20": bool(eq), "latest_sha256": h}
+        print(f"[verify] {tag}: latest==20 tensor-equal {eq}   latest sha256 {h}", flush=True)
+    assert all(r["tensor_equal_latest_20"] for r in res.values()), \
+        f"latest_net_G.pth is not epoch 20 for some arm: {res}"
+    return res
+
+
 @app.function(image=image, volumes={"/data": vol}, timeout=60 * 60)
 def order_check():
     """Four hashes, so the framing claim in AMENDMENT SEED-b is verified and not asserted.

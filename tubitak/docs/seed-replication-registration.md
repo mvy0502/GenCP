@@ -629,6 +629,19 @@ the adversarial arms. That is the manipulated factor.
 >
 > Both branches are written here so neither is chosen after seeing the number.
 >
+> **Runner routing for the Modal evaluation, 2026-08-25, before any Modal arm is scored.**
+> The Modal checkpoints must not collide with the Kaggle `*_s43` directories or the
+> `C45_s43` outputs, and only `latest_net_G.pth` is downloaded per arm. `seed_eval_run.py`
+> therefore gains two ROUTING-ONLY parameters — `--variant` (suffixes the checkpoint and
+> output directories: `*_checkpoints_s43_modal`, `C45_s43_modal`) and `--arms` (subset, for
+> the C2_unsorted control which is a single arm) — and the latest==20 tensor-equality check
+> runs Modal-side (`gencp_modal.py::verify_latest`, where both files live) when
+> `20_net_G.pth` is absent locally, with the downloaded file's sha256 asserted against the
+> Modal-reported value. Per-step numeric logic is untouched, and the seed-42 reproduction
+> gate was wiped and re-run AFTER this change to verify that
+> ([gates/](gates/)`seed-eval-runner-gate42-at-*`; the gate path takes the defaults, so it
+> exercises the modified code).
+>
 > ### Data staging, enumeration order, and the throughput inversion
 >
 > **The measured problem.** Training directly off the Modal Volume stalled the dataloader at
