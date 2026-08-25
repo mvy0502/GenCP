@@ -34,9 +34,12 @@ import modal
 #   torchmetrics 1.9.0 / numpy 2.0.2 / Pillow 11.3.0 / scipy 1.16.3
 # Every version here is a recovered observation, not a capture of the image the Kaggle runs
 # used; the amendment says so in those words.
-PY_VERSION = "3.12"
+# Python is pinned to the EXACT patch release, 3.12.13, not just the minor. The first build
+# used modal.Image.debian_slim(python_version="3.12"), which resolved to 3.12.10 - a near
+# version, and the registration forbids substituting one. debian_slim cannot pin a patch
+# release, so the base image is the official python:3.12.13-slim instead.
 image = (
-    modal.Image.debian_slim(python_version=PY_VERSION)
+    modal.Image.from_registry("python:3.12.13-slim", add_python=None)
     .apt_install("git")
     .pip_install(
         "torch==2.10.0+cu128",
@@ -48,10 +51,21 @@ image = (
         "numpy==2.0.2",
         "pillow==11.3.0",
         "scipy==1.16.3",
-        "dominate>=2.4.0",
-        "visdom>=0.1.8.8",
+        # setuptools/wheel at the versions the Kaggle GPU image carried. They matter: the
+        # training script runs `pip install -q dominate visdom` itself, and visdom's legacy
+        # setup.py needs pkg_resources (setuptools), which Modal's slim image omits.
+        "setuptools==81.0.0",
+        "wheel==0.47.0",
     )
 )
+# NOTE on visdom/dominate, recorded because it looks like a missing pin and is not one.
+# The Kaggle GPU image contained NEITHER (verified in the recovery probe's pip freeze).
+# train_c1_c2.py installs them itself with check=False, so a failure there is non-fatal on
+# Kaggle, and util/visualizer.py imports visdom only under `display_id > 0` while every run
+# here passes --display_id -1. Pre-installing visdom in the image would therefore make the
+# Modal environment DIFFER from Kaggle's and would turn a tolerated failure into a hard image
+# build failure - which is exactly what happened on the first build attempt. It is left to the
+# script, as on Kaggle.
 
 app = modal.App("gencp-seed-replication")
 vol = modal.Volume.from_name("gencp-data")
@@ -118,7 +132,8 @@ def _cuda_smoke_test():
     assert d_mm < TOL and d_cv < TOL, \
         f"GPU disagrees with CPU beyond fp32 tolerance: matmul {d_mm:.3e}, conv {d_cv:.3e}"
     print(f"[smoke] GPU agrees with CPU within {TOL:.0e} - proceeding")
-    return {"sm": sm, "listed": listed, "matmul_maxdiff": d_mm, "conv_maxdiff": d_cv}
+    return {"sm": sm, "listed": bool(listed), "matmul_maxdiff": float(d_mm),
+            "conv_maxdiff": float(d_cv)}
 
 
 def _disable_tf32():
@@ -221,8 +236,10 @@ def smoke():
     n_pairs = len(os.listdir(f"{DATA}/pairs/train"))
     print(f"[data] pretrained sha256 {h.hexdigest()}")
     print(f"[data] training pairs {n_pairs}")
+    # str() casts: torch.__version__ is a TorchVersion (str subclass) whose unpickling
+    # needs torch installed locally, which the driver does not have.
     return {"pretrained_sha256": h.hexdigest(), "pairs": n_pairs,
-            "torch": torch.__version__, "cuda": torch.version.cuda}
+            "torch": str(torch.__version__), "cuda": str(torch.version.cuda)}
 
 
 @app.local_entrypoint()
