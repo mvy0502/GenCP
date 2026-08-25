@@ -601,13 +601,50 @@ the adversarial arms. That is the manipulated factor.
 > | torch | **2.10.0+cu128** | `[preflight] torch=2.10.0+cu128` in every seed-42/43/44 log |
 > | torchmetrics | **1.9.0** | `[deps] torchmetrics 1.9.0 already in the image` |
 >
-> **OPEN — and the gate does not run until it is resolved.** `torchvision`, `Pillow`, `numpy`
-> and the Python minor version were **never recorded on the Kaggle side**: the run script logs
-> only torch and torchmetrics, and the repository's `requirements.txt` carries floors
-> (`torchvision>=0.5.0`) rather than pins. There is therefore **no recorded target to match**,
-> and this registration will not substitute a near version silently.
+> **RECOVERED 2026-08-25, and labelled as recovery rather than capture.** `torchvision`,
+> `Pillow`, `numpy` and the Python version were **never recorded by any run**: the script
+> logged only torch and torchmetrics, and `requirements.txt` carries floors
+> (`torchvision>=0.5.0`) not pins. They were recovered by a throwaway probe kernel run on
+> 2026-08-25, **about 20 hours after the seed-43/44 runs**. Kaggle images are versioned and
+> updated, so **this is not a capture of the image those runs used; it is a later observation
+> of an image that may or may not be the same one.**
 >
-> Why it is not a formality here — the training transform chain
+> Full recovered environment — Kaggle **GPU** image, `NvidiaTeslaT4`:
+>
+> | item | recovered value |
+> |---|---|
+> | image digest | `gcr.io/kaggle-gpu-images/python@sha256:37c64f7dd9c54116ecd1bcc88817c5469b88387388fade02bfa8bf3fc647d461` |
+> | image BUILD_DATE | `20260629-122508` (LAST_FORCED_REBUILD `20260508`) |
+> | OS | Ubuntu 22.04.5 LTS, glibc 2.35 |
+> | Python | **3.12.13** |
+> | torch | **2.10.0+cu128** (`torch.version.cuda` 12.8, cudnn 91002, git `449b1768…`) |
+> | torchvision | **0.25.0+cu128** |
+> | torchmetrics | **1.9.0** |
+> | numpy | **2.0.2** |
+> | Pillow | **11.3.0** |
+> | scipy | **1.16.3** |
+> | CUDA_VERSION | 12.8.1 |
+>
+> **The consistency check, and what it does and does not establish.** The two values the runs
+> themselves logged both match: torch `2.10.0+cu128` and torchmetrics `1.9.0`. That is
+> **evidence the image is the same one, not proof.** Strengthening it: the recovered image's
+> BUILD_DATE is **2026-06-29**, which predates *every* run in this package (19 August and
+> 24 August), so unless Kaggle rotated the digest between those dates and today, all runs used
+> this image. Weakening it: **the digest the runs actually used was never logged**, so the
+> rotation cannot be excluded from our own records. The pins below are therefore adopted on
+> evidence, and that word is used deliberately.
+>
+> **First probe attempt failed as designed, and the failure is recorded rather than hidden.**
+> The probe was first run CPU-only. It returned `KAGGLE_DOCKER_IMAGE =
+> gcr.io/kaggle-images/python@sha256:dafd4ce5…`, `COLAB_IMAGE_TYPE = cpu`, torch
+> **2.10.0+cpu** and torchvision **0.25.0+cpu** — a *different image*, because Kaggle's CPU
+> and GPU images are separate builds. The registered consistency check caught it immediately
+> (torch `+cpu` ≠ the logged `+cu128`). The probe was re-run with `enable_gpu: true` on a T4,
+> costing roughly one minute of GPU quota, which is a deliberate deviation from the
+> "CPU-only" instruction and is disclosed here because the CPU image demonstrably could not
+> answer the question.
+>
+> Why this mattered — the training transform chain
 > (`data/base_dataset.py:get_transform`, `preprocess=resize_and_crop`, load 286 / crop 256) is
 > `Resize([286,286], BICUBIC) → RandomCrop(256) → RandomHorizontalFlip → ToTensor → Normalize`:
 >
@@ -615,12 +652,22 @@ the adversarial arms. That is the manipulated factor.
 >   version changes how many draws they take, the augmentation stream diverges and the run is
 >   a different experiment, not a hardware comparison.
 > - `Resize(..., BICUBIC)` on PIL input **delegates to PIL**, so the resampled pixel values
->   depend on **Pillow's** version, which is likewise unrecorded.
+>   depend on **Pillow's** version.
 >
-> So an unpinned image would make the gate a test of "hardware **plus** library versions",
-> which is exactly what it must not be. This gap is itself a defect in the record — the
-> invariance table has claimed "same image" since the package was registered, while the
-> image's contents were never captured — and it is recorded here rather than papered over.
+> An unpinned image would have made the gate a test of "hardware **plus** library versions",
+> which is exactly what it must not be.
+>
+> ### The gap is wider than the Modal move
+>
+> **The image was never captured for ANY run in this package**, so "same image" is an
+> unverified assumption *within* the Kaggle set as well, not only across the hardware move.
+> Seed 42's C1/C2 ran **19 August**, its C4/C5 and seeds 43/44 ran **23–24 August**, and
+> today's probe cannot tell us what any of them used. **The image is an unrecorded axis across
+> the whole seed set.** This sits beside the seed-42 code-path caveat already registered
+> above, and is the same class of defect: an invariance asserted without evidence.
+> Corrections-log **entry 29** records it, and every run from now on logs `pip freeze` at
+> preflight — wired into `tubitak/kaggle/train_c1_c2.py:log_environment()` in the same commit,
+> so it applies on Kaggle and Modal alike.
 
 **Known asymmetries, inherited and disclosed rather than removed** (they are part of the
 comparison being replicated, identical in kind and size to seed 42's): the adversarial arms

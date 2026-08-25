@@ -85,9 +85,44 @@ def resolve_data_dir():
 DATA = resolve_data_dir()
 
 
+def log_environment():
+    """Record the full environment at preflight, every run, on every platform.
+
+    Corrections-log entry 29: the invariance table listed "same image" as a held invariance
+    for this whole package, but NO run ever captured what the image contained - only torch
+    and torchmetrics were printed. The claim was therefore unfalsifiable, which is exactly
+    what standing practice 1 exists to prevent. From here on the image is a recorded fact,
+    so a later run can be diffed against an earlier one instead of assumed equal to it.
+    """
+    print(BAR, flush=True)
+    print(f"[env] python {sys.version.split()[0]}  executable {sys.executable}", flush=True)
+    for mod in ("torch", "torchvision", "torchmetrics", "numpy", "PIL", "scipy"):
+        try:
+            m = __import__(mod)
+            print(f"[env] {mod}=={getattr(m, '__version__', '?')}", flush=True)
+        except Exception as exc:
+            print(f"[env] {mod} import failed: {exc}", flush=True)
+    try:
+        import torch
+        print(f"[env] torch.version.cuda={torch.version.cuda}  "
+              f"cudnn={torch.backends.cudnn.version()}", flush=True)
+    except Exception as exc:
+        print(f"[env] torch cuda/cudnn probe failed: {exc}", flush=True)
+    for k in sorted(os.environ):
+        if any(s in k.upper() for s in ("KAGGLE_DOCKER", "IMAGE_TAG", "MODAL_IMAGE")):
+            print(f"[env] {k}={os.environ[k]}", flush=True)
+    fr = subprocess.run([sys.executable, "-m", "pip", "freeze"],
+                        capture_output=True, text=True).stdout.strip()
+    print("[env] pip freeze BEGIN", flush=True)
+    for line in fr.splitlines():
+        print(f"[env]   {line}", flush=True)
+    print(f"[env] pip freeze END ({len(fr.splitlines())} packages)", flush=True)
+
+
 def preflight():
     """Verify the two things the metadata cannot prove: a real GPU and a real mount."""
     import torch
+    log_environment()
     print(BAR, flush=True)
     print(f"[preflight] arm={ARM}  seed={SEED}  "
           f"utc={datetime.datetime.now(datetime.timezone.utc).isoformat()}", flush=True)
