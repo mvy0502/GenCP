@@ -1,0 +1,10 @@
+# Overnight monitor log - SEED-c block + warm-up de-confound
+# Launched 2026-08-25 21:38 +03, app ap-FmfGHSbLiIJJG7LotSbiSP, 7 drivers.
+# Checks every ~30 min until 09:00. Quiet check = one line.
+# Format: HH:MM | drivers | tasks | arms complete on volume | dashboard usage/spend
+# Skip-predicate hardening committed BEFORE any resume: 6494c3d (both latest AND 20_net
+# required; partial dirs reported, never skipped, never overwritten). In-flight drivers
+# snapshotted the old code; only a resume picks the fix up.
+22:18 | 7/7 running | 14 tasks (7 GPU) | 0/26 arm-units on volume | usage $11.77 spend $0.00 (launch reading; next balance read at next check)
+22:49 | 7/7 running | 14 tasks | 0/26 arm-units | usage $26.96 spend $0.00
+22:49 | NON-QUIET: burn rate measured $12.6/h (11.77->26.96 in 72 min) vs $7.70/h implied by the $1.10/h constant x7 GPU. The constant omits per-container CPU/memory billing. Early reconciliation, recorded per the standing note. Projections at this rate: usage $40 (first $10 auto-charge) ~23:50; $50 ~00:40. IF the $50 stop applies, it lands mid-C4 on all six seeds (C5 complete, C4 partial) - NOT the C1-only loss in the accepted-risk block, which was computed with the wrong constant. IF the ladder instead auto-steps past $50 (spend-limit enforcement text says it begins Sep 1), the block completes at a projected ~$80 total usage, ~$50 out-of-pocket - beyond the $20-beyond-credits exposure the accepted-risk block contemplated. Either branch differs materially from the launch-log risk statement. No action taken: billing changes and app stops are outside overnight permissions. User notified by push. Hardened skip predicate (6494c3d) makes a mid-C4 stop cleanly resumable: partials will be refused, moved aside, re-run.
