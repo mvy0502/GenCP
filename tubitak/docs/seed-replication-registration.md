@@ -900,6 +900,74 @@ comparison being replicated, identical in kind and size to seed 42's): the adver
 carry the warm-up and a 14.7% summed-LR disadvantage; each stage's final epoch runs at lr 0
 (upstream off-by-one, symmetric); the cold D exists only where a D exists.
 
+> **AMENDMENT SEED-c, 2026-08-25 — Kaggle stage 2 is CANCELLED; the confirmatory
+> replication becomes a six-seed Modal block. Dated; every earlier stage-2 paragraph above
+> is preserved verbatim, as with SEED-a and SEED-b. Written and committed BEFORE any
+> seed-45–50 run is launched.**
+>
+> **Why now, and in what order the decision happened.** First the hardware gate returned
+> NOT POOLED ([hardware-gate-results.md](hardware-gate-results.md)): Modal and Kaggle runs
+> can never be combined into one count. Then the cost constraint that made Kaggle
+> attractive was lifted — this project now pays for Modal. In that order. With pooling
+> impossible and cost no longer the binding constraint, a confirmatory count assembled
+> across two platforms is strictly worse than one homogeneous block on the faster platform.
+> This supersedes POST-VERDICT NOTES 2 and 3 above, which were written earlier the same
+> evening while the cost constraint still held: the {C2, C5} extra seeds do NOT return to
+> Kaggle, and the "Modal block never has to carry a spread" reasoning that declined a Modal
+> replication no longer applies — the Modal block below carries its own spread at n = 6.
+> Those notes are preserved above, as the rule requires.
+>
+> **(a) The Kaggle confirmatory block closes at n = 2** (seeds 43, 44), df = 1,
+> t* = 12.71. Every Kaggle-block interval is reported with that df stated in the same
+> sentence as the interval, wherever it appears.
+>
+> **(b) The Modal confirmatory block is seeds 45, 46, 47, 48, 49, 50**, all four cells
+> (C1, C2, C4, C5): n = 6, df = 5, t*(0.975, 5) = 2.571. Training at the pinned commit
+> `f2dc962` per the entry-29 prevention (the branch does not move while this package
+> executes; every container checks out the explicit pin). Evaluation per seed through the
+> frozen local pipeline (`seed_eval_run.py`, freeze table above) on the registered
+> evaluation machine, latest-only downloads verified by `verify_latest` as for the gate.
+>
+> **(c) Modal seed 43 is EXCLUDED from the Modal confirmatory n**, in plain terms: its
+> C5−C4, C1−C2, C4−C5, C5−C2, I_raw and per-arm edge means are already published in
+> [hardware-gate-results.md](hardware-gate-results.md), so it is a SEEN observation for
+> exactly the contrasts this block tests. It is the gate seed. It is reported beside the
+> block, and its position within the range spanned by the six confirmatory seeds is checked
+> and reported for every primary quantity — the same comparability rule seed 42 already
+> carries.
+>
+> **(d) Registered readings for the Modal block** — the stage-2 readings carried over and
+> restated at n = 6. All are sign-replication readings, distribution-free:
+>
+> - **PRIMARY: C5 − C4 negative in all six seeds.** Under the null, with the sign fixed in
+>   advance by seed 42, P = 1/64.
+> - **SECONDARY: C5 − C2 positive in all six seeds.** Same P = 1/64.
+> - C1 − C2 positive in all six; C4 − C5 positive in all six; I_raw negative in all six;
+>   C2's edge mean below 0.5 and C5's edge mean the highest of the four arms in all six.
+> - **Intervals are REPORTED, NOT REQUIRED.** The seed-level t-intervals (df = 5,
+>   t* = 2.571) are computed and printed for every contrast because the correction this
+>   package exists to make demands seed-level uncertainty on the record — but no interval
+>   is a gate. An interval that includes zero is not a failed reading; the registered
+>   readings are the sign replications above and only those.
+>
+> **(e) The pre-committed consequence, reproduced verbatim from "Registered consequences"
+> above:** *"If C5 − C2 is not positive in every seed: the LPIPS-alone penalty moves from a
+> result to a discussion-section hypothesis and the claim narrows from 'plausibility
+> pressure' to 'the adversarial term'."* Restated at this block's n: if C5 − C2 is not
+> positive in all six Modal seeds, that consequence executes — the paper's claim narrows
+> from "plausibility pressure" to "the adversarial term", **and the title changes with
+> it.**
+>
+> **(f) The Kaggle block's role is now CONSISTENCY, not inference.** Both blocks are
+> reported, each with its own n, df and multiplier. **No pooled statistic appears anywhere
+> in the manuscript.**
+>
+> **(g) Seed-number provenance.** Seed numbers 45 and 46 were registered above for Kaggle
+> stage 2 and are now used on Modal. No Kaggle seed-45 or seed-46 run ever existed — a
+> reader finding 45/46 in the Modal block should not infer a Kaggle counterpart. The
+> platform move was decided after the gate verdict and after the cost constraint was
+> lifted, in that order, as recorded at the head of this amendment.
+
 ## Runs and artifacts
 
 Eight Kaggle training runs at stage 1 (seeds 43, 44 × arms C1, C2, C4, C5), arms in separate
