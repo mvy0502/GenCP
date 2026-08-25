@@ -73,3 +73,8 @@ tubitak/rapor3/gorseller/
 
 # Yayınlanmış makalenin yerel kopyası (telifli, depoya girmez)
 tubitak/data/paper/
+
+# Kişisel/idari belgeler ve oturum notları depoya girmez
+tubitak/docs/*.pdf
+tubitak/docs/teke-proposal.md
+RESUME.md
