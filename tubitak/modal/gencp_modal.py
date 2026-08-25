@@ -377,25 +377,46 @@ def smoke():
             "torch": str(torch.__version__), "cuda": str(torch.version.cuda)}
 
 
-@app.local_entrypoint()
-def gate_seed43():
-    """AMENDMENT SEED-b hardware gate: seed 43, all four arms, on A10G."""
-    seed = 43
+@app.function(image=image, timeout=24 * 60 * 60)
+def gate_driver(seed: int):
+    """Sequence the five gate arms FROM INSIDE MODAL, not from the laptop.
+
+    The previous version was an @app.local_entrypoint() whose loop called fn.remote() on the
+    client. `modal run --detach` keeps already-running containers alive, but the loop issuing
+    the NEXT .remote() executes locally - so closing the laptop lid would have left C4, C5 and
+    C2_unsorted never launched, silently, with the gate looking merely slow.
+
+    Running the sequencing inside a Modal function puts the whole chain on Modal's
+    infrastructure. The local process only spawns this and exits.
+    """
     t0 = time.time()
     results = []
     for fn in (train_c1, train_c2, train_c4, train_c5, train_c2_unsorted):
-        results.append(fn.remote(seed))
+        r = fn.remote(seed)
+        results.append(r)
+        print(f"[driver] finished {r['arm']} seed {r['seed']} "
+              f"in {r['gpu_seconds']/3600:.2f} h", flush=True)
     total = sum(r["gpu_seconds"] for r in results)
-    print("\n" + "=" * 78)
-    for r in results:
-        print(f"  {r['arm']} seed {r['seed']}: {r['gpu_seconds']:.0f} GPU-seconds "
-              f"({r['gpu_seconds']/3600:.2f} h)")
-    # A10G on-demand list price at the time of writing; used only for a credit estimate.
     A10G_USD_PER_HOUR = 1.10
+    print("\n" + "=" * 78, flush=True)
+    for r in results:
+        print(f"  {r['arm']:12} sorted={r['sorted']}  {r['gpu_seconds']:.0f} GPU-seconds "
+              f"({r['gpu_seconds']/3600:.2f} h)", flush=True)
     print(f"  TOTAL {total:.0f} GPU-seconds = {total/3600:.2f} A10G-hours "
-          f"~ ${total/3600*A10G_USD_PER_HOUR:.2f} of the $30 monthly credit")
-    print(f"  wall clock {(time.time()-t0)/3600:.2f} h")
-    print("=" * 78)
+          f"~ ${total/3600*A10G_USD_PER_HOUR:.2f} of the $30 monthly credit", flush=True)
+    print(f"  driver wall clock {(time.time()-t0)/3600:.2f} h", flush=True)
+    print("=" * 78, flush=True)
+    return {"results": results, "total_gpu_seconds": float(total),
+            "usd": float(total / 3600 * A10G_USD_PER_HOUR)}
+
+
+@app.local_entrypoint()
+def gate_seed43():
+    """Spawn the Modal-side driver and exit. Nothing after this depends on this machine."""
+    call = gate_driver.spawn(43)
+    print(f"[launch] gate driver spawned on Modal, call id {call.object_id}")
+    print("[launch] the laptop can be closed - sequencing runs inside Modal, not here.")
+    print("[launch] progress: modal app logs, or check the gencp-out Volume.")
 
 
 @app.function(image=image, volumes={"/data": vol}, timeout=60 * 60)

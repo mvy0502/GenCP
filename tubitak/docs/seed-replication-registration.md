@@ -493,7 +493,20 @@ invariances does not know what it is measuring:
 | evaluation set | the same 130 Ankara chips, same warp geometry (GSD 10.0390625, 228-grid), same BT.601 conversion |
 | matcher | KARIOS, config `karios_gencp.json`, sha256 `8eaa5bd8cdae066d2580a4105169262f873523cadf0b450a8aa134a31ed4ca84` |
 | inference | STOCH single draw per chip per arm per seed, **dropout shim `_shims/s42` for every training seed** — see AMENDMENT SEED-a below |
+| **evaluation hardware** | **the same local machine for every seed, 42/43/44 included** — added 2026-08-25, see the note below |
 
+> **Evaluation hardware, stated 2026-08-25 as an assumption we had been relying on without
+> writing down.** Every seed's evaluation — inference, warp, KARIOS, edge ratio, scoring — has
+> run on the **same local machine**, seeds 42, 43 and 44 alike, through `seed_eval_run.py`.
+> That makes evaluation hardware a **constant across the whole seed set**, and it must stay
+> one. Only *training* moves to Modal (AMENDMENT SEED-b); **evaluation does not, and must
+> not.** Moving it would introduce for the evaluation step precisely the hardware question
+> this package spent AMENDMENT SEED-b resolving for training — a second uncontrolled axis, on
+> the side of the pipeline that produces the reported numbers rather than the checkpoints.
+> Recorded here because it was true of every run so far and had never been asserted, which is
+> the same defect corrections-log entry 29 records: an invariance relied on without being
+> stated, and therefore without being checkable.
+>
 **The one thing that is not identical: the training seed**, and through it the cold-D draw in
 the adversarial arms. That is the manipulated factor.
 
