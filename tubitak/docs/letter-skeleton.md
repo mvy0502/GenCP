@@ -14,22 +14,30 @@
 - **It now lives in the repository** because the writer needs to read it, and because this
   project keeps its record under version control.
 
-**Two candidate files were present at import, and the discrepancy is recorded rather than
-resolved silently.** Both were 300 lines; they differ in exactly one place.
+**Two candidate files were present at import. The divergence was RESOLVED on 2026-08-26
+against the canonical project copy, and the resolution is recorded here so it cannot be
+re-litigated.** Both files were 300 lines and differed in exactly one place, line 280,
+binding sentence 13.
 
-| file | sha256 | mtime | line 280 (binding sentence 13) |
-|---|---|---|---|
-| `letter-skeleton.md` — **IMPORTED** | `e014d9264d4d579f089b36c16de1fc107e52e58f0a01bc89983c76b0925a8a2a` | 2026-08-24 14:44 | "…not a code bug." |
-| `letter-skeleton-ORIGINAL-24aug.md` | `5f6b4d8ab234eb0af1b2dc2d0c9d14936a8c667a93e2c17507870745f248e041` | 2026-08-26 11:23 | "…not **as** a code bug." |
+| file | sha256 | mtime | line 280 | status |
+|---|---|---|---|---|
+| `letter-skeleton.md` | `e014d9264d4d579f089b36c16de1fc107e52e58f0a01bc89983c76b0925a8a2a` | 2026-08-24 14:44 | "…not a code bug." | **IMPORTED. CONFIRMED to match the canonical project copy.** |
+| `letter-skeleton-ORIGINAL-24aug.md` | `5f6b4d8ab234eb0af1b2dc2d0c9d14936a8c667a93e2c17507870745f248e041` | 2026-08-26 11:23 | "…not **as** a code bug." | **DRIFTED. A transcription made by the supervising session, in which the inconsistency was normalised. MUST NOT be imported later.** |
 
-**Why the first was chosen:** it is the file the supervising session named, and its
-modification time matches the document's own stated drafting date of 2026-08-24, whereas the
-second was created on the day of import. **Note that the imported text is internally
-inconsistent** — §3's Materials-and-methods bullet already reads "not **as** a code bug"
-while binding sentence 13 reads "not a code bug", and the second candidate file resolves
-that inconsistency. **The inconsistency is preserved deliberately**: the import rule is byte
-for byte, change nothing, not even a typo. If the project copy proves to match the second
-file, this header is the record needed to correct the import.
+**The resolution.** The supervising session re-read the canonical project copy on 2026-08-26
+and confirmed that it reads **"not a code bug"** at binding sentence 13 and **"not as a code
+bug"** in the §3 Materials-and-methods bullet. **The project original is itself internally
+inconsistent**, and the Aug 24 file reproduces that inconsistency faithfully. The second file
+is not an earlier or better original: it is the supervising session's own transcription, in
+which the inconsistency was normalised without the change being noticed. **The fidelity
+caveat above turned out to describe the transcription rather than the import.**
+
+**The import stands and no correction commit was made.** The internal inconsistency was
+preserved at import time deliberately, under the byte-for-byte rule, and that decision is now
+confirmed correct rather than merely defensible. Binding sentence 13 was subsequently brought
+into line with the methods bullet as an ordinary dated editorial correction **in the revision
+layer, with the original struck** — see the note at §4 item 13. That is a revision, not a
+retroactive change to the import, and the two must not be confused.
 
 ---
 
@@ -480,7 +488,17 @@ wrong place; a broad peak in the right place localises better than a sharp peak 
 12. Descriptor-family deltas are computed on chip intersections; any table quoting both the
     delta and the matched counts labels which n belongs to which.
 13. The 1/256 scale error carries the 3.9%-of-variance qualifier in the same paragraph, and is
-    described as a text-versus-data inconsistency, not a code bug.
+    described as a text-versus-data inconsistency, ~~not a code bug~~ **not as a code bug**.
+
+    *Editorial correction, 2026-08-26, revision layer only.* The original wording is struck
+    above and preserved. §3's Materials-and-methods bullet gives the same instruction as
+    "Describe it as a text-versus-data inconsistency, **not as** a code bug", and the two are a
+    grammatical variant of one instruction rather than two different ones. **The canonical
+    project original carries this inconsistency and the import reproduced it faithfully** (see
+    the provenance header); it is corrected here rather than at import because the import rule
+    was byte for byte. **This is a binding sentence the manuscript gets checked against, so
+    its wording should be clean** — a checker comparing the two phrasings should not have to
+    decide whether they mean different things.
 14. **Invention is a necessary condition, not a complete explanation.**
 15. **ADDED 2026-08-26. The interaction consequence removes claims, not the disclosure.** The
     pre-committed consequence struck "the same lever", "substitutes" and the interaction claim
