@@ -31,8 +31,14 @@ What remains here, under [`tubitak/`](tubitak/):
 
 * **QGIS plugin work package** - the generation chain lifted into an importable, QGIS-free
   core ([`tubitak/gencp_core/`](tubitak/gencp_core/)) with its gates
-  ([`tubitak/tests/`](tubitak/tests/)), each registered before it ran in
-  [plugin-gate-registrations.md](tubitak/docs/plugin-gate-registrations.md)
+  ([`tubitak/tests/`](tubitak/tests/)).
+  **The work package's own registrations and results stay here** - that is the exception
+  to "the research record lives in gencp-validation", and it is a class, not a file list:
+  any document that registers or reports a plugin gate belongs with the code it governs.
+  Today that is
+  [plugin-gate-registrations.md](tubitak/docs/plugin-gate-registrations.md) and
+  [plugin-results.md](tubitak/docs/plugin-results.md); a later gate's documents join them
+  without needing this line changed.
 * **Deterministic reference generator** -
   [`tubitak/tool/gencp_ref.py`](tubitak/tool/gencp_ref.py), which hard-wires the correction
   for the +1/256 georeferencing scale error the study found (up to 14.1 m at the tile corner)
