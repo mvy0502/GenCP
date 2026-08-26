@@ -77,6 +77,7 @@ one is not.
 |---|---|---|
 | `checkpoints_C4.tar` | 4.7 GB | **base C4 arm** — a cell of the 2×2 design we report directly. 21 per-epoch `net_G` |
 | `checkpoints_C5.tar` | 4.7 GB | **base C5 arm** — the other reported cell. 21 per-epoch `net_G` |
+| `evidence_inputs_corpora.tar.gz` | 129 MB | **the 130 Ankara Overpass renders, second copy.** Added 2026-08-27 so the project's least replaceable artifact is no longer in one place only. Same file as in Backup 1 |
 | `checkpoints_C4_s43_modal.tar` | 208 MB | **one representative seed-replication arm**, stated: C4 at seed 43, the first seed of the C4 arm. Enough to re-run inference for one seed and confirm the seed pipeline behaves |
 | `generated_fakes.tar` | 4.0 GB | **35,322 generated `*_fake.png` across all `tool_runs` packages** |
 
@@ -128,9 +129,25 @@ specific weights. We accept that.
 
 ## Known risks, stated
 
-1. **The Overpass renders are single-point-of-failure by nature.** They are in Backup 1 and
-   nowhere else reproducible — the Overpass query that produced them is not replayable
-   against 2026 data. Verified present at backup time: 130/130.
+1. **The Overpass renders were single-point-of-failure. RESOLVED 2026-08-27 — they are now
+   in both backups.** They remain nowhere else reproducible: the Overpass query that
+   produced them is not replayable against 2026 data, so the exposure was real and the
+   asset is the least replaceable in the project while being one of the smallest (129 MB).
+   `evidence_inputs_corpora.tar.gz` has been copied into Backup 2 as well, and verified
+   there by enumeration rather than by an exit code:
+
+   | | local tar | server-side | match |
+   |---|---|---|---|
+   | `evidence_inputs_corpora/` total file members | 3,739 | 3,739 | **yes** |
+   | of which Ankara `run/inputs/*.png` — the renders themselves | **130** | **130** | **yes** |
+
+   Counted with Python's `tarfile` on the local side, never macOS `tar -tf`, for the reason
+   in hazard 4 above: 1,968 of those 3,739 members are AppleDouble `._` files that
+   libarchive silently merges away and Kaggle's Linux extractor materialises as real files.
+   Read at 2 s between pages, 41 pages, no 429.
+
+   Kaggle still reported `total_bytes = 0` at verification time; per the note above that
+   means "still extracting", not "empty", and the file listing is the reliable check.
 2. **The dated Geofabrik snapshots are treated as re-downloadable, which is only half true.**
    Geofabrik keeps a rolling window; `turkey-latest.osm.pbf` as of 2026-08-19 will not be
    retrievable indefinitely. The renders made *from* them are backed up, so this affects
