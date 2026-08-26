@@ -103,10 +103,14 @@ def main():
     say("\n  --- load and start it ---")
     import qgis.utils
     qgis.utils.updateAvailablePlugins()
-    loaded = qgis.utils.loadPlugin(PLUGIN_ID)
-    check("loadPlugin succeeded", loaded)
-    started = qgis.utils.startPlugin(PLUGIN_ID)
-    check("startPlugin succeeded (classFactory + initGui)", started)
+    qgis.utils.loadPlugin(PLUGIN_ID)
+    already = PLUGIN_ID in qgis.utils.plugins
+    started = already or qgis.utils.startPlugin(PLUGIN_ID)
+    # installFromZipFile starts the plugin itself, and QGIS's startPlugin returns False
+    # for an already-started plugin. "False" there is not a failure, so the assertion is
+    # on the observable end state.
+    check("the plugin is started (classFactory + initGui ran)", started,
+          "started by installFromZipFile" if already else "started explicitly")
     plugin = qgis.utils.plugins.get(PLUGIN_ID)
     check("the plugin object is registered", plugin is not None)
     if plugin is None:

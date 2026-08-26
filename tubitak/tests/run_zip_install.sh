@@ -12,7 +12,7 @@ PROFDIR="$HOME/Library/Application Support/QGIS/QGIS4/profiles/$PROFILE"
 export GENCP_REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 export GENCP_PLUGIN_ZIP="${GENCP_PLUGIN_ZIP:-$GENCP_REPO_ROOT/tubitak/data/dist/gencp_plugin.zip}"
 export GENCP_TEST_OUT="${GENCP_TEST_OUT:-/tmp/gencp_zip_install.txt}"
-export QT_QPA_PLATFORM=offscreen
+# (no QT_QPA_PLATFORM here on purpose - see the note below)
 
 if [ ! -f "$GENCP_PLUGIN_ZIP" ]; then
   echo "no zip at $GENCP_PLUGIN_ZIP - run tubitak/scripts/build_plugin_zip.py first" >&2

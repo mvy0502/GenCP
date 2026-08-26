@@ -19,6 +19,8 @@ third-party CLMS product).
 """
 from __future__ import annotations
 import argparse
+import hashlib
+import re
 import shutil
 import sys
 import zipfile
@@ -28,6 +30,11 @@ ROOT = Path(__file__).resolve().parents[2]
 PLUGIN_SRC = ROOT / "tubitak/qgis_plugin"
 CORE_SRC = ROOT / "tubitak/gencp_core"
 PLUGIN_NAME = "gencp_synthetic_reference"
+PALETTE_SRC = ROOT / "GenCP_HR_demo/genCP_HR_osm_colors.py"
+# Read the pin from palette.py rather than restating it here. Two copies of a hash drift.
+PALETTE_SHA256 = re.search(
+    r'PALETTE_SHA256\s*=\s*"([0-9a-f]{64})"',
+    (CORE_SRC / "palette.py").read_text(encoding="utf-8")).group(1)
 SKIP_DIRS = {"__pycache__", ".pytest_cache", ".ipynb_checkpoints"}
 SKIP_SUFFIX = {".pyc", ".pyo"}
 
@@ -68,6 +75,40 @@ def main():
     n_core = copy_tree(CORE_SRC, top / "gencp_core")
     print(f"staged {n_plugin} plugin files and {n_core} gencp_core files")
 
+    # gencp_core/palette.py searches for the upstream GenCP colour tables and names a copy
+    # vendored beside it as one of the places it looks. Nothing was putting that copy
+    # there, so the zip installed and started fine and then failed at the first render
+    # with "GenCP palette module not found" - caught only by installing into a clean
+    # profile, because a checkout finds the upstream file two directories up and never
+    # notices. VERBATIM copy, no added header: palette.py verifies its SHA-256 and would
+    # refuse a file with so much as a comment added.
+    vendored = top / "gencp_core" / "_vendored_osm_colors.py"
+    shutil.copy2(PALETTE_SRC, vendored)
+    digest = hashlib.sha256(vendored.read_bytes()).hexdigest()
+    if digest != PALETTE_SHA256:
+        sys.exit(f"vendored palette hash {digest} != pinned {PALETTE_SHA256} in "
+                 f"gencp_core/palette.py - refusing to ship a palette that will be "
+                 f"rejected at render time")
+    print(f"vendored the palette, sha256 {digest[:16]}... (matches the pin)")
+
+    # Attribution has to live OUTSIDE the vendored file for the same hash reason.
+    (top / "THIRD_PARTY.md").write_text(
+        "# Third-party content in this plugin\n\n"
+        "## `gencp_core/_vendored_osm_colors.py`\n\n"
+        "A verbatim copy of `genCP_HR_osm_colors.py` from the GenCP project's HR demo.\n"
+        "It is a pure data module: colour tables and width tables, no code paths.\n\n"
+        "Copied unchanged, and deliberately so - `gencp_core/palette.py` pins its\n"
+        f"SHA-256 (`{PALETTE_SHA256}`) and refuses to render against a palette that does\n"
+        "not match, because every rendered pixel depends on these tables.\n\n"
+        "GenCP is distributed under CC-BY 4.0; this copy is redistributed under those\n"
+        "terms, with attribution to the GenCP authors.\n\n"
+        "## Not included in this archive\n\n"
+        "- The ONNX generator weights. Obtain them separately.\n"
+        "- The CLC+ Backbone raster (Copernicus Land Monitoring Service).\n"
+        "- Any OpenStreetMap data. The plugin reads OSM at run time from a source you\n"
+        "  choose; OSM data is ODbL-licensed.\n",
+        encoding="utf-8")
+
     meta = top / "metadata.txt"
     if not meta.is_file():
         sys.exit("metadata.txt missing from the staged tree - QGIS will refuse the zip")
@@ -99,6 +140,11 @@ def main():
         problems.append("__init__.py (classFactory) missing")
     if f"{PLUGIN_NAME}/gencp_core/pipeline.py" not in names:
         problems.append("gencp_core not vendored inside the plugin folder")
+    if f"{PLUGIN_NAME}/gencp_core/_vendored_osm_colors.py" not in names:
+        problems.append("the GenCP palette was not vendored - the plugin will install and "
+                        "then fail at the first render")
+    if f"{PLUGIN_NAME}/THIRD_PARTY.md" not in names:
+        problems.append("THIRD_PARTY.md missing - the vendored palette needs attribution")
     if any(n.endswith(".pyc") or "__pycache__" in n for n in names):
         problems.append("compiled bytecode leaked into the archive")
     if problems:

@@ -32,6 +32,12 @@ class GenCPPlugin:
         self.dialog = None
 
     def initGui(self):
+        # Make gencp_core importable as soon as the plugin STARTS, not on the first click.
+        # run() also calls this, so the click path was fine, but anything that touched
+        # gencp_core between startPlugin() and the first press of the button got
+        # ModuleNotFoundError - which is exactly what the zip-install test hit. A plugin
+        # that has been started should be usable, not usable-after-you-click-it.
+        ensure_core_importable()
         icon_path = PLUGIN_DIR / "icon.png"
         icon = QIcon(str(icon_path)) if icon_path.is_file() else QIcon()
         self.action = QAction(icon, "GenCP Synthetic Reference...",

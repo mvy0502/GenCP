@@ -12,8 +12,10 @@ denenmedi.
 
 | Dosya | Nereden | Ne işe yarar |
 |---|---|---|
-| `gencp_plugin.zip` | https://github.com/mvy0502/gencp-validation/releases/tag/plugin-v0.2.0 | Eklentinin kendisi |
+| `gencp_plugin.zip` (47 KB) | https://github.com/mvy0502/gencp-validation/releases/download/plugin-v0.2.0/gencp_plugin.zip | Eklentinin kendisi |
 | `gencp_C3_fp32.onnx` (208 MB) | Doğrudan proje sahibinden isteyin - herkese açık olarak yayımlanmıyor | Üretici model ağırlıkları |
+
+Sürüm sayfası: https://github.com/mvy0502/gencp-validation/releases/tag/plugin-v0.2.0
 
 Model dosyası neden bağlantıyla verilmiyor: ağırlıklar GenCP'nin CC-BY 4.0 ağırlıklarından
 türedi, ancak ince ayar girdileri ODbL lisanslı OpenStreetMap verisinden üretildi. ODbL'nin
