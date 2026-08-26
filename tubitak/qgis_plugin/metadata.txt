@@ -1,0 +1,14 @@
+[general]
+name=GenCP Synthetic Reference
+qgisMinimumVersion=3.28
+description=Generate a georeferenced synthetic 10 m reference raster from OSM and CLC+ over a chosen extent.
+about=Renders OpenStreetMap vectors over a CLC+ Backbone land-cover base in the GenCP visual convention, runs a pix2pix generator via onnxruntime, and mosaics the result into a single georeferenced GeoTIFF on a 10 m grid. Adds the result as a QGIS layer and/or writes it to disk. Matching and GCP extraction are out of scope - a separate application consumes this output. All generation logic lives in gencp_core, which imports neither Qt nor QGIS.
+version=0.2.0
+author=TUBITAK UZAY / GenCP
+email=mustafavedatyildirim@gmail.com
+tracker=https://github.com/mvy0502/gencp-validation/issues
+repository=https://github.com/mvy0502/gencp-validation
+category=Raster
+icon=icon.png
+experimental=True
+hasProcessingProvider=no
