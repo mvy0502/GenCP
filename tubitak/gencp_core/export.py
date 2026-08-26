@@ -76,6 +76,154 @@ def build_generator(checkpoint, eval_bn=False, repo_root=None):
     return G
 
 
+def build_stochastic_generator(checkpoint, repo_root=None):
+    """The same generator, with dropout PUT BACK and left active.
+
+    The delivered image never comes from this path. It exists only to estimate how much of
+    the output is invention: N passes with dropout live, per-pixel spread across them. See
+    tubitak/docs/confidence-registration.md, signal S.
+
+    Two things are kept identical to the deployed export so the spread describes the
+    delivered image rather than some other model:
+
+      - BatchNorm is still swapped for the exactly-equivalent batch-size-1 InstanceNorm,
+        so the passes sit on the evaluated inference path.
+      - The weights are the same checkpoint, loaded the same way. Dropout is parameterless,
+        which is why `export.py` can strip it and this can restore it without either one
+        touching the state dict.
+
+    The checkpoint must have been TRAINED with dropout for this to mean anything. C1-C5
+    were (`no_dropout: False` in their train_opt.txt).
+    """
+    import torch
+    import torch.nn as nn
+    root = Path(repo_root or _REPO_ROOT)
+    if str(root) not in sys.path:
+        sys.path.insert(0, str(root))
+    from models import networks
+
+    # use_dropout=True - the ONE difference from build_generator().
+    G = networks.define_G(3, 3, 64, "unet_256", "batch", True, "normal", 0.02, [])
+    G = G.module if isinstance(G, nn.DataParallel) else G
+    sd = torch.load(str(checkpoint), map_location="cpu")
+    if hasattr(sd, "_metadata"):
+        del sd._metadata
+    G.load_state_dict(sd)
+    G.eval()
+    _swap_batchnorm_for_instancenorm(G)
+    # eval() above turned dropout off along with everything else; turn it back on, and
+    # only it. Calling G.train() instead would also revive BatchNorm's training behaviour
+    # in the modules that have not been swapped.
+    n_dropout = 0
+    for m in G.modules():
+        if isinstance(m, nn.Dropout):
+            m.train()
+            n_dropout += 1
+    if n_dropout == 0:
+        raise RuntimeError(
+            "no Dropout modules in the generator - a stochastic pass would return the "
+            "deterministic image N times and its spread would be identically zero")
+    return G, n_dropout
+
+
+class _MaskedDropout:
+    """Placeholder marker; the real class is built inside export_stochastic (needs torch)."""
+
+
+def _dropout_modules_in_execution_order(G, torch):
+    """The Dropout modules and their input shapes, in the order forward() reaches them.
+
+    Module registration order is not guaranteed to be execution order, and getting the two
+    confused would pair a 4x4 mask with a 16x16 tensor - which broadcasts silently in some
+    shapes rather than raising. So the order is measured with hooks, not assumed.
+    """
+    seen = []
+    handles = []
+    for mod in G.modules():
+        if isinstance(mod, torch.nn.Dropout):
+            handles.append(mod.register_forward_hook(
+                lambda m, i, o, _s=seen: _s.append((m, tuple(i[0].shape)))))
+    with torch.no_grad():
+        G(torch.zeros(1, 3, 256, 256))
+    for h in handles:
+        h.remove()
+    return seen
+
+
+def export_stochastic(checkpoint, out_path, opset=17, repo_root=None):
+    """Export a generator whose dropout noise arrives as EXPLICIT MODEL INPUTS.
+
+    Needed because the confidence score's stochastic-spread term requires N different
+    dropout draws at inference time, and neither alternative works:
+
+      - The deployed export has no dropout at all; N passes would return one image N times
+        and a spread of exactly zero.
+      - ONNX's own Dropout operator in training mode carries its seed as a graph
+        ATTRIBUTE, fixed at export. Every pass would draw the same mask, which is the same
+        failure wearing a different hat.
+
+    So each `nn.Dropout(0.5)` becomes a multiply by an input tensor. The caller draws the
+    masks - Bernoulli(1-p) scaled by 1/(1-p), which is exactly what nn.Dropout does in
+    train mode - and therefore controls and can record the seed, which standing practice 9
+    requires and which Registration A could not do.
+
+    Everything else is identical to the deterministic export, BatchNorm swap included, so
+    the passes sit on the same inference path as the delivered image.
+
+    Returns (path, [mask shapes in graph-input order]).
+    """
+    import torch
+    import torch.nn as nn
+
+    G, _ = build_stochastic_generator(checkpoint, repo_root=repo_root)
+    order = _dropout_modules_in_execution_order(G, torch)
+    shapes = [s for _, s in order]
+
+    class MaskedDropout(nn.Module):
+        def forward(self, x):
+            return x * self.mask
+
+    replaced = []
+    targets = {id(m) for m, _ in order}
+    def _replace(parent):
+        for name, child in list(parent.named_children()):
+            if id(child) in targets:
+                md = MaskedDropout()
+                setattr(parent, name, md)
+                replaced.append((id(child), md))
+            else:
+                _replace(child)
+    _replace(G)
+    by_id = dict(replaced)
+    ordered_masked = [by_id[id(m)] for m, _ in order]
+    if len(ordered_masked) != len(order):
+        raise RuntimeError("failed to replace every Dropout module")
+
+    class Wrapper(nn.Module):
+        def __init__(self, g, drops):
+            super().__init__()
+            self.g = g
+            self._drops = drops
+
+        def forward(self, x, *masks):
+            for d, m in zip(self._drops, masks):
+                d.mask = m
+            return self.g(x)
+
+    W = Wrapper(G, ordered_masked)
+    dummy = (torch.zeros(1, 3, 256, 256),) + tuple(torch.ones(*s) for s in shapes)
+    names = ["input"] + [f"mask{i}" for i in range(len(shapes))]
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with torch.no_grad():
+        torch.onnx.export(
+            W, dummy, str(out_path),
+            input_names=names, output_names=["output"],
+            opset_version=opset, do_constant_folding=True, dynamo=False,
+        )
+    return out_path, shapes
+
+
 def _swap_batchnorm_for_instancenorm(module):
     """Replace every BatchNorm2d with the exactly-equivalent batch-size-1 InstanceNorm2d."""
     import torch.nn as nn

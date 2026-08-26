@@ -101,3 +101,55 @@ def generate_tiles(model, tile_paths, progress=None, cancelled=None):
         if progress is not None:
             progress(n, total)
     return out
+
+
+class StochasticOnnxGenerator:
+    """N dropout draws of the same input, for the confidence score's spread term.
+
+    The delivered image NEVER comes from this class. It comes from OnnxGenerator, which is
+    deterministic. This one exists only to estimate how much of the output is invention,
+    and every place its number is reported has to say so.
+
+    The graph is `export.export_stochastic`'s: each dropout is a multiply by an explicit
+    mask input, so the seed lives here in numpy rather than being frozen into the graph as
+    an ONNX attribute. That is what makes the draws differ between passes AND makes the
+    seed recordable, which standing practice 9 requires.
+    """
+
+    def __init__(self, model_path, num_threads=None, p_drop=0.5):
+        import onnxruntime as ort
+        so = ort.SessionOptions()
+        if num_threads:
+            so.intra_op_num_threads = int(num_threads)
+        self.sess = ort.InferenceSession(str(model_path), so,
+                                         providers=["CPUExecutionProvider"])
+        ins = self.sess.get_inputs()
+        self.image_input = ins[0].name
+        self.mask_inputs = [(i.name, tuple(i.shape)) for i in ins[1:]]
+        if not self.mask_inputs:
+            raise ValueError(
+                f"{model_path} has no mask inputs - this is a deterministic export, and "
+                "N passes through it would return one image N times with zero spread")
+        self.p_drop = float(p_drop)
+
+    def _masks(self, rng):
+        """Bernoulli(1-p)/(1-p) - exactly what nn.Dropout does in train mode."""
+        keep = 1.0 - self.p_drop
+        return {name: (rng.random(shape) < keep).astype(np.float32) / keep
+                for name, shape in self.mask_inputs}
+
+    def spread(self, img, n_passes=16, seed=0):
+        """Per-pixel standard deviation in DN across n_passes draws, averaged over RGB.
+
+        Returns (spread HxW float, mean_image HxW3 float DN).
+        """
+        rng = np.random.default_rng(seed)
+        x = preprocess(img)
+        acc = []
+        for _ in range(int(n_passes)):
+            feeds = {self.image_input: x}
+            feeds.update(self._masks(rng))
+            y = self.sess.run(None, feeds)[0]
+            acc.append((np.asarray(y)[0] + 1.0) / 2.0 * 255.0)   # CHW in DN
+        stack = np.stack(acc)
+        return stack.std(axis=0).mean(axis=0), stack.mean(axis=0)
