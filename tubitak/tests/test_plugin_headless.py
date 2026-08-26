@@ -109,8 +109,13 @@ def main():
     check("section 1 shows the read extent", "→" in dlg.lbl_extent.text(),
           dlg.lbl_extent.text()[:60])
     check("section 1 shows the CRS", "EPSG:32636" in dlg.lbl_crs.text(), dlg.lbl_crs.text())
+    # Derived from the plugin's own strings module, not from English literals: the UI is
+    # Turkish, and a test that asserted "tiles"/"min" was testing the language rather than
+    # the behaviour.
+    from qgis_plugin.strings import S as STR
+    note_lead = STR["tiles_estimate_note"].split("{")[0].strip()
     check("section 1 shows tiles + estimate",
-          "tiles" in dlg.lbl_tiles.text() and "min" in dlg.lbl_tiles.text(),
+          note_lead in dlg.lbl_tiles.text() and "<b>" in dlg.lbl_tiles.text(),
           dlg.lbl_tiles.text().replace("<br>", " ")[:90])
 
     # 2 Data source — must block until resolved
@@ -130,7 +135,8 @@ def main():
     dlg._describe_model()
     QApplication.processEvents()
     check("section 4 shows model name", model.name in dlg.lbl_model.text())
-    check("section 4 shows modification date", "modified" in dlg.lbl_model.text(),
+    mod_lead = STR["model_desc"].split("{name}")[1].split("{")[0].strip()
+    check("section 4 shows modification date", mod_lead in dlg.lbl_model.text(),
           dlg.lbl_model.text().replace("<br>", " ")[:80])
 
     # 5 Run must be gated on the preview confirmation

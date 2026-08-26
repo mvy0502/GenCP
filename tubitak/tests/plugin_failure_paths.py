@@ -133,11 +133,14 @@ def memory_layer_in(crs_authid, name):
 # --------------------------------------------------------------------- cases --
 def case_clc_missing(plugin, layer):
     dlg = fresh_dialog(plugin)
-    fill(dlg, layer, clc="/no/such/place/clcplus.tif")
+    bad = "/no/such/place/clcplus.tif"
+    fill(dlg, layer, clc=bad)
     blocked = not dlg.btn_preview.isEnabled()
     msg = dlg.lbl_src.text()
+    # The message must NAME THE FILE, which is language-independent and is the part that
+    # makes it actionable. Asserting an English phrase would test the locale instead.
     record("CLC+ path points at a file that does not exist",
-           "BLOCKED" if blocked and "not found" in msg else "SEE EVIDENCE",
+           "BLOCKED" if blocked and bad in msg else "SEE EVIDENCE",
            f"preview button enabled={dlg.btn_preview.isEnabled()}; "
            f"message shown={msg!r}")
 

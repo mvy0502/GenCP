@@ -110,14 +110,21 @@ def fetch_worldcover(bounds_utm, crs):
 
 
 def _margin_bbox(bounds_utm, crs):
-    from pyproj import Transformer
-    tr = Transformer.from_crs(crs, "EPSG:4326", always_xy=True)
+    """The tile footprint plus a margin, in EPSG:4326.
+
+    Uses rasterio's PROJ binding rather than pyproj: a pyproj CRS built on a QgsTask worker
+    thread segfaults QGIS when the main thread has already built one, and this function
+    runs on the worker for every tile the preview did not already cache. The same four
+    corners are transformed and the same min/max taken, so the numbers are unchanged -
+    confirmed by Gate R still rendering byte-identically.
+    """
+    from . import extent as _extent
     x0, y0, x1, y1 = bounds_utm
-    pts = [tr.transform(x, y) for x, y in
-           ((x0 - MARGIN_M, y0 - MARGIN_M), (x1 + MARGIN_M, y0 - MARGIN_M),
-            (x1 + MARGIN_M, y1 + MARGIN_M), (x0 - MARGIN_M, y1 + MARGIN_M))]
-    return (min(p[0] for p in pts), min(p[1] for p in pts),
-            max(p[0] for p in pts), max(p[1] for p in pts))
+    xs, ys = _extent._transform_points(
+        crs, "EPSG:4326",
+        [x0 - MARGIN_M, x1 + MARGIN_M, x1 + MARGIN_M, x0 - MARGIN_M],
+        [y0 - MARGIN_M, y0 - MARGIN_M, y1 + MARGIN_M, y1 + MARGIN_M])
+    return (min(xs), min(ys), max(xs), max(ys))
 
 
 def fetch_pbf(bounds_utm, crs, pbf_path):

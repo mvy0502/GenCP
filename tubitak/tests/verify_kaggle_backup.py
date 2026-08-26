@@ -15,15 +15,29 @@ points at the miniforge base python, not the `gencp` env:
 So: poll until the dataset reports a non-zero size (Kaggle extracts tars server-side and
 reports 0 until it has finished), then page through the ENTIRE file list and count
 entries per expected archive prefix.
+
+Two modes:
+
+    (default)  presence  - stop as soon as every prefix has been seen once. Fast, and
+                           enough to catch a wholly missing archive. It does NOT catch a
+                           half-uploaded one: a truncated tar extracts to a prefix that
+                           reads PRESENT exactly like a complete one.
+    --full     completeness - page the entire listing with no early exit, count entries
+                           per prefix, and diff each against the local tar in
+                           `tubitak/data/evidence_backup_2/`. Slow (~190 pages) and the
+                           only mode that can say "complete".
 """
 from __future__ import annotations
-import sys, time
+import os, sys, time
 
 DATASET = "vedatyildirim/gencp-evidence-backup-2"
 EXPECTED = ["checkpoints_C4", "checkpoints_C5", "checkpoints_C4_s43_modal",
             "generated_fakes"]
 POLL_SECONDS = 30
 MAX_WAIT = 90 * 60
+_REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+STAGING_DIR = os.path.join(_REPO, "tubitak", "data", "evidence_backup_2")
+FULL_PAGE_PAUSE = 2.5
 
 
 def api():
@@ -99,7 +113,165 @@ def find_prefixes(a, expected):
         time.sleep(1.5)
 
 
+def count_all_prefixes(a, expected):
+    """Page the ENTIRE listing, counting every entry, with no early exit.
+
+    Presence is not completeness: a half-uploaded tar extracts to a prefix that reads as
+    PRESENT exactly like a whole one. The only way to tell them apart is to count what is
+    actually on the server and compare it against the local tar. That means enumerating
+    all ~37k entries - the thing `find_prefixes` deliberately avoids - so this mode pauses
+    longer between pages and backs off harder on 429. It takes minutes, and that is the
+    price of the stronger claim.
+
+    Returns (counts, other, pages, seen_total, complete). `complete` is False if the walk
+    was cut short by rate limiting, in which case the counts are lower bounds and prove
+    nothing.
+    """
+    import requests
+    counts = {p: 0 for p in expected}
+    other = 0
+    seen_names = set()
+    token, pages, seen_total = None, 0, 0
+    while True:
+        r = None
+        for attempt in range(10):
+            try:
+                r = a.dataset_list_files(DATASET, page_token=token, page_size=200)
+                break
+            except requests.exceptions.HTTPError as e:
+                if e.response is not None and e.response.status_code == 429:
+                    wait = 15 * (attempt + 1)
+                    print(f"  429 rate-limited; backing off {wait}s", flush=True)
+                    time.sleep(wait)
+                    continue
+                raise
+            except requests.exceptions.RequestException as e:
+                # A ~190-page walk is long enough that the transport itself fails: the
+                # first attempt at this mode died on ConnectionResetError(54) partway
+                # through, which the 429-only handler did not catch, and the traceback
+                # cost the whole walk. Kaggle also drops long-lived connections without
+                # sending a 429. Retrying the SAME page_token is safe - paging is a pure
+                # read, so a repeat costs a request and nothing else.
+                wait = 15 * (attempt + 1)
+                print(f"  transport error ({type(e).__name__}); retry in {wait}s",
+                      flush=True)
+                time.sleep(wait)
+                continue
+        if r is None:
+            print("  giving up after repeated errors - enumeration INCOMPLETE", flush=True)
+            return counts, other, pages, seen_total, False
+        batch = getattr(r, "files", None) or []
+        fresh = 0
+        for f in batch:
+            name = str(f.name)
+            if name in seen_names:
+                continue          # a repeated page must not inflate a count
+            seen_names.add(name)
+            fresh += 1
+            seen_total += 1
+            for pfx in expected:
+                if name.startswith(pfx + "/"):
+                    counts[pfx] += 1
+                    break
+            else:
+                other += 1
+        pages += 1
+        if batch and fresh == 0:
+            # Every name on this page was already counted. Either the page token stopped
+            # advancing or the listing wrapped; either way the walk is no longer making
+            # progress and continuing would only spin. Stop and say so.
+            print(f"  page {pages} was entirely duplicate - listing is not advancing",
+                  flush=True)
+            return counts, other, pages, seen_total, False
+        if pages % 10 == 0:
+            print(f"  ...{pages} pages, {seen_total:,} entries", flush=True)
+        token = getattr(r, "nextPageToken", None) or getattr(r, "next_page_token", None)
+        if not token or not batch:
+            return counts, other, pages, seen_total, True
+        time.sleep(FULL_PAGE_PAUSE)
+
+
+def local_counts(staging=STAGING_DIR):
+    """Entry counts read from the local tars, keyed by the prefix Kaggle will use.
+
+    Kaggle names the extracted directory after the archive file, so `checkpoints_C4.tar`
+    becomes the prefix `checkpoints_C4/` regardless of what the tar's own root directory
+    is called (it is `c4_checkpoints/`). Returns {prefix: (files, dirs, appledouble)}.
+    `files` is what the server listing is compared against - Kaggle lists files, not the
+    directories that contain them - and it INCLUDES the macOS `._*` AppleDouble members,
+    because Kaggle stores those as ordinary files. `appledouble` reports how many of the
+    `files` count they are, so the real payload is always visible next to the raw number.
+
+    Read with Python's `tarfile`, NOT with the `tar` CLI, and that distinction is the
+    whole reason this function exists. macOS ships libarchive, whose reader transparently
+    merges an AppleDouble `._x` member back into `x` as extended attributes, so `tar -tf`
+    on this machine does not print the `._` entries at all. Kaggle extracts on Linux,
+    which has no such reader, so every one of them lands as a real file in the dataset.
+    The first attempt at this comparison used `tar -tf`, undercounted every archive by
+    almost exactly half, and made the server listing look like it was paging forever.
+    `tarfile` lists raw members and merges nothing.
+    """
+    import tarfile
+    out = {}
+    if not os.path.isdir(staging):
+        return out
+    for fn in sorted(os.listdir(staging)):
+        if fn.endswith(".tar"):
+            prefix = fn[:-4]
+        elif fn.endswith(".tar.gz"):
+            prefix = fn[:-7]
+        else:
+            continue
+        dirs = files = ad = 0
+        with tarfile.open(os.path.join(staging, fn), "r|*") as t:
+            for m in t:
+                if m.isdir():
+                    dirs += 1
+                else:
+                    files += 1
+                    if os.path.basename(m.name).startswith("._"):
+                        ad += 1
+        out[prefix] = (files, dirs, ad)
+    return out
+
+
+def run_full(a):
+    """--full: count every server-side entry per prefix and diff against the local tars."""
+    loc = local_counts()
+    expected = sorted(set(EXPECTED) | set(loc))
+    print(f"comparing {len(expected)} prefixes; full enumeration, no early exit\n",
+          flush=True)
+    counts, other, pages, seen_total, complete = count_all_prefixes(a, expected)
+    print(f"\npaged {pages} pages, {seen_total:,} entries total "
+          f"({other:,} matched no expected prefix)\n")
+    print(f"  {'prefix':<28s} {'local':>9s} {'server':>9s}  match   "
+          f"{'real':>8s} {'AppleDbl':>9s} {'dirs':>6s}")
+    ok = complete
+    for pfx in expected:
+        srv = counts[pfx]
+        if pfx in loc:
+            lf, ld, lad = loc[pfx]
+            match = "YES" if srv == lf else "*** NO ***"
+            if srv != lf:
+                ok = False
+            print(f"  {pfx:<28s} {lf:>9,} {srv:>9,}  {match:<8s}"
+                  f"{lf - lad:>8,} {lad:>9,} {ld:>6,}")
+        else:
+            print(f"  {pfx:<28s} {'n/a':>9s} {srv:>9,}  (no local tar to compare)")
+    print("\n  local/server counts are ALL non-directory members, AppleDouble included -")
+    print("  that is what Kaggle stores. 'real' is the payload once `._*` is removed.")
+    if not complete:
+        print("\n  ENUMERATION WAS CUT SHORT - server counts are lower bounds, not totals")
+    print()
+    print("=" * 72)
+    print("BACKUP 2 COMPLETENESS: " + ("every archive matches its local tar" if ok
+                                       else "MISMATCH or incomplete walk - see above"))
+    print("=" * 72)
+    return 0 if ok else 1
+
+
 def main():
+    full = "--full" in sys.argv or "--counts" in sys.argv
     a = api()
     t0 = time.time()
     size = dataset_size(a)
@@ -112,6 +284,9 @@ def main():
     if size <= 0:
         print("TIMED OUT waiting for a non-zero size — NOT VERIFIED")
         return 2
+
+    if full:
+        return run_full(a)
 
     counts, pages, complete = find_prefixes(a, EXPECTED)
     print(f"paged {pages} pages\n")

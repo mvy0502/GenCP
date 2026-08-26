@@ -51,6 +51,46 @@ def validate_bbox(bbox):
     return (xmin, ymin, xmax, ymax)
 
 
+# CRS work goes through RASTERIO's PROJ binding, never pyproj, and the reason is a crash
+# rather than a preference. Measured inside QGIS 4.2.1: a pyproj CRS created on a QgsTask
+# WORKER thread segfaults the process outright IF the main thread has already created one.
+# The reverse order is fine, which is what made it look intermittent - the plugin's dialog
+# always touches pyproj first (to fill in the extent), so every worker-thread use was
+# already living on borrowed time. rasterio's binding was probed under exactly the same
+# main-thread-first condition and is unaffected.
+#
+# The arithmetic is deliberately unchanged: the same four corners are transformed and the
+# same min/max is taken, rather than switching to transform_bounds, which densifies edges
+# and would move rendered pixels. Gate R re-run after this change: still byte-identical.
+from rasterio.crs import CRS as _CRS
+
+
+def _crs_name(c):
+    """A human name for a CRS, whatever the binding gives us."""
+    try:
+        d = c.to_dict()
+        if d.get("init"):
+            return str(d["init"])
+    except Exception:                                # noqa: BLE001
+        pass
+    try:
+        import re as _re
+        m = _re.search(r'\[\s*"([^"]+)"', c.to_wkt() or "")
+        if m:
+            return m.group(1)
+    except Exception:                                # noqa: BLE001
+        pass
+    return str(c)
+
+
+def _transform_points(src, dst, xs, ys):
+    """Transform coordinate lists. Thread-safe inside QGIS; pyproj is not - see above."""
+    from rasterio.warp import transform as _rio_transform
+    ox, oy = _rio_transform(_CRS.from_user_input(src), _CRS.from_user_input(dst),
+                            list(xs), list(ys))
+    return list(ox), list(oy)
+
+
 def classify_crs(crs: str):
     """Decide how a requested CRS must be treated. Returns (kind, detail).
 
@@ -72,37 +112,36 @@ def classify_crs(crs: str):
     if not crs:
         return "unusable", "a CRS is required"
     try:
-        from pyproj import CRS as _CRS
         c = _CRS.from_user_input(crs)
     except Exception as e:                           # noqa: BLE001 - reported to the user
         return "unusable", (f"the reference layer's CRS ({crs}) could not be interpreted "
                             f"({e}). Reproject the layer to a UTM zone and try again.")
     if c.is_geographic:
-        return "geographic", str(c.name)
+        return "geographic", _crs_name(c)
     epsg = c.to_epsg()
-    method = ""
+    wkt = ""
     try:
-        method = (c.coordinate_operation.method_name or "") if c.coordinate_operation else ""
+        wkt = c.to_wkt() or ""
     except Exception:                                # noqa: BLE001
-        method = ""
-    if epsg in (3857, 900913, 3785) or "Pseudo-Mercator" in method \
-            or "Popular Visualisation" in method:
+        wkt = ""
+    if epsg in (3857, 900913, 3785) or "Pseudo-Mercator" in wkt \
+            or "Popular Visualisation" in wkt:
         return "unusable", (
-            f"{crs} ({c.name}) is Web/Pseudo-Mercator. Its units are called metres but are "
+            f"{crs} ({_crs_name(c)}) is Web/Pseudo-Mercator. Its units are called metres but are "
             f"only true metres at the equator, so a 10 m grid built in it would not be 10 m "
             f"on the ground. Reproject the reference layer to its UTM zone "
             f"(Layer > Save As, or Processing > Reproject Layer) and run again.")
     units = ""
     try:
-        units = (c.axis_info[0].unit_name or "").lower() if c.axis_info else ""
+        units = (c.linear_units or "").lower()
     except Exception:                                # noqa: BLE001
         units = ""
-    if units and units not in ("metre", "meter", "m"):
+    if units and units not in ("metre", "meter", "m", "unknown"):
         return "unusable", (
-            f"{crs} ({c.name}) has axis units of '{units}', not metres. The whole chain "
+            f"{crs} ({_crs_name(c)}) has axis units of '{units}', not metres. The whole chain "
             f"works on a 10 m grid. Reproject the reference layer to a metric CRS "
             f"(its UTM zone) and run again.")
-    return "metric", str(c.name)
+    return "metric", _crs_name(c)
 
 
 def resolve(bbox, crs: str):
@@ -119,13 +158,9 @@ def resolve(bbox, crs: str):
     if kind == "unusable":
         raise ExtentError(detail)
     if kind == "geographic":
-        from pyproj import Transformer
         work = utm_for((xmin + xmax) / 2.0, (ymin + ymax) / 2.0)
-        tr = Transformer.from_crs(crs, work, always_xy=True)
-        pts = [tr.transform(x, y) for x, y in
-               ((xmin, ymin), (xmin, ymax), (xmax, ymin), (xmax, ymax))]
-        xs = [p[0] for p in pts]
-        ys = [p[1] for p in pts]
+        xs, ys = _transform_points(
+            crs, work, [xmin, xmin, xmax, xmax], [ymin, ymax, ymin, ymax])
         return (min(xs), min(ys), max(xs), max(ys)), work, crs
     return (xmin, ymin, xmax, ymax), crs, crs
 

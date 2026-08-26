@@ -28,17 +28,38 @@ CLC_BASE_NAMES = frozenset(
     {"black", "forest_green", "gray", "light_green", "no_vegetation", "snow", "water"})
 
 
+# The palette is 20 hex literals plus "black" and "white". Parsing those directly avoids
+# importing matplotlib, which is NOT a documented QGIS dependency and which segfaulted the
+# QGIS process when first touched from a QgsTask worker thread - a crash that only appeared
+# once the confidence pass moved off the main thread, because nothing else in gencp_core
+# imported it. A four-line parser has no such failure mode.
+_NAMED = {"black": (0.0, 0.0, 0.0), "white": (1.0, 1.0, 1.0)}
+
+
+def _to_rgb(spec):
+    """'#rrggbb' or one of two colour names -> (r, g, b) floats in [0, 1]."""
+    t = str(spec).strip().lower()
+    if t in _NAMED:
+        return _NAMED[t]
+    if t.startswith("#"):
+        h = t[1:]
+        if len(h) == 3:
+            h = "".join(c * 2 for c in h)
+        if len(h) == 6:
+            return tuple(int(h[i:i + 2], 16) / 255.0 for i in (0, 2, 4))
+    raise ValueError(f"unrecognised palette colour {spec!r}")
+
+
 def palette_rgb():
     """The 22 GenCP palette colours as (names, Nx3 float array), name order sorted.
 
     Sorted so the class index is stable across runs and machines - an unsorted dict order
     would silently renumber the classes and make two runs incomparable.
     """
-    import matplotlib.colors as mcolors
     from . import palette as _palette
     cd = _palette.load().color_dict
     names = sorted(cd)
-    rgb = np.array([mcolors.to_rgb(cd[n]) for n in names], dtype=np.float64) * 255.0
+    rgb = np.array([_to_rgb(cd[n]) for n in names], dtype=np.float64) * 255.0
     return names, rgb
 
 
@@ -178,8 +199,14 @@ VALIDATED_MODEL_STEMS = ("gencp_C2_fp32", "gencp_C2_stochastic_fp32")
 
 BAND_RED, BAND_AMBER, BAND_GREEN = 1, 2, 3
 BAND_NAMES = {BAND_RED: "red", BAND_AMBER: "amber", BAND_GREEN: "green"}
-# Colour-blind-safe: red/amber/green here are distinguishable by lightness as well as hue.
-BAND_COLOURS = {BAND_RED: (202, 0, 32), BAND_AMBER: (244, 165, 130), BAND_GREEN: (5, 113, 176)}
+# The bands are NAMED red/amber/green, so they are DRAWN red/amber/green. A first pass used
+# a blue for the green band on colour-blind grounds and produced a legend that read
+# "Yeşil - kullanılabilir" beside a blue swatch, which is worse: the reader now has to
+# remember a mapping. Red-green confusion is mitigated the other way instead - the three
+# differ markedly in LIGHTNESS (relative luminance 0.13 / 0.48 / 0.22), so they stay
+# distinguishable in greyscale, and every place the bands are reported in words carries the
+# operational meaning next to the colour name.
+BAND_COLOURS = {BAND_RED: (202, 0, 32), BAND_AMBER: (244, 165, 130), BAND_GREEN: (26, 150, 65)}
 
 
 def align_to(field, shape):

@@ -1,62 +1,129 @@
 """The GenCP dialog. Shell only — it calls gencp_core and contains no generation logic.
 
-Six sections, in the order the work package specifies:
+Six sections, in the order the work is done:
 
-  1 Input        reference layer picker; the read extent and CRS; tile count and a rough
-                 time estimate
-  2 Data source  online (Overpass) or a local vector file; CLC+ path; cannot proceed until
-                 resolved
-  3 Preview      THE RASTERISED INPUT, RENDERED ON SCREEN. Generation does not start until
-                 the user confirms. This section is the point of the dialog: it is what
-                 lets a user catch a bad render before trusting the output, so it shows a
-                 real render at a real size, not a thumbnail.
-  4 Model        weights path (configurable, not bundled-and-hardcoded), with the model's
-                 file name and modification date shown
-  5 Run          on a QgsTask, with a progress bar and a working Cancel
-  6 Output       add as layer and/or write a GeoTIFF to a chosen path
+  1 Girdi        reference layer; the read extent and CRS; tile count and a rough estimate
+  2 Veri kaynağı online (Overpass) or a local vector file; CLC+ path. Once these are
+                 remembered they collapse into an Advanced group, because a returning user
+                 should not have to look at three absolute paths to press one button.
+  3 Önizleme     THE RASTERISED INPUT, RENDERED ON SCREEN, with the OSM content of the tile
+                 broken down by class beside it. Generation does not start until the user
+                 confirms. The breakdown is what gives that confirmation something to bite
+                 on: "is this correct?" is unanswerable when the tile is flat green.
+  4 Model        weights path, with the model's file name and modification date
+  5 Çalıştırma   on a QgsTask, with a stage-aware progress line and a working Cancel
+  6 Çıktı        add as layer and/or write a GeoTIFF; optionally a confidence layer,
+                 auto-styled, with a plain-language verdict for the whole run
 
-Every numeric or geometric decision here is delegated: extents and tile grids come from
-gencp_core.extent, rendering from gencp_core.rasterize, generation from
-gencp_core.pipeline.
+Every numeric or geometric decision is delegated: extents and tile grids to
+gencp_core.extent, rendering to gencp_core.rasterize, generation to gencp_core.pipeline,
+the confidence score to gencp_core.confidence.
+
+No Turkish literal appears in this file. Every user-visible string comes from strings.py;
+a string missing from that module is a bug there, not here.
 """
 from __future__ import annotations
 import os
 from pathlib import Path
 
-from qgis.PyQt.QtCore import Qt
-from qgis.PyQt.QtGui import QImage, QPixmap
+from qgis.PyQt.QtCore import Qt, QSize
+from qgis.PyQt.QtGui import QImage, QPixmap, QFont, QFontMetrics
 from qgis.PyQt.QtWidgets import (
     QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
     QGroupBox, QHBoxLayout, QLabel, QLineEdit, QMessageBox, QProgressBar,
-    QPushButton, QRadioButton, QScrollArea, QVBoxLayout, QWidget,
+    QPushButton, QRadioButton, QScrollArea, QSizePolicy, QVBoxLayout, QWidget,
 )
 from qgis.core import (
     Qgis, QgsApplication, QgsMapLayerProxyModel, QgsMessageLog, QgsProject,
-    QgsRasterLayer,
+    QgsRasterLayer, QgsSettings,
 )
 from qgis.gui import QgsMapLayerComboBox
 
 from .plugin import ensure_core_importable
 from .qtcompat import member
+from .strings import t
 
 ensure_core_importable()
 
 TILE_PREVIEW_PX = 384
+SETTINGS_PREFIX = "GenCP/"
+# Below this share of OSM-class pixels the tile counts as "very little OSM data". Taken
+# from the held-out corpus, where chips run 0.02%-0.2% and the confidence score's red band
+# is already biting. It is a prompt to look, not a threshold with a decision attached.
+SPARSE_OSM_FRACTION = 0.002
+
+WARN_STYLE = "background:#fff3cd; color:#664d03; border:1px solid #ffe69c; padding:6px;"
+CALM_BOX = "QWidget { border:1px solid palette(mid); border-radius:4px; }"
+ALERT_BOX = "QWidget { border:2px solid #ffc107; border-radius:4px; }"
 
 
 def _log(msg, level=member(Qgis, 'Info')):
     QgsMessageLog.logMessage(str(msg), "GenCP", level)
 
 
+def _policy(name):
+    """QSizePolicy member, Qt5-flat or Qt6-scoped."""
+    return getattr(getattr(QSizePolicy, "Policy", QSizePolicy), name)
+
+
+class ElidedLabel(QLabel):
+    """A label that elides its text in the MIDDLE and keeps the full text as a tooltip.
+
+    Paths here are absolute and routinely 90 characters. Elided at the END they lose the
+    file name, which is the only part anyone reads; elided in the middle they keep both the
+    root and the name. It also stops a long path from setting the form's minimum width,
+    which is what previously put a horizontal scrollbar under every section.
+    """
+
+    def __init__(self, text="", parent=None):
+        super().__init__(parent)
+        self._full = ""
+        self.setSizePolicy(_policy("Ignored"), self.sizePolicy().verticalPolicy())
+        self.setMinimumWidth(80)
+        self.setText(text)
+
+    def setText(self, text):
+        self._full = text or ""
+        self.setToolTip(self._full)
+        super().setText(self._elided())
+
+    def fullText(self):
+        return self._full
+
+    def _elided(self):
+        fm = QFontMetrics(self.font())
+        return fm.elidedText(self._full, member(Qt, 'ElideMiddle'),
+                             max(60, self.width() - 4))
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        super().setText(self._elided())
+
+
+def _collapsible(title):
+    """QgsCollapsibleGroupBox where available, a plain QGroupBox where it is not.
+
+    QGIS ships the collapsible box in 3.x and 4.x alike; the fallback keeps this file
+    importable under bare Qt and adds no dependency either way.
+    """
+    try:
+        from qgis.gui import QgsCollapsibleGroupBox
+        g = QgsCollapsibleGroupBox(title)
+        g.setCollapsed(True)
+        return g
+    except Exception:                                # noqa: BLE001
+        return QGroupBox(title)
+
+
 class GenCPDialog(QDialog):
     def __init__(self, iface, parent=None):
         super().__init__(parent)
         self.iface = iface
-        self.setWindowTitle("GenCP — Synthetic Reference Generation")
-        self.setMinimumWidth(660)
+        self.settings = QgsSettings()
+        self.setWindowTitle(t("window_title"))
+        self.setMinimumSize(QSize(720, 560))
         self._extent = None
         self._crs = None
-        self._preview_paths = []
         self._preview_index = 0
         self._task = None
         self._confirmed = False
@@ -64,83 +131,125 @@ class GenCPDialog(QDialog):
         self._ui_ready = False
         self._build_ui()
         self._refresh_extent()
+        self.resize(QSize(820, 900))
 
-    # ---------------------------------------------------------------- UI ----
+    # ------------------------------------------------------------- settings ----
+    def _remember(self, key, value):
+        if value:
+            self.settings.setValue(SETTINGS_PREFIX + key, str(value))
+
+    def _recall(self, key, default=""):
+        return str(self.settings.value(SETTINGS_PREFIX + key, default) or default)
+
+    # ------------------------------------------------------------------- UI ----
     def _build_ui(self):
         outer = QVBoxLayout(self)
+        outer.setContentsMargins(12, 12, 12, 12)
+        outer.setSpacing(10)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
+        scroll.setFrameShape(getattr(getattr(QScrollArea, "Shape", QScrollArea), "NoFrame"))
         body = QWidget()
         lay = QVBoxLayout(body)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(10)
         scroll.setWidget(body)
         outer.addWidget(scroll, 1)
 
-        # --- 1 Input ---
-        g1 = QGroupBox("1 · Input")
+        # --- 1 Girdi -------------------------------------------------------
+        g1 = QGroupBox(t("sec1"))
         f1 = QFormLayout(g1)
+        f1.setLabelAlignment(member(Qt, 'AlignRight') | member(Qt, 'AlignVCenter'))
+        f1.setHorizontalSpacing(12)
+        f1.setVerticalSpacing(8)
+        f1.setContentsMargins(12, 12, 12, 12)
         self.layer_box = QgsMapLayerComboBox()
         self.layer_box.setFilters(member(QgsMapLayerProxyModel, 'All'))
         self.layer_box.layerChanged.connect(self._refresh_extent)
-        f1.addRow("Reference layer:", self.layer_box)
-        self.lbl_extent = QLabel("—")
+        f1.addRow(t("reference_layer"), self.layer_box)
+        self.lbl_extent = QLabel(t("unset"))
         self.lbl_extent.setWordWrap(True)
-        f1.addRow("Extent:", self.lbl_extent)
-        self.lbl_crs = QLabel("—")
-        f1.addRow("CRS:", self.lbl_crs)
-        self.lbl_tiles = QLabel("—")
-        f1.addRow("Tiles / estimate:", self.lbl_tiles)
+        f1.addRow(t("extent"), self.lbl_extent)
+        self.lbl_crs = QLabel(t("unset"))
+        self.lbl_crs.setWordWrap(True)
+        f1.addRow(t("crs"), self.lbl_crs)
+        self.lbl_tiles = QLabel(t("unset"))
+        self.lbl_tiles.setWordWrap(True)
+        f1.addRow(t("tiles_estimate"), self.lbl_tiles)
         self.overlap_box = QComboBox()
         for m in (0, 160, 320, 640, 960):
-            self.overlap_box.addItem(
-                f"{m} m" + (" (default, measured)" if m == 640 else
-                            " (economy)" if m == 160 else ""), m)
+            key = ("overlap_default" if m == 640 else
+                   "overlap_economy" if m == 160 else "overlap_plain")
+            self.overlap_box.addItem(t(key, m=m), m)
         self.overlap_box.setCurrentIndex(3)
         self.overlap_box.currentIndexChanged.connect(self._refresh_extent)
-        f1.addRow("Tile overlap:", self.overlap_box)
+        f1.addRow(t("tile_overlap"), self.overlap_box)
         lay.addWidget(g1)
 
-        # --- 2 Data source ---
-        g2 = QGroupBox("2 · Data source")
+        # --- 2 Veri kaynağı ------------------------------------------------
+        g2 = QGroupBox(t("sec2"))
         f2 = QVBoxLayout(g2)
+        f2.setSpacing(8)
+        f2.setContentsMargins(12, 12, 12, 12)
         row = QHBoxLayout()
-        self.rb_online = QRadioButton("Online (Overpass)")
-        self.rb_local = QRadioButton("Local vector file (.osm.pbf)")
+        self.rb_online = QRadioButton(t("source_online"))
+        self.rb_local = QRadioButton(t("source_local"))
         self.rb_local.setChecked(True)
         self.rb_online.toggled.connect(self._validate)
         row.addWidget(self.rb_online)
         row.addWidget(self.rb_local)
         row.addStretch(1)
         f2.addLayout(row)
-        self.pbf_edit, pbf_row = self._file_row("Browse…", self._pick_pbf)
-        f2.addLayout(pbf_row)
-        self.clc_edit, clc_row = self._file_row("Browse…", self._pick_clc)
-        f2.addWidget(QLabel("CLC+ Backbone raster:"))
-        f2.addLayout(clc_row)
+        self.lbl_summary = ElidedLabel("")
+        f2.addWidget(self.lbl_summary)
         self.lbl_src = QLabel("")
         self.lbl_src.setWordWrap(True)
         f2.addWidget(self.lbl_src)
+
+        self.adv = _collapsible(t("advanced"))
+        fa = QFormLayout(self.adv)
+        fa.setHorizontalSpacing(12)
+        fa.setVerticalSpacing(8)
+        fa.setContentsMargins(12, 12, 12, 12)
+        self.pbf_edit, pbf_row = self._file_row(self._pick_pbf)
+        fa.addRow(t("pbf_label"), pbf_row)
+        self.clc_edit, clc_row = self._file_row(self._pick_clc)
+        fa.addRow(t("clc_label"), clc_row)
+        f2.addWidget(self.adv)
         lay.addWidget(g2)
 
-        # --- 3 Preview ---
-        g3 = QGroupBox("3 · Preview — the rasterised input the model will see")
+        # --- 3 Önizleme ----------------------------------------------------
+        g3 = QGroupBox(t("sec3"))
         f3 = QVBoxLayout(g3)
-        hint = QLabel(
-            "Check this render before generating. If the land cover, water or roads look "
-            "wrong here, the generated image will be confidently wrong in the same way.")
-        # Without this the label's one-line sizeHint becomes the form's minimum width and
-        # a horizontal scrollbar appears under every section, cutting the path fields off.
+        f3.setSpacing(8)
+        f3.setContentsMargins(12, 12, 12, 12)
+        hint = QLabel(t("preview_hint"))
+        # Without word wrap this label's one-line sizeHint becomes the form's minimum
+        # width, and a horizontal scrollbar appears under every section.
         hint.setWordWrap(True)
         f3.addWidget(hint)
-        self.preview_label = QLabel("No preview yet.")
+
+        img_row = QHBoxLayout()
+        img_row.setSpacing(12)
+        self.preview_label = QLabel(t("preview_none"))
         self.preview_label.setAlignment(member(Qt, 'AlignCenter'))
         self.preview_label.setMinimumHeight(TILE_PREVIEW_PX)
+        self.preview_label.setMinimumWidth(TILE_PREVIEW_PX)
         self.preview_label.setStyleSheet("border:1px solid palette(mid);")
-        f3.addWidget(self.preview_label)
+        img_row.addWidget(self.preview_label, 0)
+        self.lbl_osm = QLabel("")
+        self.lbl_osm.setWordWrap(True)
+        self.lbl_osm.setAlignment(member(Qt, 'AlignTop'))
+        self.lbl_osm.setMinimumWidth(190)
+        img_row.addWidget(self.lbl_osm, 1)
+        f3.addLayout(img_row)
+
         prow = QHBoxLayout()
-        self.btn_preview = QPushButton("Render preview tile")
+        prow.setSpacing(8)
+        self.btn_preview = QPushButton(t("preview_button"))
         self.btn_preview.clicked.connect(self._render_preview)
-        self.btn_prev = QPushButton("◀ Previous tile")
-        self.btn_next = QPushButton("Next tile ▶")
+        self.btn_prev = QPushButton(t("preview_prev"))
+        self.btn_next = QPushButton(t("preview_next"))
         self.btn_prev.clicked.connect(lambda: self._step_preview(-1))
         self.btn_next.clicked.connect(lambda: self._step_preview(+1))
         self.btn_prev.setEnabled(False)
@@ -150,96 +259,139 @@ class GenCPDialog(QDialog):
         prow.addWidget(self.btn_next)
         prow.addStretch(1)
         f3.addLayout(prow)
+
+        # The warning and the checkbox share one framed block, so the thing being confirmed
+        # and the reason to hesitate cannot be read separately.
+        self.confirm_box = QWidget()
+        cb_lay = QVBoxLayout(self.confirm_box)
+        cb_lay.setContentsMargins(10, 10, 10, 10)
+        cb_lay.setSpacing(6)
         self.lbl_warn = QLabel("")
         self.lbl_warn.setWordWrap(True)
-        self.lbl_warn.setStyleSheet(
-            "background:#fff3cd; color:#664d03; border:1px solid #ffe69c; padding:6px;")
         self.lbl_warn.setVisible(False)
-        f3.addWidget(self.lbl_warn)
-        self.cb_confirm = QCheckBox(
-            "I have looked at the rasterised input above and it is correct")
+        cb_lay.addWidget(self.lbl_warn)
+        self.cb_confirm = QCheckBox(t("confirm_generic"))
         self.cb_confirm.setEnabled(False)
         self.cb_confirm.toggled.connect(self._on_confirm)
-        f3.addWidget(self.cb_confirm)
+        cb_lay.addWidget(self.cb_confirm)
+        self.confirm_box.setStyleSheet(CALM_BOX)
+        f3.addWidget(self.confirm_box)
         lay.addWidget(g3)
 
-        # --- 4 Model ---
-        g4 = QGroupBox("4 · Model")
+        # --- 4 Model -------------------------------------------------------
+        g4 = QGroupBox(t("sec4"))
         f4 = QVBoxLayout(g4)
-        self.model_edit, mrow = self._file_row("Browse…", self._pick_model)
+        f4.setSpacing(8)
+        f4.setContentsMargins(12, 12, 12, 12)
+        self.model_edit, mrow = self._file_row(self._pick_model)
         f4.addLayout(mrow)
-        self.lbl_model = QLabel("No model selected.")
+        self.lbl_model = QLabel(t("model_none"))
         self.lbl_model.setWordWrap(True)
         f4.addWidget(self.lbl_model)
         lay.addWidget(g4)
 
-        # --- 5 Run ---
-        g5 = QGroupBox("5 · Run")
+        # --- 5 Çalıştırma --------------------------------------------------
+        g5 = QGroupBox(t("sec5"))
         f5 = QVBoxLayout(g5)
+        f5.setSpacing(8)
+        f5.setContentsMargins(12, 12, 12, 12)
         self.progress = QProgressBar()
         self.progress.setValue(0)
+        self.progress.setMinimumHeight(22)
         f5.addWidget(self.progress)
-        self.lbl_status = QLabel("Idle.")
+        self.lbl_status = QLabel(t("idle"))
         self.lbl_status.setWordWrap(True)
         f5.addWidget(self.lbl_status)
         rrow = QHBoxLayout()
-        self.btn_run = QPushButton("Generate")
+        rrow.setSpacing(8)
+        self.btn_run = QPushButton(t("generate"))
         self.btn_run.clicked.connect(self._start)
-        self.btn_cancel = QPushButton("Cancel")
+        # Primary action: default button, bold label, taller. Deliberately NOT a hardcoded
+        # accent colour, which would look wrong in one of the two QGIS themes.
+        self.btn_run.setDefault(True)
+        self.btn_run.setAutoDefault(True)
+        bf = QFont(self.btn_run.font())
+        bf.setBold(True)
+        self.btn_run.setFont(bf)
+        self.btn_run.setMinimumHeight(32)
+        self.btn_run.setMinimumWidth(140)
+        self.btn_cancel = QPushButton(t("cancel"))
         self.btn_cancel.clicked.connect(self._cancel)
         self.btn_cancel.setEnabled(False)
+        self.btn_cancel.setMinimumHeight(32)
         rrow.addWidget(self.btn_run)
         rrow.addWidget(self.btn_cancel)
         rrow.addStretch(1)
         f5.addLayout(rrow)
         lay.addWidget(g5)
 
-        # --- 6 Output ---
-        g6 = QGroupBox("6 · Output")
+        # --- 6 Çıktı -------------------------------------------------------
+        g6 = QGroupBox(t("sec6"))
         f6 = QVBoxLayout(g6)
-        self.cb_add_layer = QCheckBox("Add the result to the map as a layer")
+        f6.setSpacing(8)
+        f6.setContentsMargins(12, 12, 12, 12)
+        self.cb_add_layer = QCheckBox(t("add_layer"))
         self.cb_add_layer.setChecked(True)
-        self.cb_write = QCheckBox("Write a GeoTIFF to disk")
+        self.cb_write = QCheckBox(t("write_tif"))
         self.cb_write.setChecked(True)
         self.cb_write.toggled.connect(self._validate)
         f6.addWidget(self.cb_add_layer)
         f6.addWidget(self.cb_write)
-        self.out_edit, orow = self._file_row("Save as…", self._pick_out)
+        self.out_edit, orow = self._file_row(self._pick_out, t("save_as"))
         f6.addLayout(orow)
+        self.cb_confidence = QCheckBox(t("make_confidence"))
+        self.cb_confidence.setChecked(True)
+        self.cb_confidence.toggled.connect(self._validate)
+        f6.addWidget(self.cb_confidence)
+        cost = QLabel(t("confidence_cost"))
+        cost.setEnabled(False)
+        f6.addWidget(cost)
+        self.lbl_conf_note = QLabel("")
+        self.lbl_conf_note.setWordWrap(True)
+        self.lbl_conf_note.setVisible(False)
+        f6.addWidget(self.lbl_conf_note)
+        self.lbl_verdict = QLabel("")
+        self.lbl_verdict.setWordWrap(True)
+        self.lbl_verdict.setVisible(False)
+        f6.addWidget(self.lbl_verdict)
         lay.addWidget(g6)
-
-        # Prefills come LAST, and this ordering is load-bearing. Setting a QLineEdit's
-        # text emits textChanged, which is connected to _validate, which reads
-        # btn_preview, cb_write and out_edit. Run from the middle of _build_ui - where
-        # these two calls used to sit, next to the sections they fill - _validate raised
-        # AttributeError inside a Qt slot on EVERY construction. PyQt hands such an
-        # exception to sys.excepthook, which in QGIS opens a modal Python error dialog,
-        # so the user saw two error boxes every time they opened the plugin and the
-        # dialog nonetheless finished building and worked. Every earlier test missed it
-        # because the exception never propagates to the caller.
-        self._ui_ready = True
-        self._prefill_paths()
-        self._prefill_model()
 
         lay.addStretch(1)
         self.buttons = QDialogButtonBox(member(QDialogButtonBox, 'Close'))
+        btn = self.buttons.button(member(QDialogButtonBox, 'Close'))
+        if btn is not None:
+            btn.setText(t("close"))
         self.buttons.rejected.connect(self.reject)
         outer.addWidget(self.buttons)
 
-    def _file_row(self, btn_text, slot):
+        # Prefills come LAST, and the ordering is load-bearing. Setting a QLineEdit's text
+        # emits textChanged, connected to _validate, which reads widgets built above. Run
+        # from the middle of _build_ui this raised AttributeError inside a Qt slot on every
+        # construction, which QGIS turns into a modal error dialog.
+        self._ui_ready = True
+        self._prefill()
+
+    def _set_advanced_collapsed(self, collapsed):
+        try:
+            self.adv.setCollapsed(bool(collapsed))
+        except Exception:                            # noqa: BLE001 - QGroupBox fallback
+            pass
+
+    def _file_row(self, slot, btn_text=None):
         edit = QLineEdit()
         # A full CLC+ path is ~90 characters. Left to its own sizeHint the field widens the
         # whole form; this lets it shrink and scroll internally instead.
         edit.setMinimumWidth(180)
-        btn = QPushButton(btn_text)
+        btn = QPushButton(btn_text or t("browse"))
         btn.clicked.connect(slot)
         row = QHBoxLayout()
+        row.setSpacing(8)
         row.addWidget(edit, 1)
         row.addWidget(btn)
         edit.textChanged.connect(self._validate)
         return edit, row
 
-    # ------------------------------------------------------------ prefill ----
+    # -------------------------------------------------------------- prefill ---
     def _repo_root(self):
         here = Path(__file__).resolve()
         for p in here.parents:
@@ -247,96 +399,107 @@ class GenCPDialog(QDialog):
                 return p
         return None
 
-    def _prefill_paths(self):
-        root = self._repo_root()
-        if not root:
-            return
-        clc = root / "tubitak/data/clcplus/CLMS_CLCplus_RASTER_2021_010m_eu_03035_V1_1.tif"
-        if clc.is_file():
-            self.clc_edit.setText(str(clc))
+    def _prefill(self):
+        """Remembered paths first, repository defaults second, nothing third.
 
-    def _prefill_model(self):
+        A first-time user should be able to pick a reference layer and press Generate; a
+        returning one should not have to re-find three absolute paths. Everything here is
+        only a pre-fill and every field stays editable.
+        """
         root = self._repo_root()
-        if not root:
-            return
-        d = root / "tubitak/data/plugin_models"
-        # Never a bundled-and-hardcoded weights file: this only pre-fills the field with
-        # something sensible if it happens to exist, and the user can always change it.
-        for name in ("gencp_C3_fp32.onnx", "gencp_C2_fp32.onnx"):
-            if (d / name).is_file():
-                self.model_edit.setText(str(d / name))
-                break
+        clc = self._recall("clc_path")
+        if not clc and root:
+            cand = root / ("tubitak/data/clcplus/"
+                           "CLMS_CLCplus_RASTER_2021_010m_eu_03035_V1_1.tif")
+            clc = str(cand) if cand.is_file() else ""
+        if clc:
+            self.clc_edit.setText(clc)
+
+        pbf = self._recall("pbf_path")
+        if pbf and Path(pbf).is_file():
+            self.pbf_edit.setText(pbf)
+
+        model = self._recall("model_path")
+        if not model and root:
+            d = root / "tubitak/data/plugin_models"
+            # Never bundled-and-hardcoded: this pre-fills only if the file happens to
+            # exist. C2 is offered first because it is the arm the confidence bands were
+            # calibrated on - see gencp_core/confidence.py CALIBRATION.
+            for name in ("gencp_C2_fp32.onnx", "gencp_C3_fp32.onnx"):
+                if (d / name).is_file():
+                    model = str(d / name)
+                    break
+        if model:
+            self.model_edit.setText(model)
         self._describe_model()
 
-    # ------------------------------------------------------------ handlers ---
+        out_dir = self._recall("out_dir")
+        if out_dir and Path(out_dir).is_dir():
+            self.out_edit.setText(str(Path(out_dir) / "gencp_reference.tif"))
+
+        if self._recall("clc_path") or self._recall("model_path"):
+            self.lbl_summary.setText(t("remembered"))
+        self._update_source_summary()
+        # If everything resolved, the paths are noise: collapse them away so the common
+        # path is "pick a layer, press Generate". _validate reopens the group the moment
+        # something stops resolving, because that is where the fix is.
+        if self._source_ok()[0]:
+            self._set_advanced_collapsed(True)
+
+    # ------------------------------------------------------------- handlers ---
     def _pick_pbf(self):
-        p, _ = QFileDialog.getOpenFileName(self, "OSM extract", "",
+        p, _ = QFileDialog.getOpenFileName(self, t("source_local"),
+                                           self._recall("pbf_path"),
                                            "OSM PBF (*.pbf *.osm.pbf);;All files (*)")
         if p:
             self.pbf_edit.setText(p)
             self.rb_local.setChecked(True)
+            self._remember("pbf_path", p)
 
     def _pick_clc(self):
-        p, _ = QFileDialog.getOpenFileName(self, "CLC+ Backbone raster", "",
+        p, _ = QFileDialog.getOpenFileName(self, t("clc_label"), self._recall("clc_path"),
                                            "GeoTIFF (*.tif *.tiff);;All files (*)")
         if p:
             self.clc_edit.setText(p)
+            self._remember("clc_path", p)
 
     def _pick_model(self):
-        p, _ = QFileDialog.getOpenFileName(self, "ONNX generator", "",
-                                           "ONNX model (*.onnx);;All files (*)")
+        p, _ = QFileDialog.getOpenFileName(self, t("model_pick"),
+                                           self._recall("model_path"),
+                                           "ONNX (*.onnx);;All files (*)")
         if p:
             self.model_edit.setText(p)
+            self._remember("model_path", p)
             self._describe_model()
 
     def _pick_out(self):
-        p, _ = QFileDialog.getSaveFileName(self, "Write GeoTIFF", "gencp_reference.tif",
-                                           "GeoTIFF (*.tif)")
+        start = self._recall("out_dir")
+        default = str(Path(start) / "gencp_reference.tif") if start else "gencp_reference.tif"
+        p, _ = QFileDialog.getSaveFileName(self, t("out_pick"), default, "GeoTIFF (*.tif)")
         if p:
             self.out_edit.setText(p)
+            self._remember("out_dir", str(Path(p).parent))
 
     def _describe_model(self):
-        p = Path(self.model_edit.text().strip())
+        p = Path(self.model_edit.text().strip() or "/nonexistent")
         if not p.is_file():
-            self.lbl_model.setText("No model selected.")
+            self.lbl_model.setText(t("model_none"))
             return
         import datetime
         st = p.stat()
         mt = datetime.datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
-        self.lbl_model.setText(
-            f"<b>{p.name}</b><br>modified {mt} &middot; {st.st_size/1e6:.1f} MB"
-            f"<br><span style='color:gray'>{p.parent}</span>")
-
-    def _apply_clc_path(self):
-        """Point gencp_core at the CLC+ raster in section 2.
-
-        Called before the PREVIEW as well as before the run. It used to be inlined in
-        _start() only, so the preview rendered against whatever default gencp_core had
-        compiled in while the run used the user's file. Two different base rasters, one
-        checkbox saying "I have looked at the render above and it is correct". Found by
-        pointing the CLC+ field at a text file: the preview reported success.
-        """
-        clc = self.clc_edit.text().strip()
-        if not clc:
-            return
-        os.environ["GENCP_CLC_PATH"] = clc
-        try:
-            from gencp_core import vectors
-            vectors.CLC_PATH = Path(clc)   # honoured via GENCP_CLC_PATH too
-        except Exception:                            # noqa: BLE001
-            pass
+        self.lbl_model.setText(t("model_desc", name=p.name, mtime=mt, mb=st.st_size / 1e6))
 
     def _on_confirm(self, on):
         self._confirmed = bool(on)
         self._validate()
 
-    # -------------------------------------------------------------- extent ---
+    # --------------------------------------------------------------- extent ---
     def _refresh_extent(self):
         layer = self.layer_box.currentLayer()
         if layer is None:
-            self.lbl_extent.setText("—")
-            self.lbl_crs.setText("—")
-            self.lbl_tiles.setText("—")
+            for lbl in (self.lbl_extent, self.lbl_crs, self.lbl_tiles):
+                lbl.setText(t("unset"))
             self._extent = self._crs = None
             self._extent_ok = False
             self._invalidate_preview()
@@ -345,25 +508,23 @@ class GenCPDialog(QDialog):
         r = layer.extent()
         crs = layer.crs()
         self._extent = (r.xMinimum(), r.yMinimum(), r.xMaximum(), r.yMaximum())
-        # pyproj cannot resolve a QGIS-local "USER:100001" authid, but it can read the
-        # WKT the same CRS carries, so custom CRSs are passed on as WKT.
+        # pyproj cannot resolve a QGIS-local "USER:100001" authid, but it can read the WKT
+        # the same CRS carries, so custom CRSs are passed on as WKT.
         authid = crs.authid() or ""
         self._crs = crs.toWkt() if (not authid or authid.startswith("USER:")) else authid
-        self.lbl_extent.setText(
-            f"{r.xMinimum():.2f}, {r.yMinimum():.2f} → {r.xMaximum():.2f}, "
-            f"{r.yMaximum():.2f}  ({r.width():.0f} × {r.height():.0f} map units)")
+        self.lbl_extent.setText(t("extent_value", xmin=r.xMinimum(), ymin=r.yMinimum(),
+                                  xmax=r.xMaximum(), ymax=r.yMaximum(),
+                                  w=r.width(), h=r.height()))
         self.lbl_crs.setText(f"{crs.authid()} — {crs.description()}")
         try:
             from gencp_core import extent as ext
             e, work, _ = ext.resolve(self._extent, self._crs)
             est = ext.estimate(e, self.overlap_box.currentData())
-            mins = est["seconds"] / 60.0
-            plural = "" if est['n_tiles'] == 1 else "s"
             self.lbl_tiles.setText(
-                f"<b>{est['n_tiles']} tile{plural}</b> → output {est['width']} × {est['height']} px "
-                f"({est['megapixels']:.1f} Mpx) in {work}"
-                f"<br><span style='color:gray'>rough estimate {mins:.1f} min on CPU — "
-                f"an estimate, not a guarantee</span>")
+                t("tiles_value", n=est["n_tiles"], w=est["width"], h=est["height"],
+                  mp=est["megapixels"], crs=work)
+                + "<br><span style='color:gray'>"
+                + t("tiles_estimate_note", mins=est["seconds"] / 60.0) + "</span>")
             self._extent_ok = True
         except Exception as e:                       # noqa: BLE001 - shown to the user
             self.lbl_tiles.setText(f"<span style='color:#a00'>{e}</span>")
@@ -372,116 +533,200 @@ class GenCPDialog(QDialog):
         self._validate()
 
     def _invalidate_preview(self):
-        self._preview_paths = []
         self._preview_index = 0
         self.cb_confirm.setChecked(False)
         self.cb_confirm.setEnabled(False)
+        self.cb_confirm.setText(t("confirm_generic"))
         self.btn_prev.setEnabled(False)
         self.btn_next.setEnabled(False)
-        self.preview_label.setText("No preview yet.")
+        self.preview_label.setText(t("preview_none"))
         self.preview_label.setPixmap(QPixmap())
+        if hasattr(self, "lbl_osm"):
+            self.lbl_osm.setText("")
         if hasattr(self, "lbl_warn"):
             self.lbl_warn.setVisible(False)
             self.lbl_warn.setText("")
+            self.confirm_box.setStyleSheet(CALM_BOX)
 
-    # ------------------------------------------------------------- preview ---
+    # -------------------------------------------------------------- preview ---
+    def _apply_clc_path(self):
+        """Point gencp_core at the CLC+ raster in section 2.
+
+        Called before the PREVIEW as well as before the run. It used to be inlined in
+        _start() only, so the preview rendered against whatever default gencp_core had
+        while the run used the user's file: two different base rasters under one checkbox
+        saying "I looked at the render above and it is correct".
+        """
+        clc = self.clc_edit.text().strip()
+        if not clc:
+            return
+        os.environ["GENCP_CLC_PATH"] = clc
+        try:
+            from gencp_core import vectors
+            vectors.CLC_PATH = Path(clc)
+        except Exception:                            # noqa: BLE001
+            pass
+
     def _render_preview(self):
         if self._extent is None:
             return
-        src_ok, why = self._source_ok()
-        if not src_ok:
-            QMessageBox.warning(self, "Data source", why)
+        ok, why = self._source_ok()
+        if not ok:
+            QMessageBox.warning(self, t("sec2"), why)
             return
-        self.lbl_status.setText("Rendering preview tile…")
+        self.lbl_status.setText(t("preview_rendering"))
         self._apply_clc_path()
         QgsApplication.processEvents()
         try:
-            from gencp_core import extent as ext, pipeline
+            import numpy as np
+            from gencp_core import extent as ext, pipeline, confidence as conf
             e, work, _ = ext.resolve(self._extent, self._crs)
             tiles, _ = ext.tile_grid(e, self.overlap_box.currentData())
             tile = tiles[min(self._preview_index, len(tiles) - 1)]
-            # Deliberately the SAME cache directory `pipeline.generate` uses, not a fresh
-            # mkdtemp. The dialog's premise is "look at this render, then trust the
-            # output", and that only holds if the run consumes the very file the user
-            # looked at. A separate preview directory re-renders the tile at Run time and
-            # merely hopes the second render matches the first. Cache names are content
-            # addressed (pipeline.tile_cache_name), so a changed extent, CRS, OSM source
-            # or CLC+ path lands on a different name rather than silently reusing this one.
+            # Deliberately the SAME cache directory pipeline.generate uses, so the run
+            # consumes the very file the user looked at rather than re-rendering and
+            # hoping the second render matches.
             d = pipeline.default_work_dir() / "render"
             stats = {}
             paths = pipeline.render_inputs(
                 [tile], work, d, pbf=self._pbf_or_none(), base_product="clcplus",
                 stats_out=stats)
-            p = list(paths.values())[0]
-            self._show_preview(p, tile, len(tiles))
-            self._show_warnings(pipeline.coverage_warnings(stats, self._pbf_or_none()))
-            self._preview_paths = [str(p)]
+            img = pipeline.preview_image(list(paths.values())[0])
+            self._show_preview(img, tile, len(tiles))
+
+            idx, names = conf.class_map(np.asarray(img.convert("RGB")))
+            breakdown = conf.osm_class_breakdown(idx, names)
+            frac = float(conf.osm_mask(idx, names).mean())
+            self._show_osm_content(breakdown, frac)
+            self._show_warnings(
+                pipeline.coverage_warnings(stats, self._pbf_or_none()), breakdown, frac)
+
             self.cb_confirm.setEnabled(True)
             self.btn_prev.setEnabled(len(tiles) > 1)
             self.btn_next.setEnabled(len(tiles) > 1)
-            n = (list(stats.values()) or [{}])[0].get("n_osm_features")
             self.lbl_status.setText(
-                "Preview rendered." if n is None else
-                f"Preview rendered — {n} OSM feature(s) in this tile.")
+                t("preview_done_counts", total=breakdown["total_osm_px"]))
         except Exception as e:                       # noqa: BLE001 - shown to the user
             _log(f"preview failed: {e}", member(Qgis, 'Warning'))
-            self.lbl_status.setText(f"Preview failed: {e}")
-            QMessageBox.critical(self, "Preview failed", str(e))
-
-    def _show_warnings(self, msgs):
-        """Put coverage warnings where the decision is made, not in the message log.
-
-        A tile with zero OSM features renders as clean CLC+ land cover and looks like
-        countryside, not like a failure. The user is about to tick a box saying the render
-        is correct, so the warning belongs directly above that box.
-        """
-        if not msgs:
-            self.lbl_warn.setVisible(False)
-            self.lbl_warn.setText("")
-            return
-        self.lbl_warn.setText("<b>Warning</b><br>" + "<br>".join(msgs))
-        self.lbl_warn.setVisible(True)
-        for m in msgs:
-            _log(m, member(Qgis, 'Warning'))
+            self.lbl_status.setText(t("preview_failed", err=e))
+            QMessageBox.critical(self, t("preview_failed_title"), str(e))
 
     def _step_preview(self, d):
         self._preview_index = max(0, self._preview_index + d)
         self.cb_confirm.setChecked(False)
         self._render_preview()
 
-    def _show_preview(self, path, tile, n_tiles):
-        from gencp_core import pipeline
-        img = pipeline.preview_image(path).convert("RGB")
+    def _show_preview(self, img, tile, n_tiles):
+        img = img.convert("RGB")
         w, h = img.size
-        qimg = QImage(img.tobytes("raw", "RGB"), w, h, 3 * w, member(QImage, 'Format_RGB888')).copy()
+        qimg = QImage(img.tobytes("raw", "RGB"), w, h, 3 * w,
+                      member(QImage, 'Format_RGB888')).copy()
         pm = QPixmap.fromImage(qimg).scaled(
-            TILE_PREVIEW_PX, TILE_PREVIEW_PX, member(Qt, 'KeepAspectRatio'), member(Qt, 'FastTransformation'))
+            TILE_PREVIEW_PX, TILE_PREVIEW_PX,
+            member(Qt, 'KeepAspectRatio'), member(Qt, 'FastTransformation'))
         self.preview_label.setPixmap(pm)
         i, j, tx, ty = tile
-        self.preview_label.setToolTip(
-            f"tile ({i},{j}) NW corner {tx:.1f}, {ty:.1f} — {w}×{h} px at 10 m")
-        self.cb_confirm.setText(
-            f"I have looked at tile ({i},{j}) of {n_tiles} above and the render is correct")
+        self.preview_label.setToolTip(f"({i},{j})  {tx:.1f}, {ty:.1f}  {w}x{h} @ 10 m")
+        self.cb_confirm.setText(t("confirm_tile", i=i, j=j, n=n_tiles))
 
-    # ------------------------------------------------------------ validation -
+    def _show_osm_content(self, b, frac):
+        """What is actually in this tile, by class.
+
+        "4 OSM feature(s) in this tile" is not a number anyone can judge. Which four, and
+        of what kind, is - and it is what makes the confirmation checkbox answerable.
+        """
+        def cell(n):
+            return t("osm_px", n=n) if n else t("osm_none")
+        self.lbl_osm.setText(
+            f"<b>{t('osm_breakdown_title')}</b>"
+            f"<table cellspacing='3'>"
+            f"<tr><td>{t('osm_roads')}</td><td align='right'>{cell(b['roads'])}</td></tr>"
+            f"<tr><td>{t('osm_buildings')}</td><td align='right'>{cell(b['buildings'])}</td></tr>"
+            f"<tr><td>{t('osm_water')}</td><td align='right'>{cell(b['water'])}</td></tr>"
+            f"<tr><td>{t('osm_landuse')}</td><td align='right'>{cell(b['landuse'])}</td></tr>"
+            f"</table>"
+            f"<span style='color:gray'>{frac * 100:.3f}%</span>")
+
+    def _show_warnings(self, msgs, breakdown=None, frac=None):
+        """Warnings go inside the confirmation frame, directly above the checkbox.
+
+        A tile with no OSM data renders as clean CLC+ land cover and looks like
+        countryside, not like a failure. The user is about to tick a box saying the render
+        is correct; this is what gives that box something to bite on, so the two are drawn
+        as one block and the frame itself changes colour.
+        """
+        parts = list(msgs or [])
+        if breakdown is not None:
+            if breakdown["total_osm_px"] == 0:
+                parts.insert(0, t("osm_zero_warning"))
+            elif frac is not None and frac < SPARSE_OSM_FRACTION:
+                parts.insert(0, t("osm_sparse_warning", pct=frac * 100,
+                                  roads=breakdown["roads"],
+                                  buildings=breakdown["buildings"],
+                                  water=breakdown["water"],
+                                  landuse=breakdown["landuse"]))
+        if not parts:
+            self.lbl_warn.setVisible(False)
+            self.lbl_warn.setText("")
+            self.confirm_box.setStyleSheet(CALM_BOX)
+            return
+        self.lbl_warn.setText("<br><br>".join(parts))
+        self.lbl_warn.setStyleSheet(WARN_STYLE)
+        self.lbl_warn.setVisible(True)
+        self.confirm_box.setStyleSheet(ALERT_BOX)
+        for m in parts:
+            _log(m, member(Qgis, 'Warning'))
+
+    # ----------------------------------------------------------- validation ---
     def _pbf_or_none(self):
         if self.rb_local.isChecked():
-            t = self.pbf_edit.text().strip()
-            return t or None
+            return self.pbf_edit.text().strip() or None
         return None
+
+    def _update_source_summary(self):
+        clc = Path(self.clc_edit.text().strip() or "")
+        if self.rb_local.isChecked():
+            pbf = Path(self.pbf_edit.text().strip() or "")
+            if pbf.name and clc.name:
+                self.lbl_summary.setText(t("source_summary_ok", pbf=pbf.name, clc=clc.name))
+                return
+        elif clc.name:
+            self.lbl_summary.setText(t("source_summary_overpass", clc=clc.name))
+            return
+        self.lbl_summary.setText("")
 
     def _source_ok(self):
         if self.rb_local.isChecked():
             p = self.pbf_edit.text().strip()
             if not p:
-                return False, "Choose a local .osm.pbf file, or switch to Overpass."
+                return False, t("err_pbf_empty")
             if not Path(p).is_file():
-                return False, f"OSM extract not found: {p}"
+                return False, t("err_pbf_missing", path=p)
         clc = self.clc_edit.text().strip()
         if not clc:
-            return False, "The CLC+ Backbone raster path is required."
+            return False, t("err_clc_empty")
         if not Path(clc).is_file():
-            return False, f"CLC+ raster not found: {clc}"
+            return False, t("err_clc_missing", path=clc)
+        return True, ""
+
+    def _confidence_state(self):
+        """(will_produce, note). Never silently downgrades the score.
+
+        The bands were calibrated on one arm with one stochastic export. Offering them for
+        a different model would be inventing a validation, so the layer is withheld and the
+        note says exactly which file is missing or which model is wrong.
+        """
+        if not self.cb_confidence.isChecked():
+            return False, ""
+        from gencp_core import confidence as conf
+        model = self.model_edit.text().strip()
+        if not model or not Path(model).is_file():
+            return False, ""
+        if not conf.model_is_validated(model):
+            return False, t("confidence_not_validated")
+        if conf.stochastic_model_for(model) is None:
+            name = Path(model).stem.replace("_fp32", "_stochastic_fp32") + ".onnx"
+            return False, t("confidence_no_stochastic", name=name)
         return True, ""
 
     def _validate(self):
@@ -490,48 +735,113 @@ class GenCPDialog(QDialog):
         if not getattr(self, "_ui_ready", False):
             return
         ok_src, why = self._source_ok()
+        self._update_source_summary()
         self.lbl_src.setText("" if ok_src else f"<span style='color:#a00'>{why}</span>")
+        if not ok_src:
+            # The fix is inside the Advanced group, so open it rather than pointing at a
+            # collapsed box. Never auto-collapse here: the user may be mid-edit.
+            self._set_advanced_collapsed(False)
         self.btn_preview.setEnabled(
             self._extent is not None and getattr(self, "_extent_ok", False) and ok_src)
+
+        _will, note = self._confidence_state()
+        self.lbl_conf_note.setText(note)
+        self.lbl_conf_note.setVisible(bool(note))
+        if note:
+            self.lbl_conf_note.setStyleSheet(WARN_STYLE)
+
         model_ok = Path(self.model_edit.text().strip() or "/nonexistent").is_file()
         out_ok = (not self.cb_write.isChecked()) or bool(self.out_edit.text().strip())
         can_run = bool(self._extent is not None and getattr(self, "_extent_ok", False)
-                       and ok_src and model_ok
-                       and self._confirmed and out_ok and self._task is None)
+                       and ok_src and model_ok and self._confirmed and out_ok
+                       and self._task is None)
         self.btn_run.setEnabled(can_run)
-        if not self._confirmed and self._extent is not None and ok_src:
-            self.lbl_status.setText(
-                "Render and confirm the preview in section 3 before generating.")
+        if self._task is None and not can_run:
+            self.lbl_status.setText(self._first_blocker(ok_src, model_ok, out_ok))
 
-    # ------------------------------------------------------------------ run --
+    def _first_blocker(self, ok_src, model_ok, out_ok):
+        """The one thing to do next, phrased as the fix rather than the fault."""
+        if self._extent is None:
+            return t("err_no_layer")
+        if not self._extent_ok:
+            return self.lbl_tiles.text()
+        if not ok_src:
+            return self._source_ok()[1]
+        if not model_ok:
+            return t("err_model_missing")
+        if not out_ok:
+            return t("err_out_missing")
+        if not self._confirmed:
+            return t("err_not_confirmed")
+        return t("idle")
+
+    # -------------------------------------------------------------------- run -
     def _start(self):
-        from gencp_core import extent as ext
-        e, work, _ = ext.resolve(self._extent, self._crs)
+        from gencp_core import confidence as conf
+        model = self.model_edit.text().strip()
+        will_conf, _note = self._confidence_state()
         params = dict(
-            extent_bbox=self._extent, crs=self._crs,
-            model_path=self.model_edit.text().strip(),
+            extent_bbox=self._extent, crs=self._crs, model_path=model,
             out_tif=self.out_edit.text().strip() if self.cb_write.isChecked() else None,
             pbf=self._pbf_or_none(), base_product="clcplus",
             overlap_m=float(self.overlap_box.currentData()),
+            confidence=bool(will_conf),
+            stochastic_model=(str(conf.stochastic_model_for(model)) if will_conf else None),
         )
         self._apply_clc_path()
+        self._remember("clc_path", self.clc_edit.text().strip())
+        self._remember("model_path", model)
+        if self.out_edit.text().strip():
+            self._remember("out_dir", str(Path(self.out_edit.text().strip()).parent))
+        if self._pbf_or_none():
+            self._remember("pbf_path", self._pbf_or_none())
 
         from .task import GenerateTask
-        self._task = GenerateTask("GenCP synthetic reference", params)
-        self._task.progressChanged.connect(
-            lambda: (self.progress.setValue(int(self._task.progress())),
-                     self.lbl_status.setText(self._task.message)))
+        self._task = GenerateTask("GenCP", params)
+        self._task.progressChanged.connect(self._on_progress)
         self._task.taskCompleted.connect(self._done)
         self._task.taskTerminated.connect(self._failed)
         self.btn_run.setEnabled(False)
         self.btn_cancel.setEnabled(True)
-        self.lbl_status.setText("Running on a background task — QGIS stays responsive.")
+        self.lbl_verdict.setVisible(False)
+        self.lbl_status.setText(t("running_note"))
         QgsApplication.taskManager().addTask(self._task)
+
+    def _on_progress(self):
+        """A step name beats a percentage: it tells a slow step from a hung one."""
+        if self._task is None:
+            return
+        self.progress.setValue(int(self._task.progress()))
+        raw = self._task.message or ""
+        stage, _, counts = raw.partition(":")
+        done, _, total = counts.strip().partition("/")
+        key = {"render": "stage_render", "infer": "stage_infer",
+               "confidence": "stage_confidence", "mosaic": "stage_mosaic"}.get(
+                   stage.strip(), "stage_unknown")
+        self.lbl_status.setText(t(key, done=done or "?", total=total or "?"))
 
     def _cancel(self):
         if self._task is not None:
             self._task.cancel()
-            self.lbl_status.setText("Cancelling…")
+            self.lbl_status.setText(t("cancelling"))
+
+    def _style_confidence_layer(self, layer):
+        """Paletted renderer carrying the band names, so nobody configures symbology.
+
+        The GeoTIFF already has a colour table, but QGIS will happily open a single-band
+        uint8 raster as a grey ramp. Setting the renderer explicitly is what guarantees the
+        legend reads "Kırmızı - kullanmayın" rather than "1".
+        """
+        from gencp_core import confidence as conf
+        from qgis.core import QgsPalettedRasterRenderer
+        from qgis.PyQt.QtGui import QColor
+        labels = {conf.BAND_RED: t("band_red"), conf.BAND_AMBER: t("band_amber"),
+                  conf.BAND_GREEN: t("band_green")}
+        classes = [QgsPalettedRasterRenderer.Class(
+            int(v), QColor(*conf.BAND_COLOURS[v]), labels[v])
+            for v in (conf.BAND_RED, conf.BAND_AMBER, conf.BAND_GREEN)]
+        layer.setRenderer(QgsPalettedRasterRenderer(layer.dataProvider(), 1, classes))
+        layer.triggerRepaint()
 
     def _done(self):
         task, self._task = self._task, None
@@ -540,35 +850,68 @@ class GenCPDialog(QDialog):
         out = res.get("output")
         msgs = []
         if out:
-            msgs.append(f"wrote {out}")
+            msgs.append(t("wrote", path=Path(out).name))
             if self.cb_add_layer.isChecked():
                 layer = QgsRasterLayer(out, Path(out).stem)
                 if layer.isValid():
                     QgsProject.instance().addMapLayer(layer)
-                    msgs.append("added as a layer")
+                    msgs.append(t("added_layer"))
                 else:
-                    msgs.append("layer failed to load")
+                    msgs.append(t("layer_failed"))
         elif self.cb_add_layer.isChecked():
-            msgs.append("nothing written to disk, so there is no file to add as a layer; "
-                        "tick 'Write a GeoTIFF' to add the result to the map")
+            msgs.append(t("no_file_to_add"))
+
+        cinfo = res.get("confidence") or {}
+        cpath = cinfo.get("output")
+        if cpath and self.cb_add_layer.isChecked():
+            clayer = QgsRasterLayer(cpath, Path(cpath).stem)
+            if clayer.isValid():
+                try:
+                    self._style_confidence_layer(clayer)
+                except Exception as e:               # noqa: BLE001
+                    _log(f"confidence styling failed: {e}", member(Qgis, 'Warning'))
+                QgsProject.instance().addMapLayer(clayer)
+        self._show_verdict(cinfo.get("verdict"))
+
         seam = res.get("seam")
         if seam:
-            msgs.append(f"seam energy ratio {seam['ratio']:.3f}")
+            msgs.append(t("seam", ratio=seam["ratio"]))
         warns = res.get("warnings") or []
         self._show_warnings(warns)
-        self.lbl_status.setText(" · ".join(msgs) or "Done.")
+        self.lbl_status.setText(" · ".join(msgs) or t("done"))
         self.btn_cancel.setEnabled(False)
         self._validate()
         self.iface.messageBar().pushMessage(
             "GenCP", " · ".join(msgs),
             level=member(Qgis, 'Warning' if warns else 'Success'))
 
+    def _show_verdict(self, verdict):
+        """One line for the whole run, in plain language, with its scope attached."""
+        if not verdict:
+            self.lbl_verdict.setVisible(False)
+            return
+        fr = verdict["fractions"]
+        band_label = {"red": t("band_red"), "amber": t("band_amber"),
+                      "green": t("band_green")}[verdict["mean_band"]]
+        html = [f"<b>{t('verdict_title')}</b>",
+                t("verdict_line", green=fr["green"] * 100, amber=fr["amber"] * 100,
+                  red=fr["red"] * 100, band=band_label)]
+        if verdict["red_exceeds_threshold"]:
+            html.append(t("verdict_red_warning", red=fr["red"] * 100,
+                          thr=verdict["red_warn_fraction"] * 100))
+        html.append(f"<span style='color:gray'>{t('verdict_scope')}</span>")
+        self.lbl_verdict.setText("<br>".join(html))
+        self.lbl_verdict.setStyleSheet(
+            WARN_STYLE if verdict["red_exceeds_threshold"]
+            else "border:1px solid palette(mid); padding:6px;")
+        self.lbl_verdict.setVisible(True)
+
     def _failed(self):
         task, self._task = self._task, None
         self.btn_cancel.setEnabled(False)
         if task is not None and task.exception is not None:
-            self.lbl_status.setText(f"Failed: {task.exception}")
-            QMessageBox.critical(self, "Generation failed", str(task.exception))
+            self.lbl_status.setText(t("failed", err=task.exception))
+            QMessageBox.critical(self, t("failed_title"), str(task.exception))
         else:
-            self.lbl_status.setText("Cancelled.")
+            self.lbl_status.setText(t("cancelled"))
         self._validate()

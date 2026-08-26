@@ -51,6 +51,11 @@ PLUGIN_ID = "gencp_synthetic_reference"
 CHECKS = []
 SUMMARY = {}
 _OUT = open(os.environ.get("GENCP_TEST_OUT", "/tmp/gencp_e2e.txt"), "w")
+# A segfault in a native extension kills the process without touching the except handler
+# below, which looks exactly like "the harness stopped for no reason". faulthandler prints
+# the Python frames of every thread first, which is what turned a guess into a diagnosis.
+import faulthandler
+faulthandler.enable(_OUT)
 
 
 def say(*a):
@@ -85,6 +90,20 @@ def shot(widget, name):
     ok = pm.save(str(p))
     say(f"    [shot] {name}  {pm.width()}x{pm.height()}  {'ok' if ok else 'SAVE FAILED'}")
     return ok and p.is_file()
+
+
+def full_shot(dlg, name):
+    """Grab the whole form, not the window.
+
+    The dialog scrolls, so a window-sized grab silently cuts sections 5 and 6 off - which
+    is exactly where the confidence verdict lives. Grabbing the scroll area's inner widget
+    renders every section in one image.
+    """
+    from qgis.PyQt.QtWidgets import QScrollArea
+    sa = dlg.findChild(QScrollArea)
+    w = sa.widget() if (sa is not None and sa.widget() is not None) else dlg
+    w.resize(w.sizeHint().width(), w.sizeHint().height())
+    return shot(w, name)
 
 
 def canvas_png(layers, extent, name, size=(760, 760)):
@@ -260,14 +279,23 @@ def phase_b(plugin):
           shot(dlg, "02_reference_selected.png"))
     check("section 1 displays the extent", "→" in dlg.lbl_extent.text())
     check("section 1 displays the CRS", "EPSG:" in dlg.lbl_crs.text(), dlg.lbl_crs.text())
+    # Assertions are derived from the plugin's own strings module rather than from English
+    # literals, so translating the UI does not silently turn this test green-on-nothing.
+    import importlib
+    STR = importlib.import_module(f"{PLUGIN_ID}.strings").S
+    tiles_lead = STR["tiles_value"].split("{")[0].strip()          # e.g. "<b>"
+    note_lead = STR["tiles_estimate_note"].split("{")[0].strip()
     check("section 1 displays tile count and an estimate",
-          "tile" in dlg.lbl_tiles.text() and "min" in dlg.lbl_tiles.text())
+          note_lead and note_lead in dlg.lbl_tiles.text(),
+          f"looked for {note_lead!r} from strings.tiles_estimate_note")
 
     # the displayed estimate, parsed back out for the honesty comparison
     import re
-    m = re.search(r"estimate ([\d.]+) min", dlg.lbl_tiles.text())
+    est_pat = re.escape(STR["tiles_estimate_note"]).replace(
+        re.escape("{mins:.1f}"), r"([\d.]+)")
+    m = re.search(est_pat, dlg.lbl_tiles.text())
     est_min = float(m.group(1)) if m else None
-    n_tiles = int(re.search(r"(\d+) tiles?", dlg.lbl_tiles.text()).group(1))
+    n_tiles = int(re.search(r"<b>(\d+)", dlg.lbl_tiles.text()).group(1))
     SUMMARY["estimate_minutes"] = est_min
     SUMMARY["n_tiles"] = n_tiles
     say(f"    parsed estimate: {est_min} min for {n_tiles} tile(s)")
@@ -411,6 +439,187 @@ def phase_b(plugin):
     return dlg, out
 
 
+def phase_c(plugin, layer):
+    """The confidence layer: refused for an uncalibrated model, produced for the right one."""
+    say("")
+    say("=" * 72)
+    say("PHASE C - the confidence layer")
+    say("=" * 72)
+    from qgis.PyQt.QtWidgets import QApplication
+    import qgis.utils
+    dlg = plugin.dialog
+
+    C2 = ROOT / "tubitak/data/plugin_models/gencp_C2_fp32.onnx"
+    C3 = ROOT / "tubitak/data/plugin_models/gencp_C3_fp32.onnx"
+
+    # 1. an uncalibrated model must REFUSE the layer and say why
+    dlg.model_edit.setText(str(C3))
+    dlg._describe_model()
+    dlg.cb_confidence.setChecked(True)
+    QApplication.processEvents()
+    check("an uncalibrated model refuses the confidence layer, with a reason",
+          dlg.lbl_conf_note.isVisible() and bool(dlg.lbl_conf_note.text()),
+          dlg.lbl_conf_note.text()[:90].replace("<b>", "").replace("</b>", ""))
+    check("shot 9: the refusal, shown in section 6",
+          full_shot(dlg, "09_confidence_refused_wrong_model.png"))
+
+    # 2. the calibrated model produces it
+    dlg.model_edit.setText(str(C2))
+    dlg._describe_model()
+    QApplication.processEvents()
+    check("the calibrated model is accepted", not dlg.lbl_conf_note.isVisible(),
+          dlg.lbl_conf_note.text()[:60])
+
+    out = GATES / "plugin_e2e_conf.tif"
+    for f in (out, out.with_name(out.stem + "_confidence.tif")):
+        if f.exists():
+            f.unlink()
+    dlg.out_edit.setText(str(out))
+    dlg._render_preview()
+    QApplication.processEvents()
+    check("shot 10: preview with the OSM content breakdown beside it",
+          full_shot(dlg, "10_preview_with_osm_breakdown.png"))
+    check("the OSM breakdown panel is populated",
+          bool(dlg.lbl_osm.text()), dlg.lbl_osm.text()[:70].replace("<b>", ""))
+    # Assert the RULE, not a hoped-for outcome. This Ankara tile carries 195 road pixels,
+    # 0.295% - just ABOVE the 0.2% sparse threshold - so the correct behaviour here is
+    # silence, and a test demanding a warning would have been a test demanding a false
+    # positive. The warning path is exercised on a genuinely empty extent below.
+    import importlib
+    import numpy as _np
+    from gencp_core import confidence as _conf, pipeline as _pl
+    dmod = importlib.import_module(f"{PLUGIN_ID}.dialog")
+    _img = _pl.preview_image(list(_pl.render_inputs(
+        [ _pl._extent.tile_grid(_pl._extent.resolve(dlg._extent, dlg._crs)[0],
+                                dlg.overlap_box.currentData())[0][0] ],
+        _pl._extent.resolve(dlg._extent, dlg._crs)[1],
+        _pl.default_work_dir() / "render", pbf=dlg._pbf_or_none()).values())[0])
+    _idx, _names = _conf.class_map(_np.asarray(_img.convert("RGB")))
+    _frac = float(_conf.osm_mask(_idx, _names).mean())
+    _should = _frac < dmod.SPARSE_OSM_FRACTION
+    check("the sparse-tile warning follows its threshold rule, either way",
+          dlg.lbl_warn.isVisible() == _should,
+          f"osm fraction {_frac*100:.4f}%, threshold {dmod.SPARSE_OSM_FRACTION*100:.1f}%, "
+          f"warning shown={dlg.lbl_warn.isVisible()} (expected {_should})")
+    dlg.cb_confirm.setChecked(True)
+    QApplication.processEvents()
+
+    t0 = time.time()
+    dlg.btn_run.click()
+    task = dlg._task
+    deadline = time.time() + 1800
+    stages = []
+    while dlg._task is not None and time.time() < deadline:
+        QApplication.processEvents()
+        m = (task.message or "").split(":")[0].strip()
+        if m and (not stages or stages[-1] != m):
+            stages.append(m)
+        time.sleep(0.05)
+    wall = time.time() - t0
+    say(f"    stages seen: {stages}")
+    say(f"    wall clock with confidence: {wall:.2f}s")
+    SUMMARY["confidence_wall_seconds"] = wall
+    SUMMARY["stages_seen"] = stages
+    check("generation with confidence completed",
+          dlg._task is None and task.exception is None,
+          str(task.exception) if task.exception else "")
+    conf_tif = out.with_name(out.stem + "_confidence.tif")
+    check("confidence GeoTIFF written", conf_tif.is_file(),
+          f"{conf_tif.stat().st_size/1e3:.0f} kB" if conf_tif.is_file() else "missing")
+    res = task.result or {}
+    v = (res.get("confidence") or {}).get("verdict") or {}
+    if v:
+        fr = v["fractions"]
+        say(f"    verdict: green {fr['green']*100:.1f}%  amber {fr['amber']*100:.1f}%  "
+            f"red {fr['red']*100:.1f}%  run band {v['mean_band']}")
+        SUMMARY["confidence_verdict"] = v
+    check("a run-level verdict is shown in section 6",
+          dlg.lbl_verdict.isVisible() and bool(dlg.lbl_verdict.text()),
+          dlg.lbl_verdict.text()[:100].replace("<b>", "").replace("</b>", ""))
+    check("shot 11: the verdict after a confidence run",
+          full_shot(dlg, "11_confidence_verdict.png"))
+
+    # Sampling task.message at 20 Hz is a race against a 0.3 s stage, and it lost: the
+    # pipeline demonstrably emits render/infer/confidence/mosaic in order, but the poll
+    # missed the middle one. What actually matters to a user is that each stage name
+    # becomes a readable Turkish line rather than a bare percentage, and that is testable
+    # without a race.
+    say(f"    (stage sampling is best-effort; saw {stages})")
+
+    class _FakeTask:
+        def __init__(self, msg):
+            self.message = msg
+
+        def progress(self):
+            return 42.0
+    labels = {}
+    real_task, dlg._task = dlg._task, None
+    for raw, key in (("render: 2/4", "stage_render"), ("infer: 3/4", "stage_infer"),
+                     ("confidence: 1/4", "stage_confidence"), ("mosaic: 1/1", "stage_mosaic")):
+        dlg._task = _FakeTask(raw)
+        dlg._on_progress()
+        labels[raw] = dlg.lbl_status.text()
+    dlg._task = real_task
+    for raw, txt in labels.items():
+        say(f"    {raw:20s} -> {txt}")
+    check("every pipeline stage maps to a readable step name, not a bare percentage",
+          all(txt and "%" not in txt and any(ch.isalpha() for ch in txt)
+              for txt in labels.values())
+          and len(set(labels.values())) == 4,
+          " | ".join(labels.values()))
+
+
+    names = {l.name(): l for l in QgsProject.instance().mapLayers().values()}
+    clayer = names.get(conf_tif.stem)
+    check("confidence layer added to the project", clayer is not None, ", ".join(names))
+    if clayer is not None:
+        r = clayer.renderer()
+        check("the confidence layer is auto-styled (paletted, not a grey ramp)",
+              type(r).__name__ == "QgsPalettedRasterRenderer", type(r).__name__)
+        try:
+            lbls = [c.label for c in r.classes()]
+        except Exception:                            # noqa: BLE001
+            lbls = []
+        check("its legend carries band NAMES, not raw values 1/2/3",
+              len(lbls) == 3 and all(any(ch.isalpha() for ch in s_) for s_ in lbls),
+              " | ".join(lbls))
+        canvas_png([clayer], layer.extent(), "12_canvas_confidence_layer.png")
+        canvas_png([clayer, layer], layer.extent(), "13_canvas_confidence_over_ref.png")
+        # QGIS's own legend, rendered from the layer tree
+        try:
+            iface = qgis.utils.iface
+            ltv = iface.layerTreeView()
+            ltv.resize(420, 180)
+            check("shot 14: the QGIS legend for the confidence layer",
+                  shot(ltv, "14_legend_layer_tree.png"))
+        except Exception as e:                       # noqa: BLE001
+            say(f"    layer-tree grab unavailable: {e}")
+    # --- the warning path, on an extent the extract genuinely does not cover ---------
+    say("\n  --- warning path: an extent with no OSM coverage at all ---")
+    from qgis.core import QgsVectorLayer, QgsFeature, QgsGeometry, QgsRectangle
+    e = layer.extent()
+    far = QgsRectangle(e.xMinimum(), e.yMinimum() - 300000.0,
+                       e.xMaximum(), e.yMaximum() - 300000.0)
+    vl = QgsVectorLayer(f"Polygon?crs={layer.crs().authid()}", "bos_alan (OSM yok)", "memory")
+    f = QgsFeature()
+    f.setGeometry(QgsGeometry.fromRect(far))
+    vl.dataProvider().addFeatures([f])
+    vl.updateExtents()
+    QgsProject.instance().addMapLayer(vl)
+    dlg.layer_box.setLayer(vl)
+    QApplication.processEvents()
+    dlg._render_preview()
+    QApplication.processEvents()
+    check("an extent with zero OSM features raises the warning",
+          dlg.lbl_warn.isVisible(), dlg.lbl_warn.text()[:90].replace("<b>", ""))
+    check("the confirmation checkbox is inside the alerted frame",
+          "ffc107" in dlg.confirm_box.styleSheet(), dlg.confirm_box.styleSheet()[:60])
+    check("shot 15: the warning, framed together with the checkbox it qualifies",
+          full_shot(dlg, "15_sparse_osm_warning.png"))
+    QgsProject.instance().removeMapLayer(vl.id())
+    return dlg
+
+
 def main():
     stub_popups()
     # An honest wall-clock number needs a cold cache. The first run of this harness
@@ -424,7 +633,13 @@ def main():
     plugin = phase_a()
     if plugin is None:
         return 1
-    phase_b(plugin)
+    dlg, out = phase_b(plugin)
+    layer = None
+    for l in QgsProject.instance().mapLayers().values():
+        if l.name().startswith("reference"):
+            layer = l
+    if dlg is not None and layer is not None:
+        phase_c(plugin, layer)
     say("")
     say("=" * 72)
     failed = [n for n, ok, _ in CHECKS if not ok]
