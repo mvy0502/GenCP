@@ -14,7 +14,7 @@ stays in the repo, marked **FAILED-as-designed**, and is never deleted.
 ## Task 1 — re-registered correctness gate
 
 **Reference chips:** the `acc_clcgate` acceptance corpus (30 chips, e.g. `30TXQ_*`), whose
-renders (`tubitak/data/rasteriser/chips/<stem>.tif`, 257 px, CLC+ base) were produced from
+renders (~~`tubitak/data/rasteriser/chips/`~~ **`tubitak/data/rasteriser/chips_clc/<stem>.tif`**, 257 px, CLC+ base — see the correction note at the foot of this file) were produced from
 the **dated Geofabrik snapshots with post-fix `-s smart` extracts**, and whose fakes
 (`acc_clcgate/out/genCP_HR_RGB_model`) went through the byte-verified inference path and
 KARIOS. Gate subset: **30TXQ_0830_00, 30TXQ_0879_00, and one further corpus chip**, each as
@@ -89,3 +89,44 @@ designed to cancel, and they are reported as the measured size of that term.
 Training-input provenance is established from repository records (commit timestamps,
 packaging times, extract mtimes, document statements), not memory; if the records are
 insufficient the answer is recorded as "unknown", not guessed.
+
+
+---
+
+## Correction note — 2026-08-26: the reference directory was named wrongly in this text
+
+**What was wrong.** Task 1 above named the reference renders as
+`tubitak/data/rasteriser/chips/<stem>.tif`. That directory holds the **WorldCover-era**
+corpus, rendered before the CLC+ base layer was introduced in commit `e15f5a9`
+(2026-08-19 11:48); its files are dated 2026-08-18 19:43. The CLC+ renders this gate
+actually used are in **`tubitak/data/rasteriser/chips_clc/`** (55 files, dated
+2026-08-19 11:46). The original wording is struck through above rather than deleted.
+
+**How it was found.** Gate R of the QGIS plugin work package
+([plugin-gate-registrations.md](plugin-gate-registrations.md)) inherited this path verbatim
+from this registration. Its first run failed **0/3** with a dominant
+`light_green -> forest_green` class flow — the signature of comparing a CLC+ render against
+a WorldCover render, not of a broken renderer. The failure is recorded in that package's
+amendment 1 and in [plugin-results.md](plugin-results.md).
+
+**Evidence that the numbers here are unaffected.** This is a text defect, not a data
+defect, and the distinction is measurable rather than argued. The current renderer's output
+is byte-identical to `chips_clc/` and **differs** from `chips/` for every stem the committed
+census `tool_runs/task4/acc_census.csv` marks `byte_exact = 1`:
+
+| stem | census `byte_exact` | vs `chips/` | vs `chips_clc/` |
+|---|---|---|---|
+| 30TXQ_0830_00 | 1 | differs | **identical** |
+| 30TXQ_0934_00 | 1 | differs | **identical** |
+| 30UYD_0907_00 | 1 | differs | **identical** |
+
+A census recording `byte_exact = 1` therefore cannot have been comparing against `chips/`,
+because nothing the renderer produces matches `chips/`. Two further confirmations: the
+census has **55 rows** and `chips_clc/` holds **55 files**; and this registration's own
+sentence already reads "257 px, **CLC+ base**" — the description was correct and only the
+path string was wrong.
+
+**Status.** Text corrected; **no result is retracted and no number changes.** Standing
+practice 5 — *registration text must name the exact corpus and the exact reference
+directory* — was added to `CLAUDE.md` because of this defect and the reference-directory
+error it later contributed to in Gate D.
