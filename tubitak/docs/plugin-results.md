@@ -97,18 +97,61 @@ text and is flagged there.
 **Input identity is measured, not assumed:** `gencp_core.infer.preprocess` (plain PIL +
 numpy) against the torchvision pipeline `test.py` uses — **max abs diff 0.0, bit-identical**.
 
-| model | R max / mean | G max / mean | B max / mean | overall max | bound | verdict | size |
-|---|---|---|---|---|---|---|---|
-| **fp32** | 0.000547 / 0.000034 | 0.000471 / 0.000024 | 0.000498 / 0.000018 | **0.000547 DN** | 0.003922 | **PASS** | 217.68 MB |
-| fp16 | 0.435565 / 0.028531 | 0.368820 / 0.022284 | 0.292493 / 0.023554 | **0.435565 DN** | 0.003922 | **FAIL** | 108.86 MB |
+### Units (Item A — amendment 2, 2026-08-26)
 
-All figures in 8-bit units (DN), measured on the continuous network output before
-quantisation so that rounding neither hides nor invents a difference. **fp32 is what
-ships.** fp16 halves the file at the cost of failing the registered bound by ~110x; it is
-reported because the registration asked for both sizes, and it is **not** deployed. (Its
-max error 0.436 DN is below the 0.5 DN that would usually change a rounded byte, so a
-casual look would call it "the same image" — the registered bound is what decides, and it
-fails it.)
+The first version of this section reported the bound as `0.003922 DN` while the
+differences were in DN. **Those were mixed units** — `0.003922 = 1/255` is a
+normalised-unit value — and the mismatch left fp16's `0.435565` readable either as
+negligible or as catastrophic. Units are now pinned.
+
+**The tensor's value range is `[-1, 1]`** (the generator ends in `Tanh`).
+`util.tensor2im` maps it to bytes as `DN = (x + 1) / 2 * 255`, so:
+
+```
+1 DN  =  2/255 tensor units (0.007843)  =  1/255 of full scale (0.003922 normalised)
+DN    =  |delta_tensor| * 127.5
+```
+
+| model | channel | max (DN) | mean (DN) | max (tensor, [-1,1]) | max (normalised, [0,1]) |
+|---|---|---:|---:|---:|---:|
+| **fp32** | R | 0.000547 | 0.000034 | 4.292e-06 | 2.146e-06 |
+| | G | 0.000471 | 0.000024 | 3.695e-06 | 1.848e-06 |
+| | B | 0.000498 | 0.000018 | 3.904e-06 | 1.952e-06 |
+| | **overall** | **0.000547** | **0.000025** | **4.292e-06** | **2.146e-06** |
+| fp16 | R | 0.435565 | 0.028531 | 3.416e-03 | 1.708e-03 |
+| | G | 0.368820 | 0.022284 | 2.893e-03 | 1.446e-03 |
+| | B | 0.292493 | 0.023554 | 2.294e-03 | 1.147e-03 |
+| | **overall** | **0.435565** | **0.024790** | **3.416e-03** | **1.708e-03** |
+
+The registered bound `1/255`, in every unit, under both readings of the ambiguous text:
+
+| reading | bound | fp32 | fp16 |
+|---|---|---|---|
+| **strict / literal** — one 255th of a grey level | **0.003922 DN** = 3.076e-05 tensor | **PASS** | **FAIL** |
+| loose — one grey level, i.e. 1/255 of full scale | 1.000000 DN = 0.007843 tensor = 0.003922 norm | PASS | PASS |
+
+### The unit-free measurement that decides it
+
+Because the reading is arguable and the units are not, the question was also answered
+without any unit convention: **how many pixels of the final uint8 image actually differ**,
+over all 20 tiles (1,310,720 pixels):
+
+| model | uint8 pixels differing | max uint8 difference |
+|---|---|---|
+| **fp32** | **112 / 1,310,720 (0.0085%)** | 1 DN |
+| fp16 | **94,992 / 1,310,720 (7.2473%)** | 1 DN |
+
+**Decision confirmed: fp32 ships, fp16 is rejected** — but for a correctly stated reason.
+fp16 fails the literal registered bound, and standing practice 6 forbids relaxing a bound
+after seeing the outcome. Independently of the wording, fp16 changes **7.25% of the output
+bytes against fp32's 0.0085%** — 850x more affected pixels — to save 109 MB out of a
+300 MB footprint. That trade is not worth departing from the gated path for.
+
+**Correction to what was reported earlier.** The first report said fp16 "fails the bound by
+~110x", which implied a large error. It is not large: fp16 never differs from PyTorch by
+more than **1 DN** on any pixel. What is true is that it perturbs 7.25% of output bytes
+rather than 0.0085%. The rejection stands; the earlier characterisation of its severity was
+wrong.
 
 ### The export decision that mattered
 
@@ -123,6 +166,59 @@ At batch size 1, BatchNorm2d in train mode is exactly InstanceNorm2d with the sa
 parameters (**verified: max abs diff 0.0**), so each BatchNorm2d is replaced by that
 equivalent before export. The shipped graph reproduces the evaluated path and is
 deterministic, because instance statistics depend only on the input.
+
+---
+
+## Item B — the deployed inference configuration
+
+Verified by counting modules in each built generator and nodes in each exported graph, not
+by reading the flags.
+
+| Configuration | Dropout | Normalisation | Where its numbers appear |
+|---|---|---|---|
+| **Measured baseline** (all prior project numbers) | **ON** — 3 × `nn.Dropout(0.5)`, active at test time (`--eval` defaults false and `test.py` never calls `.eval()`) | BatchNorm, **batch statistics** | Every C-phase result, all KARIOS numbers, `tool-results.md`, Registration A `seeded` arm |
+| Gate D arm 1 (`seeded`) | **ON**, seed 42 | BatchNorm, batch statistics | Gate D table, `seeded` column (Registration A, recorded) |
+| Gate D arm 2 (`det`) | **OFF** — 0 Dropout modules | BatchNorm, batch statistics | Gate D table, `regA det` column; reproduced here as `det_onnx` |
+| Gate D arm 3 (`evalbn`) | **OFF** | BatchNorm, **running statistics** | Gate D table, `evalbn` rows |
+| **Deployed ONNX model** (`gencp_C3_fp32.onnx`) | **OFF** — 0 `Dropout` nodes in the graph | 13 × `InstanceNormalization`, the exact batch-size-1 equivalent of batch-statistic BatchNorm | Gate O, Gate G, the plugin |
+
+### The deployed model differs from the measured baseline in one cell: dropout
+
+**Deployed has dropout OFF; every number this project has measured had dropout ON.** That
+is a real difference and it is stated rather than absorbed.
+
+**It has been measured**, in two links, both with numbers:
+
+1. **Dropout ON → OFF**, at fixed normalisation. This is exactly Registration A: paired
+   over 30 production-input Ankara chips, all four arms — pretrained −0.004 ± 0.089,
+   C1 −0.040 ± 0.077, C2 −0.021 ± 0.092, C3 −0.028 ± 0.070 px. All inside the registered
+   0.05 px indistinguishable band. Stated precision limit: n = 30, SE ≈ 0.077 px rules out
+   shifts above roughly 0.15 px, not all shifts.
+2. **PyTorch arm 2 → deployed ONNX**, at fixed dropout and normalisation. This is the
+   Gate D control: +0.0203 ± 0.0611 px (C3) and +0.0021 ± 0.0194 px (C2), both
+   indistinguishable.
+
+So the deployed configuration is two measured steps from the baseline, each within band.
+
+### The claim is narrowed
+
+"The export reproduces the evaluated path" was **too broad** and is withdrawn as stated. It
+was established only for **normalisation** — the InstanceNorm substitution is exact
+(max abs diff 0.0), so the deployed graph normalises exactly as every measured number did.
+It was **not** established for dropout, because the export deliberately removes dropout,
+which the baseline had.
+
+The correct claim, which is what the two links above support:
+
+> The exported model reproduces the **tool's deterministic default path** — dropout off,
+> batch-statistic normalisation — to within +0.02 px. That path was separately measured
+> against the evaluated stochastic baseline and found indistinguishable within the 0.05 px
+> band, with the precision limit stated.
+
+Dropout could not have been carried into the export in any case: a delivered tool must
+return the same image for the same input, and pix2pix's test-time dropout is the one thing
+that prevents it. The choice is disclosed, not hidden — and it was already the tool's
+default before this work package (decision of 2026-08-21).
 
 ---
 

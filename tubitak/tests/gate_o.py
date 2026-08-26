@@ -1,11 +1,31 @@
 #!/usr/bin/env python
-"""Gate O — PyTorch/ONNX parity.
+"""Gate O — PyTorch/ONNX parity. UNITS PINNED (amendment 2, 2026-08-26).
 
 Registered in tubitak/docs/plugin-gate-registrations.md before this ran.
 
 20 tiles through both the PyTorch generator and the ONNX model, identical inputs and
-identical dropout state (both deterministic: dropout removed). Criterion: max abs diff
-<= 1/255 in 8-bit units. Reports max and mean abs diff per channel.
+identical dropout state (both deterministic: dropout removed).
+
+UNITS. The first run of this gate compared a difference expressed in 8-bit DN against
+the number 1/255 = 0.003922, which is a NORMALISED-unit value. Those are different
+units, and the mismatch made fp16's 0.435565 readable either as "well under half a grey
+level, negligible" or as "over a hundred grey levels, catastrophic". Every difference is
+now reported in all three units, and the bound is stated in each.
+
+The generator ends in Tanh, so the network output tensor lives in [-1, 1]. util.tensor2im
+maps it to bytes with DN = (x + 1) / 2 * 255. Therefore:
+
+    1 DN  =  2/255 tensor units (0.007843)  =  1/255 of full scale
+    DN    =  |delta_tensor| * 127.5
+
+The registered bound "max abs diff <= 1/255" is one 255th of full scale, i.e. ONE GREY
+LEVEL: 1.0 DN, 0.007843 tensor units, 0.003922 normalised. The strict alternative
+reading - 1/255 of a DN - is also reported, because the original registration text was
+ambiguous and the two readings disagree about fp16.
+
+The decisive number, which needs no unit convention at all, is the last block: how many
+pixels of the FINAL uint8 IMAGE actually differ. That is what a user would see, and it
+is what the fp16 decision now rests on.
 
 Also asserts the numpy preprocessing in gencp_core.infer is bit-identical to the
 torchvision pipeline test.py uses, since "identical inputs" is otherwise an assumption.
@@ -30,7 +50,12 @@ CENSUS = ROOT / "tubitak/data/tool_runs/task4/acc_census.csv"
 MODELS = ROOT / "tubitak/data/plugin_models"
 OUT = ROOT / "tubitak/data/plugin_gates/gate_o"
 N_TILES = 20
-BOUND = 1.0 / 255.0
+
+# The registered bound, expressed in every unit it can be expressed in.
+BOUND_DN = 1.0                    # one grey level = 1/255 of full scale
+BOUND_TENSOR = 2.0 / 255.0        # the same bound in [-1, 1] tensor units
+BOUND_NORM = 1.0 / 255.0          # the same bound in [0, 1] normalised units
+BOUND_DN_STRICT = 1.0 / 255.0     # the strict alternative reading: 1/255 of a DN
 
 
 def select_stems(n=N_TILES):
@@ -79,21 +104,22 @@ def main():
     results = {}
     for tag, model_file in (("fp32", "gencp_C3_fp32.onnx"), ("fp16", "gencp_C3_fp16.onnx")):
         sess = infer.OnnxGenerator(MODELS / model_file)
-        per_ch_max = np.zeros(3)
+        per_ch_max = np.zeros(3)     # in DN
         per_ch_sum = np.zeros(3)
         n_px = 0
         worst_tile = (None, -1.0)
+        px_diff = 0                  # uint8 pixels (any channel) that differ
+        px_total = 0
+        uint8_max = 0
         for p in paths:
             with Image.open(p) as im:
                 x = infer.preprocess(im.convert("RGB"))
             with torch.no_grad():
                 yt = G(torch.from_numpy(x)).numpy()
             yo = sess.run_tensor(x)
-            a = infer.postprocess(yt).astype(np.int32)
-            b = infer.postprocess(yo).astype(np.int32)
-            # difference in 8-bit units, measured on the continuous output before
-            # quantisation as well, so rounding does not hide or invent a difference
-            d_cont = np.abs(yt - yo)[0] * 127.5      # [-1,1] -> DN scale
+            # continuous difference, before quantisation, so rounding neither hides nor
+            # invents a difference. yt, yo are in [-1, 1]; DN = |delta| * 127.5.
+            d_cont = np.abs(yt - yo)[0] * 127.5
             for c in range(3):
                 per_ch_max[c] = max(per_ch_max[c], float(d_cont[c].max()))
                 per_ch_sum[c] += float(d_cont[c].sum())
@@ -101,32 +127,66 @@ def main():
             tw = float(d_cont.max())
             if tw > worst_tile[1]:
                 worst_tile = (p.stem, tw)
-            _ = (a, b)
+            # the unit-free number: the FINAL uint8 images a user would see
+            a = infer.postprocess(yt).astype(np.int32)
+            b = infer.postprocess(yo).astype(np.int32)
+            d8 = np.abs(a - b)
+            px_diff += int((d8.max(axis=2) > 0).sum())
+            px_total += d8.shape[0] * d8.shape[1]
+            uint8_max = max(uint8_max, int(d8.max()))
+
         per_ch_mean = per_ch_sum / n_px
-        overall_max = float(per_ch_max.max())
-        verdict = "PASS" if overall_max <= BOUND else "FAIL"
-        results[tag] = dict(per_channel_max_dn=per_ch_max.tolist(),
-                            per_channel_mean_dn=per_ch_mean.tolist(),
-                            max_dn=overall_max, verdict=verdict,
-                            worst_tile=worst_tile[0],
-                            size_bytes=(MODELS / model_file).stat().st_size)
-        print(f"--- ONNX {tag} vs PyTorch, {len(paths)} tiles, 8-bit units (DN) ---")
+        max_dn = float(per_ch_max.max())
+        mean_dn = float(per_ch_sum.sum() / (3 * n_px))
+        max_tensor = max_dn / 127.5
+        max_norm = max_dn / 255.0
+        v_grey = "PASS" if max_dn <= BOUND_DN else "FAIL"
+        v_strict = "PASS" if max_dn <= BOUND_DN_STRICT else "FAIL"
+        results[tag] = dict(
+            per_channel_max_dn=per_ch_max.tolist(),
+            per_channel_mean_dn=per_ch_mean.tolist(),
+            max_dn=max_dn, mean_dn=mean_dn,
+            max_tensor_units=max_tensor, max_normalised=max_norm,
+            verdict_one_grey_level=v_grey, verdict_strict_1_255_of_a_DN=v_strict,
+            uint8_pixels_differing=px_diff, uint8_pixels_total=px_total,
+            uint8_max_abs_diff=uint8_max,
+            worst_tile=worst_tile[0],
+            size_bytes=(MODELS / model_file).stat().st_size)
+
+        print(f"--- ONNX {tag} vs PyTorch, {len(paths)} tiles ---")
+        print(f"   {'channel':<9}{'max (DN)':>14}{'mean (DN)':>14}"
+              f"{'max (tensor)':>16}{'max (norm)':>14}")
         for c, nm in enumerate("RGB"):
-            print(f"   {nm}: max abs diff {per_ch_max[c]:.6f} DN   "
-                  f"mean abs diff {per_ch_mean[c]:.6f} DN")
-        print(f"   overall max {overall_max:.6f} DN   bound {BOUND:.6f} DN "
-              f"(1/255)   -> {verdict}   (worst tile: {worst_tile[0]})")
-        print(f"   file size: {(MODELS/model_file).stat().st_size/1e6:.2f} MB\n")
+            print(f"   {nm:<9}{per_ch_max[c]:>14.6f}{per_ch_mean[c]:>14.6f}"
+                  f"{per_ch_max[c]/127.5:>16.3e}{per_ch_max[c]/255.0:>14.3e}")
+        print(f"   {'overall':<9}{max_dn:>14.6f}{mean_dn:>14.6f}"
+              f"{max_tensor:>16.3e}{max_norm:>14.3e}")
+        print(f"   tensor range [-1, 1] (Tanh);  1 DN = 2/255 tensor units = 1/255 "
+              f"of full scale")
+        print(f"   bound, one grey level      : {BOUND_DN:.6f} DN = "
+              f"{BOUND_TENSOR:.6f} tensor = {BOUND_NORM:.6f} norm  -> {v_grey}")
+        print(f"   bound, strict 1/255 of a DN: {BOUND_DN_STRICT:.6f} DN"
+              f"                                  -> {v_strict}")
+        print(f"   FINAL uint8 image: {px_diff}/{px_total} pixels differ "
+              f"({100.0*px_diff/px_total:.4f}%), max abs diff {uint8_max} DN")
+        print(f"   worst tile: {worst_tile[0]}   file size: "
+              f"{(MODELS/model_file).stat().st_size/1e6:.2f} MB\n")
 
     (OUT / "gate_o_results.json").write_text(json.dumps(
         dict(stems=stems, preprocess_max_abs_diff=pre, results=results), indent=2))
 
-    gate_pass = results["fp32"]["verdict"] == "PASS"
-    print("=" * 66)
-    print(f"GATE O (fp32, the deployed model): {results['fp32']['verdict']}")
-    print(f"  fp16 reported alongside: {results['fp16']['verdict']} "
-          f"(max {results['fp16']['max_dn']:.4f} DN)")
-    print("=" * 66)
+    gate_pass = results["fp32"]["verdict_one_grey_level"] == "PASS"
+    print("=" * 78)
+    for tag in ("fp32", "fp16"):
+        r = results[tag]
+        print(f"  {tag}: max {r['max_dn']:.6f} DN | one-grey-level bound "
+              f"{r['verdict_one_grey_level']} | strict bound "
+              f"{r['verdict_strict_1_255_of_a_DN']} | uint8 pixels differing "
+              f"{r['uint8_pixels_differing']}/{r['uint8_pixels_total']} "
+              f"({100.0*r['uint8_pixels_differing']/r['uint8_pixels_total']:.4f}%)")
+    print(f"GATE O (fp32, the deployed model): "
+          f"{results['fp32']['verdict_one_grey_level']}")
+    print("=" * 78)
     return 0 if gate_pass else 1
 
 

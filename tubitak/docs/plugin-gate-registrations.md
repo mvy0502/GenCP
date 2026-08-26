@@ -118,6 +118,20 @@ and mean abs diff, in 8-bit units, over all 20 tiles.
 normally bit-close; the expected max difference is well below 1 DN, arising only from
 float32 op-ordering differences between ATen and onnxruntime kernels.
 
+**Amendment 2 (2026-08-26) — units pinned, after the outcome was seen. Disclosed.**
+The criterion above says "max abs diff <= 1/255 **in 8-bit units**", and that text is
+ambiguous: `1/255` is a normalised-unit value, so "1/255 in 8-bit units" can be read as
+**one grey level** (1.0 DN, i.e. 1/255 of full scale) or as **one 255th of a grey level**
+(0.003922 DN). The two readings disagree about fp16 and agree about fp32.
+
+This amendment does **not** choose the reading that would change a verdict. Under
+standing practice 6 the stricter reading — the literal one, `<= 0.003922 DN` — remains the
+bound, and fp16 remains **failed**. Both readings are now reported side by side, together
+with a unit-free measurement (how many pixels of the final uint8 image actually differ)
+so the decision does not rest on a textual reading at all. The generator ends in `Tanh`,
+so the output tensor is in **[-1, 1]** and `DN = |delta| * 127.5`; `1 DN = 2/255 tensor
+units = 1/255 of full scale`.
+
 **On failure or export failure:** report and **stop**. Do not fall back to a PyTorch
 dependency inside QGIS — that changes the deployment story and is the institution's
 decision, not ours.
