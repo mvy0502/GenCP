@@ -20,6 +20,7 @@ with nearest-neighbour resampling so their per-pixel speckle survives — the ac
 diagnosis showed the reference composites OSM vectors over a per-pixel land-cover raster.
 """
 from __future__ import annotations
+import os
 from pathlib import Path
 import numpy as np
 
@@ -29,9 +30,15 @@ MARGIN_M = 300.0
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
-# CLC+ Backbone 2021 V1_1 (CLMS delivery, local).
-CLC_PATH = (_REPO_ROOT /
-            "tubitak/data/clcplus/CLMS_CLCplus_RASTER_2021_010m_eu_03035_V1_1.tif")
+# CLC+ Backbone 2021 V1_1 (CLMS delivery, local). The repository location is only a
+# default: a deployed plugin points GENCP_CLC_PATH at wherever the institution keeps it.
+CLC_PATH = Path(os.environ.get("GENCP_CLC_PATH") or (
+    _REPO_ROOT / "tubitak/data/clcplus/CLMS_CLCplus_RASTER_2021_010m_eu_03035_V1_1.tif"))
+
+
+def clc_path(explicit=None):
+    """Resolve the CLC+ raster: explicit argument, then GENCP_CLC_PATH, then the default."""
+    return Path(explicit or os.environ.get("GENCP_CLC_PATH") or CLC_PATH)
 
 WC_URL = ("https://esa-worldcover.s3.eu-central-1.amazonaws.com/v200/2021/map/"
           "ESA_WorldCover_10m_2021_v200_{lat}{lon}_Map.tif")
@@ -40,7 +47,7 @@ WC_URL = ("https://esa-worldcover.s3.eu-central-1.amazonaws.com/v200/2021/map/"
 KEEP = ("building", "landuse", "natural", "water", "waterway", "highway", "leisure")
 
 
-def fetch_clcplus(bounds_utm, crs, clc_path=None):
+def fetch_clcplus(bounds_utm, crs, clc_path_override=None):
     """CLC+ Backbone classes on the SUPERSAMPLE grid (nearest -> speckle preserved)."""
     import rasterio
     from rasterio.transform import from_origin
@@ -50,7 +57,7 @@ def fetch_clcplus(bounds_utm, crs, clc_path=None):
     x0, y0, x1, y1 = bounds_utm
     tgt = from_origin(x0, y1, GSD / SUPERSAMPLE, GSD / SUPERSAMPLE)
     dst = np.zeros((n, n), np.uint8)
-    with rasterio.open(str(clc_path or CLC_PATH)) as src:
+    with rasterio.open(str(clc_path(clc_path_override))) as src:
         bb = transform_bounds(crs, src.crs, x0 - 200, y0 - 200, x1 + 200, y1 + 200)
         win = wfb(*bb, src.transform).round_offsets().round_lengths()
         arr = src.read(1, window=win)
