@@ -22,21 +22,21 @@
 > itibaren aynı tarihi paylaşır; araştırma kaydında anılan 49 commit SHA'sının hepsi
 > her iki depoda da çözülür. `filter-repo` hiç kullanılmadı.
 >
-> ### Borçlu olunan tamamlayıcı senkron (top-up sync)
+> ### KURAL: İKİ DEPO KALICI OLARAK AYRILDI — HİÇBİR YÖNDE MERGE YOK, HİÇBİR ZAMAN
 >
-> Senkron noktası **`844dbec`**. gencp-validation'a bu noktaya kadar her şey aktarıldı
-> (birleştirme commit'i `f9e0de6`, ardından kanıt rasterları `284571b`). Ondan sonra bu
-> dalda oluşan commit'ler:
+> Bu bir uyarı değil, **kuraldır**. Uyarı unutulur; kapalı kapı unutulmaz.
 >
-> - `f95ad61`, `d393152`, `814f06c` — eklenti iş paketi (Gate R, O, D). Sınıra göre
->   GenCP'de kalır; gencp-validation'a taşınması **gerekmez**.
-> - `b815b46` — silme commit'i.
->
-> **UYARI, ve bu uyarı en önemli satırdır.** Tamamlayıcı senkron `tubitak-tr` dalının
-> birleştirilmesiyle **yapılamaz**. `b815b46` 263 dosyayı siler; bu dal olduğu gibi
-> birleştirilirse silme gencp-validation'a yayılır ve araştırma kaydını oradan da
-> siler. Aktarılması gereken bir şey çıkarsa **yalnız o commit'ler cherry-pick
-> edilmelidir**, dal birleştirilmemelidir.
+> - **`b815b46` 263 dosyayı siler.** `tubitak-tr` dalı gencp-validation'a
+>   birleştirilirse bu silme oraya yayılır ve **araştırma kaydını yok eder**.
+> - **Ters yön de kapalıdır.** gencp-validation `main` bu depoya birleştirilmez.
+> - **Bekleyen tek tamamlayıcı aktarım `cherry-pick` ile yapılır**, merge ile değil.
+>   Senkron noktası `844dbec`; oraya kadar her şey gencp-validation'da (birleştirme
+>   `f9e0de6`, ardından kanıt rasterları `284571b`). Sonrasında bu dalda oluşanlar:
+>   `f95ad61`, `d393152`, `814f06c` (eklenti iş paketi — sınıra göre GenCP'de kalır)
+>   ve `b815b46` (silme commit'i).
+> - **O aktarımdan sonra senkron KAPANIR.** GenCP fork ve QGIS eklenti iş paketi
+>   olarak devam eder; gencp-validation araştırma kaydı ve makale çalışması olarak
+>   devam eder. Bir daha birleşmezler.
 
 
 Bu dosya, projeyi devralacak kişinin (yeni stajyer veya proje sahibi) "ne nerede
