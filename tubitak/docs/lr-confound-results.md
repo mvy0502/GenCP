@@ -142,7 +142,102 @@ penalty and the title — would still have stood.
 
 ---
 
-## 4. Artifacts
+## 4. DECISION, 2026-08-26 — C1_nowarmup / C4_nowarmup will NOT be run
+
+**Recorded today with its full reasoning, rather than left to be reconstructed under
+review.** The registration named this follow-up as the only test of the reverse manipulation
+and left the decision to the supervising session. The decision is **not to run it**, for four
+reasons, in descending order of weight.
+
+**1. The measured effect is too small by two orders of magnitude.** The schedule moves a
+non-adversarial arm by +1.0% of the gap in the L1 family and −6.8% in the LPIPS family,
+neither at 2 SE. For the schedule to overturn the adversarial attribution it would have to act
+on the adversarial arms **far more strongly than on the non-adversarial ones**. Two ways to
+size that, both given because they differ and the conservative one is the honest one to quote:
+
+- On the **point estimate**, closing the L1 gap needs 0.6473 px against the 0.0065 px measured
+  — a factor of **≈ 100**.
+- On the **2 SE upper bound** of the measured movement (0.0065 + 2 × 0.0335 = 0.0735 px),
+  which is the right bound to use because the point estimate is itself indistinguishable from
+  noise — a factor of **≈ 9**.
+
+**Quote the ≈ 9.** It is the conservative figure and it is still an implausible asymmetry: no
+mechanism has been proposed by which an identical learning-rate ladder would act nine times
+more strongly on a network that also has a discriminator attached.
+
+**2. The reverse manipulation is not a cleaner control — it is a different training regime.**
+[phase-c-config.md](phase-c-config.md) already registers *why* the warm-up exists: joint
+training from a cold discriminator at full learning rate is an **unstable configuration**, and
+the low-LR joint warm-up was the chosen protocol precisely to avoid it. So removing it does
+not isolate the schedule; it introduces instability as a second changed factor. **A worse
+`C1_nowarmup` could not separate "the schedule matters" from "the run destabilised", and a
+null `C1_nowarmup` would only confirm what this probe already shows.** An experiment whose
+adverse outcome is uninterpretable and whose null outcome is redundant is not worth $21 or a
+night — it is worth less than that, because a misread adverse outcome would cost the
+attribution the probe just secured.
+
+**3. Independent evidence rules out a schedule-concentrated mechanism, from the shape of the
+curve.** The adversarial deficit is present at **epoch 1** and is large there:
+C1 − C2 = **+0.546 ± 0.048 px** at epoch 1 ([headline-results.md](headline-results.md)
+checkpoint sweep), which is over 11 SE, and C1 versus pretrained is already **−0.399 ± 0.064
+(6.3 SE)** — the wrong sign for cold-discriminator damage. **An effect produced by an LR
+ladder that has barely begun to diverge at epoch 1 does not appear full-size at epoch 1.**
+
+> **Correction to the reasoning as it was put to this session, made rather than passed
+> through.** The deficit does **not** grow *monotonically*. The committed sweep is
+> +0.546 (e1) → +0.402 (e2) → +0.384 (e5) → +0.552 (e10) → **+0.700 (e20)** — a
+> **dip-then-grow-then-plateau** shape, the same shape the LPIPS family shows and the same
+> one [headline-results.md](headline-results.md) already flags as *not* covered by its
+> registered bands. **The argument survives the correction and does not depend on
+> monotonicity**: what rules out the schedule explanation is that the deficit is already
+> +0.546 at epoch 1, not the path it takes afterwards. Writing "grows monotonically" in the
+> manuscript would be false against our own committed table.
+
+**4. The title-bearing reading was never exposed to this confound.** The secondary contrast
+C5 − C2 compares two un-warmed 20-epoch arms with **identical integrated LR of 15.00 each**.
+It is immune by construction, as the registration recorded before the numbers existed. The
+follow-up could not have protected it, because it was never at risk.
+
+**What this decision does not do.** It does not claim the reverse manipulation was run, and it
+does not claim the adversarial arms are *known* to be unaffected by schedule removal. **It
+records that the question was asked, bounded from one side, and judged not worth the
+experiment that would bound it from the other** — with the reasons written down while they
+were live rather than assembled afterwards. If a reviewer asks for `C1_nowarmup`, this section
+is the answer, and reason 2 is the load-bearing half of it.
+
+### The pseudoreplication objection, raised here rather than waited for
+
+**This probe's ±0.0335 and ±0.0383 are CHIP-LEVEL standard errors at a single seed.** That is
+the same class of statistic this paper criticises the upstream work for, and the same class
+the whole seed-replication package exists to correct. **Stating it beside the number rather
+than in a limitations paragraph, because a reader who finds it themselves is entitled to
+assume we did not notice.**
+
+**The conclusion survives it, and the reason is arithmetic rather than rhetorical.** The
+measured movements sit **0.19 SE** and **0.94 SE** from zero, against a gap they would need to
+close of roughly **0.6 px**. A seed-level interval on this quantity would be wider than the
+chip-level one — the seed-block's own contrasts show seed-level spreads two to three times
+chip-level SEs — but **widening ±0.0335 by a factor of three gives ±0.10 px, which is still
+six times too small to reach the gap.** The probe is not close to its threshold in a way that
+a better error bar could rescue or destroy; it is two orders of magnitude away.
+
+**What a single seed genuinely cannot do here is bound the seed-to-seed variability of the
+schedule effect itself.** If the schedule's effect on residuals varied wildly across seeds,
+one seed would not reveal it. That limitation stands, is not repaired by this probe, and is
+the honest residual uncertainty in the branch-2 conclusion.
+
+### The manuscript line this supports
+
+> **The learning-rate asymmetry is a disclosed design asymmetry whose consequence is
+> MEASURED rather than assumed small — bounded at roughly 1% of the adversarial gap by a
+> within-seed, within-platform probe — with the secondary contrast immune by construction.**
+
+Not "negligible", not "controlled for". **Measured, bounded, and with the bound's own scope
+attached.**
+
+---
+
+## 5. Artifacts
 
 Per standing practice 10, committed to `tubitak/docs/evidence/C45_s43_modalwarmup/`:
 
