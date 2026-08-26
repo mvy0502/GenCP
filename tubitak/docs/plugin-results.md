@@ -385,6 +385,120 @@ of the two, because it needs no pairing and its effect is an order of magnitude 
 
 ---
 
+## Item D — registration audit
+
+Findings only. Nothing is retracted or amended here; what *would* need retracting is listed
+at the end for the institution to decide.
+
+### D1 — `tool-gate-registration-2` names the wrong corpus directory: **text only, numbers are sound**
+
+The registration says the reference renders are `tubitak/data/rasteriser/chips/<stem>.tif`.
+That path holds the **WorldCover-era** corpus. The CLC+ renders are in `chips_clc/`.
+
+**The numbers ran on the correct corpus.** Evidence, measured rather than argued: the
+current renderer's output is byte-identical to `chips_clc/` and **differs** from `chips/`
+for every tested stem, while the committed census records `byte_exact = 1` for exactly
+those stems.
+
+| stem | census `byte_exact` | vs `chips/` | vs `chips_clc/` |
+|---|---|---|---|
+| 30TXQ_0830_00 | 1 | differs | **identical** |
+| 30TXQ_0934_00 | 1 | differs | **identical** |
+| 30UYD_0907_00 | 1 | differs | **identical** |
+
+A census that scored `byte_exact = 1` cannot have been comparing against `chips/`, because
+nothing the renderer produces matches `chips/`. Two further confirmations: the census has
+**55 rows** and `chips_clc/` holds **55 files**; and the registration's own sentence reads
+"257 px, **CLC+ base**" — the description is correct and only the path string is wrong.
+
+**Verdict: a text slip, not a data error. No retraction is warranted; a text correction is.**
+
+### D2 — the generated-arm-as-reference substitution: **it does not appear in any prior gate**
+
+The canonical Ankara KARIOS reference is `tubitak/data/ankara/run/ref/<stem>_warp.tif`
+(130 files) — a warped satellite reference that was there all along. My first Gate D run
+used `ankara/run/arms/<stem>.tif` instead, which is a warped **generated arm**. I did not
+find the `_warp` variant sitting in the same directory as the 257 px chips.
+
+Reference directory used by every KARIOS-scoring package, read from each run's own
+`correl_res.txt` and from the harnesses:
+
+| package(s) | reference used | class |
+|---|---|---|
+| `ankara/run`, `task3`, `regA`, `regB`, `regC`, `regD`, `B2`, `C45` + all seed variants | `ankara/run/ref/<stem>_warp.tif` | **warped satellite** |
+| European corpus (`karios/arms/ref/`, `karios/ceiling`) | built by `build_karios_arms.py` from `karios/reference/satellite/` | **warped satellite** |
+| Gate D, first run **(this package, my error)** | `ankara/run/arms/<stem>.tif` | **generated arm — wrong** |
+| Gate D, corrected | rebuilt warped satellite | warped satellite |
+
+Both reference families were verified by reconstruction, not by reading paths:
+
+- `ankara/run/ref/ank_13_34_warp.tif` is **byte-identical** (max abs diff 0) to a warped
+  satellite reference rebuilt independently from `ankara/run/ref/ank_13_34.tif`.
+- `karios/arms/ref/32UMA_1685_00.tif` is **byte-identical** (max abs diff 0) to the same
+  reconstruction from `karios/reference/satellite/`.
+
+**Verdict: no prior gate used a generated arm as its reference. The substitution was mine
+alone, confined to the first Gate D run, and the control caught it. Nothing to retract.**
+
+### D3 — Registration A's uncommitted harness: what is and is not reproducible
+
+The harness script was never committed. What *was* preserved turns out to be more than
+expected: each arm's `log_*.txt` carries the **full option dump**, so the configuration is
+on the record even though the orchestration is not.
+
+| | recorded | not recorded |
+|---|---|---|
+| `det` arm | `no_dropout: True`, `eval: False`, dataroot, checkpoints_dir, `num_test: 30` | — |
+| `seeded` arm | `no_dropout: False`, `eval: False`, same paths | **the seed value**; **the torch version/build** |
+
+**Exactly reproducible today:** the `det` (dropout-off) arm. Re-run end to end it
+reproduces Registration A's recorded value **exactly** — `ank_0_30` det C3: 1.940379 px,
+n = 19, against 1.940379 px, n = 19 recorded; and the regenerated warp rasters match
+regA's own to a max of 1 DN.
+
+**Not exactly reproducible:** the `seeded` stochastic arm, for two independent reasons.
+The seed value appears nowhere in the run record (it was applied through a `sitecustomize`
+shim outside the options system; seed 42 is known only from the registration prose), and no
+torch version or build is recorded — so even with the seed, the RNG stream is not
+guaranteed to match across torch builds or platforms.
+
+**Closest reproducible substitute, verified by measurement:** the archived fakes and warps
+themselves. `regA/seeded_*/warp/*.tif` are on disk (16 arm directories, 91 files each, plus
+300+ KARIOS files per cell). Re-scoring the archived seeded fake for `ank_0_30` against the
+now-verified reference reproduces the recorded number **exactly**: 2.276977 px, n = 29,
+against 2.276977 px, n = 29. So every Registration A number remains auditable from
+artifacts, even though the stochastic arm cannot be regenerated from scratch.
+
+### D4 — an unlisted finding: the split broke two live harness dependencies
+
+Not asked for, found while running D3. Commit `b815b46` deleted two files the **active**
+Gate D harness reads:
+
+- `tubitak/configs/karios_gencp.json` — every KARIOS invocation passes it as `--conf`;
+  without it `karios process` exits with "File does not exist".
+- `tubitak/docs/evidence/regA/regA_per_chip.csv` — `gate_d_analyse.py` reads it as the
+  baseline for the control.
+
+Both are the same class as the exceptions the split already made for
+`plugin-gate-registrations.md` and `osm_to_raster.py`: files that live work in this
+repository depends on. Both are restored here, and every path referenced by
+`tubitak/tests/` and `tubitak/gencp_core/` now resolves. Gate D's analysis reproduces its
+recorded control (+0.0203 / +0.0021 px) after the restore.
+
+### What would need retracting, if anything
+
+**Nothing.** D1 is a text slip over sound numbers; D2 found no prior contamination; D3
+found the record auditable. The two items for the institution to decide are both text or
+policy, not results:
+
+1. Correct the corpus path in `tool-gate-registration-2.md` — `chips/` → `chips_clc/` —
+   as a disclosed text correction with the original preserved, per standing practice 4.
+2. Decide whether the boundary rule for `gencp-validation` should be stated as a **class**
+   ("anything an active harness in this repository reads stays here") rather than an
+   enumerated list, since the enumeration has now missed two files.
+
+---
+
 ## Gate G — georeferencing contract: **PASS (12/12)**
 
 Reference layer `ank_0_30.tif`, EPSG:32636, extent
