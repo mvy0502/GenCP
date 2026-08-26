@@ -719,3 +719,97 @@ it fixes the vocabulary every other section uses. Then Section IV, which is writ
 material already audited or already self-disclosed. Then Section III once the C4/C5 audit
 clears. Then Section I, whose related-work paragraph is the most compressible and should be
 written when the remaining word budget is known exactly. Section V last.
+
+---
+
+# STRUCTURAL DECISION, 2026-08-26 — the arXiv version is drafted at full length
+
+**Read this before treating any per-block word allocation in this document as live. Most of
+them are not.**
+
+## The decision
+
+**The binding deliverable on 15 October is the arXiv preprint, and arXiv has no page limit.
+The GRSL submission is separate and later.** Therefore:
+
+- **The arXiv version is drafted at full length.** Every section is written at the length its
+  content requires.
+- **The GRSL letter becomes a condensation of it**, performed in October, after the deadline
+  that matters has been met.
+- **Drafting against the per-block word allocations stops.** They were set on 24 August.
+
+## Why
+
+The 5-page format was chosen on 24 August. Since then the evidence has grown by the six-seed
+block, two consequence firings, the out-of-range result, the sustained trend, the
+common-support answer and the informative-mask test. **None of that is padding; all of it is
+measured answers to reviewer objections.** Compressing it to fit a format chosen before it
+existed would mean deleting answers to objections a reviewer will raise.
+
+## What changes
+
+- **The budget table is DEMOTED, not deleted.** It is now a **measurement of the condensation
+  task ahead**, not a constraint on drafting. Every line is re-costed below against current
+  required content and labelled **measured** (drafted) or **estimated** (not yet drafted) —
+  because until now most were estimates presented as plan.
+- **The reserve cut is SUSPENDED, not taken.** Fig. 2's merits are re-decided for the arXiv
+  version on their own terms. **The out-of-range-endpoint objection is still real and still
+  argues against it** — its terminal point is seed 42's value, which the six-seed block places
+  outside the replicate range — but that is now a **merit** question, not a space one, and it
+  is not decided here.
+- **Material cut FOR SPACE returns to the arXiv version:** the 1/256 geometric-error finding
+  with its variance qualifier, and the Liu/Zhang/Xiong and Fuentes Reyes citations.
+
+## THE ONE CONSTRAINT, AND IT IS FIRM
+
+> **LENGTH RELIEF IS NOT SCOPE RELIEF.**
+
+The arXiv version carries the letter's material at proper length **plus what the letter cut for
+space**. It does **not** reopen decisions made **on merit**. Explicitly and by name:
+
+| cut | reason | status |
+|---|---|---|
+| 1/256 geometric error | **space** | **returns** |
+| Liu/Zhang/Xiong; Fuentes Reyes | **space** | **return** |
+| Mediation row | **merit** — "void as stated", corrections-log entry 20: the registered test could not have detected mediation of any size | **stays out** |
+| Freirich, Michaeli, Meir | **merit** — supported only the withdrawn interaction claim | **stays out** |
+| Cappadocia / ODTÜ contamination pair | **merit** — belongs to the second paper | **stays out** |
+| λ_LPIPS sweep | **merit** — null manipulation on C5 (Adam is scale-invariant), non-monotone construct on C4 | **stays dead** |
+| Held-out geography evaluation | **merit** — cancelled | **stays cancelled** |
+| E3 in any form; E1/E2 tables; known-displacement recovery protocol | **merit/scope** — second paper | **stay out** |
+
+**If a later session finds itself arguing that something cut on merit now fits because there is
+room: the answer is no. Write the argument down and bring it to the supervising session
+instead of acting on it.** Room is not a reason.
+
+## The cause of block C's +96, recorded as a cause and not as an estimation miss
+
+**The interaction disclosure's 120-word allocation was sized by subtraction, not by
+requirement.** It was set to what the deleted interaction paragraph vacated — the old paragraph
+was 120 words, so the replacement got 120 words. **The replacement is protected text with five
+mandatory elements** (registered in advance; all three scales; 5/6 with the same seed breaking
+each; no claim made; the other block reported with its weight stated). **Five mandatory
+elements do not fit in 120 words, and the number was never checked against them.**
+
+This is the supervising session's error and is recorded as such. It is also the clearest
+instance of the general fault the other three concentrated overruns share: **allocations set
+against what was known on 24 August, never re-costed when the required content grew.**
+
+## Re-costed budget — measured versus estimated
+
+| section | figure | basis | note |
+|---|---|---|---|
+| Title block + abstract | ~200 | **estimated** | abstracts stay short regardless of format |
+| I. Introduction | ~570 | **estimated** | related work returns to ~220 with Liu/Zhang/Xiong and Fuentes Reyes restored |
+| II. Materials and methods | **960** | **measured 901 + estimated 59** | drafted at 901; the 1/256 block returns, restoring the ~109-word treatment in place of the 50-word clause |
+| III. Results | **1,327** | **MEASURED** | drafted; includes the 103-word informative-mask block |
+| IV. Alternative explanations | — | **to be measured** | drafted next at required length |
+| V. Discussion | ~435 | **estimated** | not re-costed against current content; likely low, since the limitations list has grown |
+| **Total so far** | **≥ 3,492 + Section IV** | | against a 5-page format that held ~3,300 |
+
+**Two things this table now says that the old one did not.** First, **which numbers are
+measurements and which are guesses** — three of six are guesses, and the two largest measured
+lines both exceeded their guesses. Second, **the condensation task's size**: the arXiv draft is
+already over the letter format by more than 200 words with two sections undrafted and Section V
+likely under-costed. **That is the work to be scheduled for October, and it is now visible
+instead of being discovered.**
