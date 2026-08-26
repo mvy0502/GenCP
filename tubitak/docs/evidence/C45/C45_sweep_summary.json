@@ -1,0 +1,72 @@
+{
+  "label": "[STOCH seed42, OVP inputs] n=130, single draw; sweep run because endpoints showed the relationship",
+  "trajectory": {
+    "e1": {
+      "C4_mean": 1.9784,
+      "C4_median": 1.7569,
+      "C5_mean": 1.6445,
+      "C5_median": 1.4118,
+      "C4_pts": 60.5,
+      "C5_pts": 74.5
+    },
+    "e2": {
+      "C4_mean": 1.8222,
+      "C4_median": 1.6032,
+      "C5_mean": 1.5678,
+      "C5_median": 1.245,
+      "C4_pts": 62.0,
+      "C5_pts": 78.5
+    },
+    "e5": {
+      "C4_mean": 1.9268,
+      "C4_median": 1.6035,
+      "C5_mean": 1.4856,
+      "C5_median": 1.2516,
+      "C4_pts": 62.5,
+      "C5_pts": 84.5
+    },
+    "e10": {
+      "C4_mean": 1.989,
+      "C4_median": 1.7648,
+      "C5_mean": 1.4926,
+      "C5_median": 1.2519,
+      "C4_pts": 59.0,
+      "C5_pts": 85.0
+    },
+    "e20": {
+      "C4_mean": 1.9655,
+      "C4_median": 1.9178,
+      "C5_mean": 1.4783,
+      "C5_median": 1.1339,
+      "C4_pts": 61.5,
+      "C5_pts": 88.0
+    }
+  },
+  "penalty_by_epoch": {
+    "e1": {
+      "mean": 0.334,
+      "se": 0.0404,
+      "t": 8.27
+    },
+    "e2": {
+      "mean": 0.2544,
+      "se": 0.0397,
+      "t": 6.41
+    },
+    "e5": {
+      "mean": 0.4413,
+      "se": 0.0389,
+      "t": 11.34
+    },
+    "e10": {
+      "mean": 0.4964,
+      "se": 0.0465,
+      "t": 10.67
+    },
+    "e20": {
+      "mean": 0.4871,
+      "se": 0.0531,
+      "t": 9.18
+    }
+  }
+}

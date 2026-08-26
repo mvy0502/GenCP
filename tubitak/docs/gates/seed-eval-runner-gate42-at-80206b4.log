@@ -1,0 +1,66 @@
+seed 42 -> /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/tool_runs/C45_s42_repro   arms ('C1', 'C2', 'C4', 'C5') (pretrained from B1_per_chip.csv)
+inference shim pinned to seed 42 (AMENDMENT SEED-a)
+
+step 1/5 inference
+  C1: latest_net_G.pth tensor-equal to 20_net_G.pth
+  C2: latest_net_G.pth tensor-equal to 20_net_G.pth
+  C4: latest_net_G.pth tensor-equal to 20_net_G.pth
+  C5: latest_net_G.pth tensor-equal to 20_net_G.pth
+  infer C1: rc=0 130 fakes
+  infer C2: rc=0 130 fakes
+  infer C5: rc=0 130 fakes
+  infer C4: rc=0 130 fakes
+step 2/5 warp
+  warp 100/650
+  warp 200/650
+  warp 300/650
+  warp 400/650
+  warp 500/650
+  warp 600/650
+  warp complete 650/650 (650 newly written)
+step 3/5 KARIOS
+  KARIOS 100/520
+  KARIOS 200/520
+  KARIOS 300/520
+  KARIOS 400/520
+  KARIOS 500/520
+  KARIOS complete: 520/520, failures: 0
+step 4/5 edge ratio
+  edge ratio: 130 chips, skipped []
+step 5/5 score
+  scored 130 chips -> /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/tool_runs/C45_s42_repro/C45_per_chip.csv
+sha256 C45_per_chip.csv: be1360cd6a22233087e5baffaf00c448c118a230ba7e75ec4e94edd4239dd598
+sha256 C45_edge_ratio.csv: 0a7525a9082079a74cf4af6e044a02c01eeda278f77cb544d8c8cc488f238a59
+
+========================================================================================
+REPRODUCTION GATE - this runner's seed-42 output vs the committed C45 files
+========================================================================================
+
+C45_per_chip.csv
+   committed sha256 fede1c5080ed91392c82aa394d9a98fc8764c3925b8d61b9d1bfd808236ab945
+   produced  sha256 be1360cd6a22233087e5baffaf00c448c118a230ba7e75ec4e94edd4239dd598
+   rows 130 vs 130; index identical: True
+   pre_med        max|diff| 0.000e+00   exact 130/130   agree@1e-9 130/130   agree@1e-6 130/130
+   pre_n          max|diff| 0.000e+00   exact 130/130   agree@1e-9 130/130   agree@1e-6 130/130
+   C1_med         max|diff| 0.000e+00   exact 130/130   agree@1e-9 130/130   agree@1e-6 130/130
+   C1_n           max|diff| 0.000e+00   exact 130/130   agree@1e-9 130/130   agree@1e-6 130/130
+   C2_med         max|diff| 0.000e+00   exact 130/130   agree@1e-9 130/130   agree@1e-6 130/130
+   C2_n           max|diff| 0.000e+00   exact 130/130   agree@1e-9 130/130   agree@1e-6 130/130
+   C4_med         max|diff| 0.000e+00   exact 130/130   agree@1e-9 130/130   agree@1e-6 130/130
+   C4_n           max|diff| 0.000e+00   exact 130/130   agree@1e-9 130/130   agree@1e-6 130/130
+   C5_med         max|diff| 0.000e+00   exact 130/130   agree@1e-9 130/130   agree@1e-6 130/130
+   C5_n           max|diff| 0.000e+00   exact 130/130   agree@1e-9 130/130   agree@1e-6 130/130
+
+C45_edge_ratio.csv
+   committed sha256 0a7525a9082079a74cf4af6e044a02c01eeda278f77cb544d8c8cc488f238a59
+   produced  sha256 0a7525a9082079a74cf4af6e044a02c01eeda278f77cb544d8c8cc488f238a59
+   rows 130 vs 130; index identical: True
+   silent_frac    max|diff| 0.000e+00   exact 130/130   agree@1e-9 130/130   agree@1e-6 130/130
+   ref_edge       max|diff| 0.000e+00   exact 130/130   agree@1e-9 130/130   agree@1e-6 130/130
+   pretrained     max|diff| 0.000e+00   exact 130/130   agree@1e-9 130/130   agree@1e-6 130/130
+   C1             max|diff| 0.000e+00   exact 130/130   agree@1e-9 130/130   agree@1e-6 130/130
+   C2             max|diff| 0.000e+00   exact 130/130   agree@1e-9 130/130   agree@1e-6 130/130
+   C4             max|diff| 0.000e+00   exact 130/130   agree@1e-9 130/130   agree@1e-6 130/130
+   C5             max|diff| 0.000e+00   exact 130/130   agree@1e-9 130/130   agree@1e-6 130/130
+
+GATE PASSED - every shared column reproduces to 1e-9

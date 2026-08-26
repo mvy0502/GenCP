@@ -1,0 +1,345 @@
+{
+  "provenance": {
+    "root": "/Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap",
+    "script": {
+      "commit": "6418febc14b15e5f07b6c3831c9c1845cd8b4895",
+      "dirty": false,
+      "sha256": "d22053e1c3640f548c726cd4e871a3fc949f98a19d6a2c8fbd072c9bcee6e1f8"
+    },
+    "inputs": {
+      "43": {
+        "per_chip": {
+          "path": "/Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/tool_runs/C45_s43/C45_per_chip.csv",
+          "sha256": "20fc88e4ac3412ed46052bcf56b083438d18ec3990e8735ee44fef6743d4c192",
+          "rows": 130
+        },
+        "edge_ratio": {
+          "path": "/Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/tool_runs/C45_s43/C45_edge_ratio.csv",
+          "sha256": "526a48b6eacd17ee0dd934ea866b4ae93f7f21e6c00f6c843b2e56d00653b153",
+          "rows": 130
+        }
+      },
+      "44": {
+        "per_chip": {
+          "path": "/Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/tool_runs/C45_s44/C45_per_chip.csv",
+          "sha256": "c30f9123f5c39cd2c5f9fe22c478f2276ded773a29fb733d84165638afe19b78",
+          "rows": 130
+        },
+        "edge_ratio": {
+          "path": "/Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/tool_runs/C45_s44/C45_edge_ratio.csv",
+          "sha256": "ea4cf93aadf3d9ec65eea32daf85f793dd25af7791ef2919cb9ed9d93b49a6d3",
+          "rows": 130
+        }
+      }
+    }
+  },
+  "confirmatory_seeds": [
+    43,
+    44
+  ],
+  "seed_42_included_as_generating_observation": false,
+  "per_seed": [
+    {
+      "seed": 43,
+      "confirmatory": true,
+      "C5-C4": -0.5484845177227531,
+      "C1-C2": 0.6636299361599994,
+      "C4-C5": 0.5484845177227531,
+      "C5-C2": 0.12747884967752224,
+      "I_raw": -0.11514541843724636,
+      "I_log": -0.09212402487567098,
+      "I_log_dropped": 0,
+      "I_rank": -0.35384615384615387,
+      "edge_pre_mean": 1.020791316348642,
+      "edge_pre_median": 1.0195450750284887,
+      "edge_C1_mean": 1.0827179030432499,
+      "edge_C1_median": 1.032610078232462,
+      "edge_C2_mean": 0.27881847846619057,
+      "edge_C2_median": 0.1990463019950525,
+      "edge_C4_mean": 1.1206007384745298,
+      "edge_C4_median": 1.0957252752991007,
+      "edge_C5_mean": 1.1540526651700347,
+      "edge_C5_median": 1.1182254236473446,
+      "edge_C5_highest_or_tied": true,
+      "edge_C2_below_0.5": true
+    },
+    {
+      "seed": 44,
+      "confirmatory": true,
+      "C5-C4": -0.5846618489787357,
+      "C1-C2": 0.6404171786769396,
+      "C4-C5": 0.5846618489787357,
+      "C5-C2": 0.052969517252276825,
+      "I_raw": -0.05575532969820395,
+      "I_log": -0.0680276189542933,
+      "I_log_dropped": 0,
+      "I_rank": -0.2153846153846154,
+      "edge_pre_mean": 1.020791316348642,
+      "edge_pre_median": 1.0195450750284887,
+      "edge_C1_mean": 1.0784782086671678,
+      "edge_C1_median": 1.0275500269056497,
+      "edge_C2_mean": 0.28525271513803774,
+      "edge_C2_median": 0.2029833966976958,
+      "edge_C4_mean": 1.1224267635359482,
+      "edge_C4_median": 1.1113637137291286,
+      "edge_C5_mean": 1.1440155753213896,
+      "edge_C5_median": 1.1044592663442518,
+      "edge_C5_highest_or_tied": true,
+      "edge_C2_below_0.5": true
+    }
+  ],
+  "readings": {
+    "C5-C4": {
+      "per_seed": [
+        -0.5484845177227531,
+        -0.5846618489787357
+      ],
+      "across_seeds": {
+        "n_seeds": 2,
+        "mean": -0.5665731833507444,
+        "sd": 0.025581236256337375,
+        "se": 0.018088665627991326,
+        "df": 1,
+        "t_crit": 12.706204736174694,
+        "ci_lo": -0.7964114722242082,
+        "ci_hi": -0.33673489447728056,
+        "excludes_zero": true,
+        "all_negative": true,
+        "all_positive": false
+      },
+      "sign_reading_holds": true
+    },
+    "C1-C2": {
+      "per_seed": [
+        0.6636299361599994,
+        0.6404171786769396
+      ],
+      "across_seeds": {
+        "n_seeds": 2,
+        "mean": 0.6520235574184695,
+        "sd": 0.01641389822631039,
+        "se": 0.011606378741529921,
+        "df": 1,
+        "t_crit": 12.706204736174694,
+        "ci_lo": 0.5045505328830048,
+        "ci_hi": 0.7994965819539342,
+        "excludes_zero": true,
+        "all_negative": false,
+        "all_positive": true
+      },
+      "sign_reading_holds": true
+    },
+    "C4-C5": {
+      "per_seed": [
+        0.5484845177227531,
+        0.5846618489787357
+      ],
+      "across_seeds": {
+        "n_seeds": 2,
+        "mean": 0.5665731833507444,
+        "sd": 0.025581236256337375,
+        "se": 0.018088665627991326,
+        "df": 1,
+        "t_crit": 12.706204736174694,
+        "ci_lo": 0.33673489447728056,
+        "ci_hi": 0.7964114722242082,
+        "excludes_zero": true,
+        "all_negative": false,
+        "all_positive": true
+      },
+      "sign_reading_holds": true
+    },
+    "C5-C2": {
+      "per_seed": [
+        0.12747884967752224,
+        0.052969517252276825
+      ],
+      "across_seeds": {
+        "n_seeds": 2,
+        "mean": 0.09022418346489954,
+        "sd": 0.05268605421957374,
+        "se": 0.0372546662126227,
+        "df": 1,
+        "t_crit": 12.706204736174694,
+        "ci_lo": -0.3831412328105344,
+        "ci_hi": 0.5635895997403335,
+        "excludes_zero": false,
+        "all_negative": false,
+        "all_positive": true
+      },
+      "sign_reading_holds": true
+    },
+    "I_raw": {
+      "per_seed": [
+        -0.11514541843724636,
+        -0.05575532969820395
+      ],
+      "across_seeds": {
+        "n_seeds": 2,
+        "mean": -0.08545037406772515,
+        "sd": 0.0419951344826477,
+        "se": 0.029695044369521206,
+        "df": 1,
+        "t_crit": 12.706204736174694,
+        "ci_lo": -0.4627616874766532,
+        "ci_hi": 0.2918609393412029,
+        "excludes_zero": false,
+        "all_negative": true,
+        "all_positive": false
+      },
+      "all_negative": true
+    },
+    "I_log": {
+      "per_seed": [
+        -0.09212402487567098,
+        -0.0680276189542933
+      ],
+      "across_seeds": {
+        "n_seeds": 2,
+        "mean": -0.08007582191498214,
+        "sd": 0.017038732029229838,
+        "se": 0.012048202960688842,
+        "df": 1,
+        "t_crit": 12.706204736174694,
+        "ci_lo": -0.23316275543648068,
+        "ci_hi": 0.07301111160651641,
+        "excludes_zero": false,
+        "all_negative": true,
+        "all_positive": false
+      },
+      "all_negative": true
+    },
+    "I_rank": {
+      "per_seed": [
+        -0.35384615384615387,
+        -0.2153846153846154
+      ],
+      "across_seeds": {
+        "n_seeds": 2,
+        "mean": -0.2846153846153846,
+        "sd": 0.09790709277967583,
+        "se": 0.06923076923076923,
+        "df": 1,
+        "t_crit": 12.706204736174694,
+        "ci_lo": -1.164275712504402,
+        "ci_hi": 0.5950449432736328,
+        "excludes_zero": false,
+        "all_negative": true,
+        "all_positive": false
+      },
+      "all_negative": true
+    },
+    "interaction_verdict": true,
+    "mechanism_verdict": true
+  },
+  "within_run_consistency": {
+    "43": {
+      "edge_tie_detail": {
+        "pre": {
+          "mean_diff_c5_minus": 0.1332613488213928,
+          "se_across_chips": 0.013398652039628802,
+          "state": "C5 higher"
+        },
+        "C1": {
+          "mean_diff_c5_minus": 0.07133476212678487,
+          "se_across_chips": 0.011253213747987476,
+          "state": "C5 higher"
+        },
+        "C2": {
+          "mean_diff_c5_minus": 0.8752341867038441,
+          "se_across_chips": 0.029036998461553415,
+          "state": "C5 higher"
+        },
+        "C4": {
+          "mean_diff_c5_minus": 0.0334519266955049,
+          "se_across_chips": 0.009995016270973388,
+          "state": "C5 higher"
+        }
+      },
+      "within_run": {
+        "C5-C4": {
+          "chip_mean": -0.5484845177227531,
+          "chip_se": 0.05175467982452941,
+          "chip_t": -10.597776270326687,
+          "n_chips": 130,
+          "chips_first_better": 114
+        },
+        "C1-C2": {
+          "chip_mean": 0.6636299361599994,
+          "chip_se": 0.05537581875589189,
+          "chip_t": 11.984110593207083,
+          "n_chips": 130,
+          "chips_first_better": 9
+        },
+        "C4-C5": {
+          "chip_mean": 0.5484845177227531,
+          "chip_se": 0.05175467982452941,
+          "chip_t": 10.597776270326687,
+          "n_chips": 130,
+          "chips_first_better": 16
+        },
+        "C5-C2": {
+          "chip_mean": 0.12747884967752224,
+          "chip_se": 0.03870514267458328,
+          "chip_t": 3.293589452681038,
+          "n_chips": 130,
+          "chips_first_better": 45
+        }
+      }
+    },
+    "44": {
+      "edge_tie_detail": {
+        "pre": {
+          "mean_diff_c5_minus": 0.12322425897274794,
+          "se_across_chips": 0.01248570779977197,
+          "state": "C5 higher"
+        },
+        "C1": {
+          "mean_diff_c5_minus": 0.06553736665422216,
+          "se_across_chips": 0.012703010604704992,
+          "state": "C5 higher"
+        },
+        "C2": {
+          "mean_diff_c5_minus": 0.858762860183352,
+          "se_across_chips": 0.02822799863190515,
+          "state": "C5 higher"
+        },
+        "C4": {
+          "mean_diff_c5_minus": 0.021588811785441503,
+          "se_across_chips": 0.009242031911089412,
+          "state": "C5 higher"
+        }
+      },
+      "within_run": {
+        "C5-C4": {
+          "chip_mean": -0.5846618489787357,
+          "chip_se": 0.05234465533300185,
+          "chip_t": -11.16946601824547,
+          "n_chips": 130,
+          "chips_first_better": 119
+        },
+        "C1-C2": {
+          "chip_mean": 0.6404171786769396,
+          "chip_se": 0.060162668975969,
+          "chip_t": 10.644760107513578,
+          "n_chips": 130,
+          "chips_first_better": 14
+        },
+        "C4-C5": {
+          "chip_mean": 0.5846618489787357,
+          "chip_se": 0.05234465533300185,
+          "chip_t": 11.16946601824547,
+          "n_chips": 130,
+          "chips_first_better": 11
+        },
+        "C5-C2": {
+          "chip_mean": 0.052969517252276825,
+          "chip_se": 0.03925610941425802,
+          "chip_t": 1.3493318121086657,
+          "n_chips": 130,
+          "chips_first_better": 45
+        }
+      }
+    }
+  }
+}
