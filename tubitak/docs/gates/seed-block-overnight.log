@@ -29,3 +29,8 @@
 04:01 | ALL DONE: 7/7 drivers complete zero failures; 26/26 arm-units; 6/6 seeds scored by frozen code | usage $61.96 SPEND $31.96 | driver-computed wave $36.33 vs dashboard wave $50.19 -> x1.38, effective ~$1.52/GPU-container-h vs the $1.10 constant
 04:05 | six-seed contrast table computed and recorded in seed-block-morning-report.md (signs only, nothing applied). Monitoring continues quietly until 09:00.
 05:03 | nothing running (no ephemeral apps) | usage SETTLED DOWN to $53.00 spend $23.00 (04:01's $61.96 was a pre-settle estimate). Settled wave cost 53.00-11.77 = $41.23 vs driver-computed $36.33 -> x1.13, effective ~$1.25/GPU-container-h. Morning report section 3 carries a dated correction note.
+06:04 | quiet | nothing running | usage $53.00 spend $23.00 (stable)
+07:06 | quiet | nothing running | usage $53.00 spend $23.00 (stable)
+08:06 | quiet | nothing running | usage $53.00 spend $23.00 (stable)
+09:01 | final | Live Apps 0 (25 stopped) | usage $53.00 spend $23.00 (settled, unchanged since 05:03)
+09:01 | monitor ends. 26/26 arm-units, zero failures, six seeds scored by frozen code, warm-up curves unread, no reading applied. Hand-off: seed-block-morning-report.md
