@@ -57,7 +57,7 @@ reading held 6/6 either way.
 
 ### Text for Section IV, 28 words
 
-> No registered contrast compares a fine-tuned arm with the pretrained generator: all four
+> No registered **positional** contrast compares a fine-tuned arm with the pretrained generator: all four
 > arms are fine-tuned on identical pairs, so any georeferencing improvement is common to them
 > and cancels.
 

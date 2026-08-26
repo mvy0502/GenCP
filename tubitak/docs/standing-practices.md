@@ -88,3 +88,34 @@ Rules of general force, collected where future work will see them. Each carries 
     this practice, and entry 22 (B3's harness deleted, four registered matcher parameters
     permanently unverifiable) is the earlier instance of the same class that this practice
     exists to stop recurring for a third time.
+
+11. **A registration that names a set, a threshold or a condition QUOTES the implementing
+    code's expression of it** (2026-08-26). **FORWARD-ONLY.** When a registration fixes a
+    reading in prose, the line of code that implements it is quoted in the registration
+    itself, so prose and implementation sit in one place and can be checked against each
+    other by reading rather than by remembering to compare two files. Origin: **three findings
+    that looked like unrelated slips and share one cause — a registration written in prose,
+    implemented in code, and the two drifting.**
+
+    - **The warm-up de-confound's branch text** said "as C1 and C4 did", presuming both
+      adversarial arms rise at the first main-stage transition. True at seed 42, false at
+      seed 43, where C4 falls. The branch fired on its antecedent so nothing changed, but the
+      clause had no determinate referent
+      ([warmup-deconfound-results.md](warmup-deconfound-results.md) §5).
+    - **The hardware gate's acceptance rule** was written as a single global verdict while
+      scaling each quantity to its own spread, so the most reproducibly-measured quantity
+      governed the package and one quantity vetoed ten
+      ([hardware-gate-results.md](hardware-gate-results.md)).
+    - **AMENDMENT SEED-c (d)** reads "C5's edge mean the highest of **the four arms**", while
+      `seed_analysis.py:212` implements the tie rule as `("pre", "C1", "C2", "C4")` —
+      **five arms, including pretrained** ([phase-d-closeout.md](phase-d-closeout.md) §C).
+      The harness was stricter than the registration, which is the safe direction, and the
+      reading held either way.
+
+    **Not applied retroactively.** The existing registrations stand exactly as written, with
+    their mismatches disclosed where they were found and not repaired — the same disposal the
+    hardware gate's own flaw received, and for the same reason: a rule rewritten after seeing
+    which way it cuts is indistinguishable from a rule adjusted to pass. **When
+    corrections-log entries 30–34 are applied, these three are grouped under one heading in
+    the tiering**, so a reader sees one class with three instances rather than three
+    unrelated slips.
