@@ -475,8 +475,8 @@ Table II, four columns. Rows and the prose each row gets:
 
 | candidate | test | result | verdict |
 |---|---|---|---|
-| It is blur, not restraint | low-pass the adversarial arm to match the L1-only spectral profile (fitted σ = 0.45) | recovers −6.1% (Europe) / +1.7% (Cappadocia) of the gain; support band was ≤ 25% | refuted |
-| Corrected georeferencing in the fine-tuning pairs | decompose the European gain | ~86% is scatter reduction; the systematic component slightly worsened | refuted |
+| It is blur, not restraint | **edge ratio on the COMPLEMENTARY (informative) mask, Sobel(input) > 20, six seeds** | C2 = **0.986** where the input asserts structure vs **0.277** where it does not — a factor of 3.6, **6/6 seeds**, both against pre-committed bands. Blur suppresses uniformly; this is conditional | refuted |
+| ~~Corrected georeferencing in the fine-tuning pairs | decompose the European gain | ~86% is scatter reduction; the systematic component slightly worsened | refuted~~ **— row REMOVED, answered by design in 28 words of prose instead (see note)** | |
 | Cold-started discriminator damage | checkpoint sweep at epochs 1, 2, 5, 10, 20 | C1 at epoch 1 already better than pretrained (−0.399 ± 0.064, 6.3 SE), wrong sign for damage; deficit exists from epoch 1 and grows (+0.55 → +0.70) | refuted, post hoc |
 | Optimising the evaluation metric | **two independent registrations**: descriptor families (ORB, AKAZE, MI) and matcher families (KLT, NCC, phase correlation) | **B3:** ORB −0.613 ± 0.135 (paired n = 29 intersection; AKAZE n = 11), AKAZE −0.148 ± 0.048, MI −1.260 ± 0.261 (**lower bound**). **Package A:** C2 ranks first, or ties C3 within noise, in every condition cell except two — both EU-150 urban, phase correlation, one per band — far below 2 SE | refuted |
 | ~~The gain is mediated by output similarity | condition the gap on photometric and gradient similarity | see footnote | narrowed~~ | | | |
@@ -517,6 +517,40 @@ Table II, four columns. Rows and the prose each row gets:
 > or refuted outright, with no row carrying a "narrowed" verdict that a reviewer can push on.
 > **The freed word budget is NOT reclaimed here**; Section IV's allocation stands as revised
 > and the slack absorbs the blur and georeferencing rows' provenance disclosure (§5 blockers).
+
+> **TABLE II REVISED AGAIN 2026-08-26 — the two Phase D rows are replaced, not restored.**
+>
+> **Blur row — REPLACED by a stronger test.** The original was a single-seed negative control
+> whose artifacts did not survive ([phase-d-regeneration-STOP.md](phase-d-regeneration-STOP.md)):
+> it could not be re-run, because the generated imagery it consumed is gone as well as its
+> outputs. It is replaced by a **six-seed positive test** — the registered edge ratio computed
+> on the complementary mask ([informative-mask-results.md](informative-mask-results.md)).
+> **C2 reproduces the real image's edge density to within 1.5% where the input asserts
+> structure and suppresses it to 0.277 where the input says nothing.** Blur cannot do that: a
+> Gaussian suppresses edges wherever they are, so a smoothing explanation predicts C2 below
+> 1.0 on both masks. **A negative control on one seed became a positive test on six.**
+>
+> **Georeferencing row — REMOVED from the table and answered in prose.** The objection applies
+> to a fine-tuned-versus-pretrained comparison, and **not one registered positional contrast is
+> against pretrained** — C5−C4, C5−C2, C1−C2, C4−C5 and I_raw are all within the 2×2, with all
+> four arms fine-tuned on the same pairs, so any georeferencing improvement is common to them
+> and cancels. Verified against the registrations
+> ([phase-d-closeout.md](phase-d-closeout.md) §C), including one disclosed
+> registration-versus-harness mismatch that does not affect it. **Section IV gains 28 words:**
+>
+> > *No registered contrast compares a fine-tuned arm with the pretrained generator: all four
+> > arms are fine-tuned on identical pairs, so any georeferencing improvement is common to them
+> > and cancels.*
+>
+> **This is stronger than the 86% figure it replaces, because it depends on the design rather
+> than on an artifact** — and unlike the 86%, nothing can be lost that would make it
+> unverifiable.
+>
+> **Table II is now THREE rows** — cold-discriminator, matcher independence, blur/restraint —
+> **on better evidence than five were.** Budget effect: the georeferencing row's 60 words
+> become 28 of prose (−32) and the blur row's 90 words stand. **Section IV falls to roughly
+> 368 against its 320 allocation**, so it remains over its own line but by less; the reserve
+> cut is not required by this change and is not taken.
 
 Prose, roughly 90 words each for blur and cold-D, 60 for georeferencing, 120 for the
 matcher-family row, and the mediation footnote below.
