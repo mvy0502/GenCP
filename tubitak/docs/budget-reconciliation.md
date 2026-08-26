@@ -345,9 +345,9 @@ against what was known on 24 August, never re-costed when the required content g
 | I. Introduction | ~570 | **estimated** | related work returns to ~220 with Liu/Zhang/Xiong and Fuentes Reyes restored |
 | II. Materials and methods | **960** | **measured 901 + estimated 59** | drafted at 901; the 1/256 block returns, restoring the ~109-word treatment in place of the 50-word clause |
 | III. Results | **1,327** | **MEASURED** | drafted; includes the 103-word informative-mask block |
-| IV. Alternative explanations | — | **to be measured** | drafted next at required length |
+| IV. Alternative explanations | **1,109** | **MEASURED** | drafted 2026-08-26 at required length; old letter allocation for the surviving content was 400 |
 | V. Discussion | ~435 | **estimated** | not re-costed against current content; likely low, since the limitations list has grown |
-| **Total so far** | **≥ 3,492 + Section IV** | | against a 5-page format that held ~3,300 |
+| **Total so far** | **4,601** | four of six lines measured | against a 5-page format that held ~3,300. **The condensation task is ~1,300 words, and it is now measured rather than feared** |
 
 **Two things this table now says that the old one did not.** First, **which numbers are
 measurements and which are guesses** — three of six are guesses, and the two largest measured
