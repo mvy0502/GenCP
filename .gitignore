@@ -57,6 +57,20 @@ tubitak/outputs/*
 !tubitak/outputs/.gitkeep
 # report figures are deliverables: keep them despite the *.png rule above
 !tubitak/docs/figures/*.png
+
+# The plugin's toolbar icon is SOURCE, not imagery. metadata.txt names it and
+# scripts/build_plugin_zip.py copies it into the archive, so if the *.png rule swallowed
+# it a fresh clone would build a zip whose toolbar button is blank - and nothing would
+# say so.
+!tubitak/qgis_plugin/icon.png
+
+# Plugin screenshots are the deliverable for "show what it actually looks like": dialog
+# captures plus canvas renders, produced by tubitak/tests/plugin_e2e_run.py. Cleared
+# against the two imagery rules before adding them: the base raster in these renders is
+# Sentinel-2 (Copernicus T36TVK, open data - see tubitak/docs/ankara-acquisition.md), the
+# rasterised input is our own OSM/CLC+ render, and no institutional or Google Earth
+# imagery appears in any of them.
+!tubitak/docs/evidence/plugin_screens/*.png
 *.pth
 *.zip
 .venv/

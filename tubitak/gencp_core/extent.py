@@ -51,18 +51,74 @@ def validate_bbox(bbox):
     return (xmin, ymin, xmax, ymax)
 
 
-def resolve(bbox, crs: str):
-    """Resolve a requested extent to a projected working CRS.
+def classify_crs(crs: str):
+    """Decide how a requested CRS must be treated. Returns (kind, detail).
 
-    Geographic input (EPSG:4326) is reprojected to the UTM zone of the extent centre,
-    because the whole chain works in metres. Anything already projected is used as-is.
+    kind is 'geographic' (reproject to UTM), 'metric' (use as-is) or 'unusable'.
+
+    This exists because "is it projected?" is the wrong question and asking it produced
+    two silently wrong outputs, both measured in tubitak/tests/plugin_failure_paths.py:
+
+      EPSG:3857  projected, axis unit nominally metre, but a Pseudo-Mercator metre is a
+                 metre only at the equator. A reference 2570 m across measured 3391 units
+                 at Ankara's latitude, so the chain built a 340 x 341 px raster where 257
+                 x 257 was correct and called every pixel 10 m. No warning.
+      EPSG:4258  geographic, but the old test was `crs == "EPSG:4326"`, so ETRS89
+                 latitude/longitude fell through to the projected branch and its degrees
+                 were read as metres. Extent span 0.0, output grid 1 x 1 px. No warning.
+
+    So the test is now on the CRS's own properties, not on one hard-coded EPSG code.
+    """
+    if not crs:
+        return "unusable", "a CRS is required"
+    try:
+        from pyproj import CRS as _CRS
+        c = _CRS.from_user_input(crs)
+    except Exception as e:                           # noqa: BLE001 - reported to the user
+        return "unusable", (f"the reference layer's CRS ({crs}) could not be interpreted "
+                            f"({e}). Reproject the layer to a UTM zone and try again.")
+    if c.is_geographic:
+        return "geographic", str(c.name)
+    epsg = c.to_epsg()
+    method = ""
+    try:
+        method = (c.coordinate_operation.method_name or "") if c.coordinate_operation else ""
+    except Exception:                                # noqa: BLE001
+        method = ""
+    if epsg in (3857, 900913, 3785) or "Pseudo-Mercator" in method \
+            or "Popular Visualisation" in method:
+        return "unusable", (
+            f"{crs} ({c.name}) is Web/Pseudo-Mercator. Its units are called metres but are "
+            f"only true metres at the equator, so a 10 m grid built in it would not be 10 m "
+            f"on the ground. Reproject the reference layer to its UTM zone "
+            f"(Layer > Save As, or Processing > Reproject Layer) and run again.")
+    units = ""
+    try:
+        units = (c.axis_info[0].unit_name or "").lower() if c.axis_info else ""
+    except Exception:                                # noqa: BLE001
+        units = ""
+    if units and units not in ("metre", "meter", "m"):
+        return "unusable", (
+            f"{crs} ({c.name}) has axis units of '{units}', not metres. The whole chain "
+            f"works on a 10 m grid. Reproject the reference layer to a metric CRS "
+            f"(its UTM zone) and run again.")
+    return "metric", str(c.name)
+
+
+def resolve(bbox, crs: str):
+    """Resolve a requested extent to a metric working CRS.
+
+    Any GEOGRAPHIC CRS is reprojected to the UTM zone of the extent centre, because the
+    whole chain works in metres. A metric projected CRS is used as-is. Anything else is
+    refused with a message that names the problem - see classify_crs.
 
     Returns (extent_in_working_crs, working_crs, source_crs).
     """
     xmin, ymin, xmax, ymax = validate_bbox(bbox)
-    if not crs:
-        raise ExtentError("a CRS is required")
-    if crs.upper() == "EPSG:4326":
+    kind, detail = classify_crs(crs)
+    if kind == "unusable":
+        raise ExtentError(detail)
+    if kind == "geographic":
         from pyproj import Transformer
         work = utm_for((xmin + xmax) / 2.0, (ymin + ymax) / 2.0)
         tr = Transformer.from_crs(crs, work, always_xy=True)

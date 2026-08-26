@@ -155,11 +155,26 @@ def write(path, arr, bounds_utm, crs):
 
 
 def make_chip(bounds_utm, crs, out_path, gdf=None, use_worldcover=True, pbf=None,
-              base_product=None):
-    """base_product: None->WorldCover if use_worldcover, 'clcplus', or 'none'."""
+              base_product=None, stats=None):
+    """base_product: None->WorldCover if use_worldcover, 'clcplus', or 'none'.
+
+    `stats`, if a dict is passed, is filled with how many OSM features went into the chip.
+    An .osm.pbf that does not cover the requested extent yields zero features and renders
+    a clean, plausible-looking landscape made entirely of the CLC+ base - which is how a
+    wrong extent turns into a confident wrong output rather than an error. Counting is the
+    only way to tell "no OSM here" from "OSM says this is empty countryside".
+
+    Written as an out-parameter rather than a changed return value because gate_r.py
+    asserts this function renders byte-identically to scripts/osm_to_raster.py, and the
+    written file must stay untouched.
+    """
     if gdf is None:
         gdf = vectors.fetch_pbf(bounds_utm, crs, pbf) if pbf else vectors.fetch(bounds_utm, crs)
     polys, lines = classify(gdf)
+    if stats is not None:
+        stats["n_osm_features"] = int(len(gdf)) if gdf is not None else 0
+        stats["n_polygons"] = int(len(polys)) if polys is not None else 0
+        stats["n_lines"] = int(len(lines)) if lines is not None else 0
     if base_product == "clcplus":
         base, bmap = vectors.fetch_clcplus(bounds_utm, crs), CLC_MAP
     elif base_product == "none" or not use_worldcover:

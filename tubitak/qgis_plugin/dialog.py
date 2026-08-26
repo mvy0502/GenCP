@@ -60,6 +60,8 @@ class GenCPDialog(QDialog):
         self._preview_index = 0
         self._task = None
         self._confirmed = False
+        self._extent_ok = False
+        self._ui_ready = False
         self._build_ui()
         self._refresh_extent()
 
@@ -118,14 +120,17 @@ class GenCPDialog(QDialog):
         self.lbl_src.setWordWrap(True)
         f2.addWidget(self.lbl_src)
         lay.addWidget(g2)
-        self._prefill_paths()
 
         # --- 3 Preview ---
         g3 = QGroupBox("3 · Preview — the rasterised input the model will see")
         f3 = QVBoxLayout(g3)
-        f3.addWidget(QLabel(
+        hint = QLabel(
             "Check this render before generating. If the land cover, water or roads look "
-            "wrong here, the generated image will be confidently wrong in the same way."))
+            "wrong here, the generated image will be confidently wrong in the same way.")
+        # Without this the label's one-line sizeHint becomes the form's minimum width and
+        # a horizontal scrollbar appears under every section, cutting the path fields off.
+        hint.setWordWrap(True)
+        f3.addWidget(hint)
         self.preview_label = QLabel("No preview yet.")
         self.preview_label.setAlignment(member(Qt, 'AlignCenter'))
         self.preview_label.setMinimumHeight(TILE_PREVIEW_PX)
@@ -145,6 +150,12 @@ class GenCPDialog(QDialog):
         prow.addWidget(self.btn_next)
         prow.addStretch(1)
         f3.addLayout(prow)
+        self.lbl_warn = QLabel("")
+        self.lbl_warn.setWordWrap(True)
+        self.lbl_warn.setStyleSheet(
+            "background:#fff3cd; color:#664d03; border:1px solid #ffe69c; padding:6px;")
+        self.lbl_warn.setVisible(False)
+        f3.addWidget(self.lbl_warn)
         self.cb_confirm = QCheckBox(
             "I have looked at the rasterised input above and it is correct")
         self.cb_confirm.setEnabled(False)
@@ -161,7 +172,6 @@ class GenCPDialog(QDialog):
         self.lbl_model.setWordWrap(True)
         f4.addWidget(self.lbl_model)
         lay.addWidget(g4)
-        self._prefill_model()
 
         # --- 5 Run ---
         g5 = QGroupBox("5 · Run")
@@ -198,6 +208,19 @@ class GenCPDialog(QDialog):
         f6.addLayout(orow)
         lay.addWidget(g6)
 
+        # Prefills come LAST, and this ordering is load-bearing. Setting a QLineEdit's
+        # text emits textChanged, which is connected to _validate, which reads
+        # btn_preview, cb_write and out_edit. Run from the middle of _build_ui - where
+        # these two calls used to sit, next to the sections they fill - _validate raised
+        # AttributeError inside a Qt slot on EVERY construction. PyQt hands such an
+        # exception to sys.excepthook, which in QGIS opens a modal Python error dialog,
+        # so the user saw two error boxes every time they opened the plugin and the
+        # dialog nonetheless finished building and worked. Every earlier test missed it
+        # because the exception never propagates to the caller.
+        self._ui_ready = True
+        self._prefill_paths()
+        self._prefill_model()
+
         lay.addStretch(1)
         self.buttons = QDialogButtonBox(member(QDialogButtonBox, 'Close'))
         self.buttons.rejected.connect(self.reject)
@@ -205,6 +228,9 @@ class GenCPDialog(QDialog):
 
     def _file_row(self, btn_text, slot):
         edit = QLineEdit()
+        # A full CLC+ path is ~90 characters. Left to its own sizeHint the field widens the
+        # whole form; this lets it shrink and scroll internally instead.
+        edit.setMinimumWidth(180)
         btn = QPushButton(btn_text)
         btn.clicked.connect(slot)
         row = QHBoxLayout()
@@ -281,6 +307,25 @@ class GenCPDialog(QDialog):
             f"<b>{p.name}</b><br>modified {mt} &middot; {st.st_size/1e6:.1f} MB"
             f"<br><span style='color:gray'>{p.parent}</span>")
 
+    def _apply_clc_path(self):
+        """Point gencp_core at the CLC+ raster in section 2.
+
+        Called before the PREVIEW as well as before the run. It used to be inlined in
+        _start() only, so the preview rendered against whatever default gencp_core had
+        compiled in while the run used the user's file. Two different base rasters, one
+        checkbox saying "I have looked at the render above and it is correct". Found by
+        pointing the CLC+ field at a text file: the preview reported success.
+        """
+        clc = self.clc_edit.text().strip()
+        if not clc:
+            return
+        os.environ["GENCP_CLC_PATH"] = clc
+        try:
+            from gencp_core import vectors
+            vectors.CLC_PATH = Path(clc)   # honoured via GENCP_CLC_PATH too
+        except Exception:                            # noqa: BLE001
+            pass
+
     def _on_confirm(self, on):
         self._confirmed = bool(on)
         self._validate()
@@ -293,13 +338,17 @@ class GenCPDialog(QDialog):
             self.lbl_crs.setText("—")
             self.lbl_tiles.setText("—")
             self._extent = self._crs = None
+            self._extent_ok = False
             self._invalidate_preview()
             self._validate()
             return
         r = layer.extent()
         crs = layer.crs()
         self._extent = (r.xMinimum(), r.yMinimum(), r.xMaximum(), r.yMaximum())
-        self._crs = crs.authid() or crs.toWkt()
+        # pyproj cannot resolve a QGIS-local "USER:100001" authid, but it can read the
+        # WKT the same CRS carries, so custom CRSs are passed on as WKT.
+        authid = crs.authid() or ""
+        self._crs = crs.toWkt() if (not authid or authid.startswith("USER:")) else authid
         self.lbl_extent.setText(
             f"{r.xMinimum():.2f}, {r.yMinimum():.2f} → {r.xMaximum():.2f}, "
             f"{r.yMaximum():.2f}  ({r.width():.0f} × {r.height():.0f} map units)")
@@ -309,13 +358,16 @@ class GenCPDialog(QDialog):
             e, work, _ = ext.resolve(self._extent, self._crs)
             est = ext.estimate(e, self.overlap_box.currentData())
             mins = est["seconds"] / 60.0
+            plural = "" if est['n_tiles'] == 1 else "s"
             self.lbl_tiles.setText(
-                f"<b>{est['n_tiles']} tiles</b> → output {est['width']} × {est['height']} px "
+                f"<b>{est['n_tiles']} tile{plural}</b> → output {est['width']} × {est['height']} px "
                 f"({est['megapixels']:.1f} Mpx) in {work}"
                 f"<br><span style='color:gray'>rough estimate {mins:.1f} min on CPU — "
                 f"an estimate, not a guarantee</span>")
+            self._extent_ok = True
         except Exception as e:                       # noqa: BLE001 - shown to the user
             self.lbl_tiles.setText(f"<span style='color:#a00'>{e}</span>")
+            self._extent_ok = False
         self._invalidate_preview()
         self._validate()
 
@@ -328,6 +380,9 @@ class GenCPDialog(QDialog):
         self.btn_next.setEnabled(False)
         self.preview_label.setText("No preview yet.")
         self.preview_label.setPixmap(QPixmap())
+        if hasattr(self, "lbl_warn"):
+            self.lbl_warn.setVisible(False)
+            self.lbl_warn.setText("")
 
     # ------------------------------------------------------------- preview ---
     def _render_preview(self):
@@ -338,27 +393,56 @@ class GenCPDialog(QDialog):
             QMessageBox.warning(self, "Data source", why)
             return
         self.lbl_status.setText("Rendering preview tile…")
+        self._apply_clc_path()
         QgsApplication.processEvents()
         try:
             from gencp_core import extent as ext, pipeline
             e, work, _ = ext.resolve(self._extent, self._crs)
             tiles, _ = ext.tile_grid(e, self.overlap_box.currentData())
             tile = tiles[min(self._preview_index, len(tiles) - 1)]
-            import tempfile
-            d = Path(tempfile.mkdtemp(prefix="gencp_preview_"))
+            # Deliberately the SAME cache directory `pipeline.generate` uses, not a fresh
+            # mkdtemp. The dialog's premise is "look at this render, then trust the
+            # output", and that only holds if the run consumes the very file the user
+            # looked at. A separate preview directory re-renders the tile at Run time and
+            # merely hopes the second render matches the first. Cache names are content
+            # addressed (pipeline.tile_cache_name), so a changed extent, CRS, OSM source
+            # or CLC+ path lands on a different name rather than silently reusing this one.
+            d = pipeline.default_work_dir() / "render"
+            stats = {}
             paths = pipeline.render_inputs(
-                [tile], work, d, pbf=self._pbf_or_none(), base_product="clcplus")
+                [tile], work, d, pbf=self._pbf_or_none(), base_product="clcplus",
+                stats_out=stats)
             p = list(paths.values())[0]
             self._show_preview(p, tile, len(tiles))
+            self._show_warnings(pipeline.coverage_warnings(stats, self._pbf_or_none()))
             self._preview_paths = [str(p)]
             self.cb_confirm.setEnabled(True)
             self.btn_prev.setEnabled(len(tiles) > 1)
             self.btn_next.setEnabled(len(tiles) > 1)
-            self.lbl_status.setText("Preview rendered.")
+            n = (list(stats.values()) or [{}])[0].get("n_osm_features")
+            self.lbl_status.setText(
+                "Preview rendered." if n is None else
+                f"Preview rendered — {n} OSM feature(s) in this tile.")
         except Exception as e:                       # noqa: BLE001 - shown to the user
             _log(f"preview failed: {e}", member(Qgis, 'Warning'))
             self.lbl_status.setText(f"Preview failed: {e}")
             QMessageBox.critical(self, "Preview failed", str(e))
+
+    def _show_warnings(self, msgs):
+        """Put coverage warnings where the decision is made, not in the message log.
+
+        A tile with zero OSM features renders as clean CLC+ land cover and looks like
+        countryside, not like a failure. The user is about to tick a box saying the render
+        is correct, so the warning belongs directly above that box.
+        """
+        if not msgs:
+            self.lbl_warn.setVisible(False)
+            self.lbl_warn.setText("")
+            return
+        self.lbl_warn.setText("<b>Warning</b><br>" + "<br>".join(msgs))
+        self.lbl_warn.setVisible(True)
+        for m in msgs:
+            _log(m, member(Qgis, 'Warning'))
 
     def _step_preview(self, d):
         self._preview_index = max(0, self._preview_index + d)
@@ -401,12 +485,18 @@ class GenCPDialog(QDialog):
         return True, ""
 
     def _validate(self):
+        # Signals can fire while _build_ui is still running; the widgets below may not
+        # exist yet. See the note where the prefills are called.
+        if not getattr(self, "_ui_ready", False):
+            return
         ok_src, why = self._source_ok()
         self.lbl_src.setText("" if ok_src else f"<span style='color:#a00'>{why}</span>")
-        self.btn_preview.setEnabled(self._extent is not None and ok_src)
+        self.btn_preview.setEnabled(
+            self._extent is not None and getattr(self, "_extent_ok", False) and ok_src)
         model_ok = Path(self.model_edit.text().strip() or "/nonexistent").is_file()
         out_ok = (not self.cb_write.isChecked()) or bool(self.out_edit.text().strip())
-        can_run = bool(self._extent is not None and ok_src and model_ok
+        can_run = bool(self._extent is not None and getattr(self, "_extent_ok", False)
+                       and ok_src and model_ok
                        and self._confirmed and out_ok and self._task is None)
         self.btn_run.setEnabled(can_run)
         if not self._confirmed and self._extent is not None and ok_src:
@@ -424,14 +514,7 @@ class GenCPDialog(QDialog):
             pbf=self._pbf_or_none(), base_product="clcplus",
             overlap_m=float(self.overlap_box.currentData()),
         )
-        clc = self.clc_edit.text().strip()
-        if clc:
-            os.environ["GENCP_CLC_PATH"] = clc
-            try:
-                from gencp_core import vectors
-                vectors.CLC_PATH = Path(clc)  # honoured via GENCP_CLC_PATH too
-            except Exception:                        # noqa: BLE001
-                pass
+        self._apply_clc_path()
 
         from .task import GenerateTask
         self._task = GenerateTask("GenCP synthetic reference", params)
@@ -471,10 +554,14 @@ class GenCPDialog(QDialog):
         seam = res.get("seam")
         if seam:
             msgs.append(f"seam energy ratio {seam['ratio']:.3f}")
+        warns = res.get("warnings") or []
+        self._show_warnings(warns)
         self.lbl_status.setText(" · ".join(msgs) or "Done.")
         self.btn_cancel.setEnabled(False)
         self._validate()
-        self.iface.messageBar().pushMessage("GenCP", " · ".join(msgs), level=member(Qgis, 'Success'))
+        self.iface.messageBar().pushMessage(
+            "GenCP", " · ".join(msgs),
+            level=member(Qgis, 'Warning' if warns else 'Success'))
 
     def _failed(self):
         task, self._task = self._task, None
