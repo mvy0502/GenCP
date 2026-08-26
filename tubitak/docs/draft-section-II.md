@@ -99,16 +99,12 @@ input, not the ground truth, deliberately:** it separates *invented where nothin
 from *wrong where something was known* — a distinction existing hallucination metrics do not
 draw.
 
-### F. A geometric error in the published pipeline
+### F. Geometry
 
-Resampling 257×257 rasters at 10 m to 256×256 while copying the transform unchanged gives a
-true ground sampling distance of 10.0390625 m against a declared 10.0 — an error of exactly
-1/256, reaching 14.1 m at the chip corner. Our path corrects it. **The qualifier travels with
-the claim:** the systematic component is consistent with the signs and magnitudes of the
-published means, but predicted standard deviation is 2.89 m against an observed 14.5–17.3 m,
-so it accounts for roughly 3.9% of the reported variance and does not invalidate the published
-conclusions. We describe it as a text-versus-data inconsistency, not as a code bug, and pin
-the audited commit.
+Our path corrects a ground-sampling-distance inconsistency in the published resampling step;
+the correction is applied to every chip scored here, so our geometry is not identical to the
+published pipeline's. The finding itself, its magnitude and its bounded contribution to the
+published variance are reported separately in the extended version.
 
 ### G. Registration statement
 

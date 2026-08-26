@@ -210,17 +210,53 @@ Sentinel-2.
    the live claim statement; the two must not drift, and a change to either requires the same
    change to the other in the same commit.** "Separately" is load-bearing — it marks the
    absence of a joint claim rather than leaving a reader to supply one.*
-5. **Related work, 220 words, compressed hard.** Blau and Michaeli give the theory; position as
-   identifying the consumer, not contradicting it. Liu, Zhang and Xiong extend it to a
-   downstream task, but a semantic one where an in-class hallucination costs nothing. Arar et
-   al. is the only prior loss ablation scored against a registration metric and its sign is
-   opposite, because there translation and registration train jointly. Chen, Ohayon et al. prove
-   information-theoretically that pursuing perceptual quality converts uncertainty into
-   confidently rendered false detail — our mechanism, predicted. Fuentes Reyes et al. named
-   "fiction" in SAR-to-optical translation in 2019 and wrote that no suitable metric existed;
-   seven years later the field still evaluates with FID and LPIPS. Merkle et al. established
-   feeding translation output into a matching pipeline and never asked whether a matched point
-   was real.
+5. ~~**Related work, 220 words, compressed hard.**~~ **REVISED 2026-08-26: ~150 words,
+   FOUR citations.** The original bullet is preserved below. The skeleton itself names this
+   paragraph as the most compressible in the letter, and this is where the Section II
+   overrun is paid from — related work compresses without losing a result; Section IV's rows
+   *are* results.
+
+   **The four that survive, with the reason each is non-negotiable — recorded so the choice
+   is not re-litigated when Section I is drafted:**
+
+   - **Blau and Michaeli** — the perception-distortion tradeoff itself. Everything the letter
+     says about *why* plausibility costs accuracy rests on it. Position as identifying the
+     consumer, never as contradicting the theory.
+   - **Arar et al.** — **NON-NEGOTIABLE.** The only prior loss ablation scored against a
+     registration metric, **and its sign is opposite to ours.** Omitting it would read as
+     suppressing contrary evidence, which is the single accusation this letter can least
+     afford. The distinguishing sentence stays: joint training there, frozen deliverable and
+     exogenous matcher here.
+   - **Chen, Ohayon et al.** — proves information-theoretically that pursuing perceptual
+     quality converts uncertainty into confidently rendered false detail. Our mechanism,
+     predicted in advance by someone else; it makes the finding expected rather than odd.
+   - **Merkle et al.** — established feeding translation output into a matching pipeline and
+     never asked whether a matched point was real. Without it the letter has no statement of
+     what the field currently does.
+
+   **Moved to the arXiv version:** Liu, Zhang and Xiong (the downstream-task extension — a
+   semantic task where an in-class hallucination costs nothing, so the distinction is real
+   but not load-bearing) and Fuentes Reyes et al. (named "fiction" in SAR-to-optical in 2019
+   and observed that no suitable metric existed — rhetorically strong, evidentially
+   redundant once Chen/Ohayon is cited). **Both are cut for space, not for disagreement, and
+   the arXiv version carries them.** Freirich, Michaeli and Meir is **not** in this list and
+   is not cut for space: it was removed on its merits when the interaction claim was
+   withdrawn, since it supported only that claim.
+
+   *Original bullet, preserved:*
+
+   > 5. **Related work, 220 words, compressed hard.** Blau and Michaeli give the theory; position as
+   >    identifying the consumer, not contradicting it. Liu, Zhang and Xiong extend it to a
+   >    downstream task, but a semantic one where an in-class hallucination costs nothing. Arar et
+   >    al. is the only prior loss ablation scored against a registration metric and its sign is
+   >    opposite, because there translation and registration train jointly. Chen, Ohayon et al. prove
+   >    information-theoretically that pursuing perceptual quality converts uncertainty into
+   >    confidently rendered false detail — our mechanism, predicted. Fuentes Reyes et al. named
+   >    "fiction" in SAR-to-optical translation in 2019 and wrote that no suitable metric existed;
+   >    seven years later the field still evaluates with FID and LPIPS. Merkle et al. established
+   >    feeding translation output into a matching pipeline and never asked whether a matched point
+   >    was real.
+
 6. **Contributions, 3 bullets, 60 words.** (i) A 2×2 factorial isolating plausibility pressure
    with a positional outcome. (ii) A cheap, input-conditioned, reproducible measurement of
    invention, tied to matchability rather than to perception. (iii) A design rule for anyone
@@ -251,14 +287,28 @@ Sentinel-2.
   input and not the ground truth: it separates "invented where nothing was known" from "wrong
   where something was known", which is the distinction every existing hallucination metric
   lacks.
-- **A geometric error in the published pipeline, 100 words + repo pointer.** 257×257 rasters at
+- ~~**A geometric error in the published pipeline, 100 words + repo pointer.** 257×257 rasters at
   10 m resampled to 256×256 with the transform copied unchanged gives a true GSD of
   10.0390625 m against a declared 10.0, an error of exactly 1/256, up to 14.1 m at the chip
   corner. Corrected in our path. **Carry the qualifier or the claim overreaches: the systematic
   component is consistent with the signs and magnitudes of the published means, but predicted
   std is 2.89 m against an observed sigma of 14.5–17.3 m, so it explains roughly 3.9% of the
   reported variance and does not invalidate their conclusions.** Describe it as a
-  text-versus-data inconsistency, not as a code bug. Pin the audited commit.
+  text-versus-data inconsistency, not as a code bug. Pin the audited commit.~~
+
+  **MOVED TO THE ARXIV VERSION, 2026-08-26.** Struck here, not deleted, and not withdrawn —
+  the finding stands and is published, in the extended version where it has room. Three
+  reasons: **(i)** it does not support the claim; **(ii)** its own paragraph has to walk it
+  back, since it explains 3.9% of the upstream variance and the qualifier is mandatory;
+  **(iii)** it opens a second front in a letter with one thesis. **Reason (iii) got heavier
+  on 2026-08-26: the GenCP authors will be reading this draft, and a primary critique that
+  also carries a secondary fight is both weaker as an argument and harder to send.**
+  **What stays in Section II is one clause**: that our path corrects a ground-sampling-distance
+  inconsistency in the published resampling step, so our geometry is not identical to theirs,
+  with a pointer to the extended version. **The finding leaves; the disclosure that our
+  geometry differs stays** — a reader must not be able to think the two pipelines are
+  identical. Saves ~59 words in the drafted Section II.
+
 - **Registration statement, 40 words.** The binding wording, verbatim.
 
 ### III. Results (800 words, Table I, Fig. 1)
@@ -536,6 +586,15 @@ wrong place; a broad peak in the right place localises better than a sharp peak 
     was byte for byte. **This is a binding sentence the manuscript gets checked against, so
     its wording should be clean** — a checker comparing the two phrasings should not have to
     decide whether they mean different things.
+
+    **AMENDED 2026-08-26 — this is now an ARXIV-VERSION rule, not a letter rule.** Not
+    deleted: the sentence binds wherever the 1/256 finding is published, and per the
+    decision above that is the extended version. **It does not bind the letter, because the
+    finding is not in the letter.** The letter carries only the one-clause disclosure that
+    our geometry differs, which needs no variance qualifier because it states no magnitude.
+    A checker running this list against the letter should mark item 13 *not applicable*
+    rather than *unmet*.
+
 14. **Invention is a necessary condition, not a complete explanation.**
 15. **ADDED 2026-08-26. The interaction consequence removes claims, not the disclosure.** The
     pre-committed consequence struck "the same lever", "substitutes" and the interaction claim
