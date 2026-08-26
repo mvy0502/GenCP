@@ -61,6 +61,22 @@ context later, and it is what makes the chain testable without QGIS running.
    choose it in section 4. The weights path is configurable and deliberately not
    bundled-and-hardcoded.
 
+## Version support — what is tested and what is not
+
+**Executed end to end on QGIS 4.2.1 (Qt 6.11.1 / PyQt 6.11.0), macOS.** `metadata.txt`
+declares `qgisMinimumVersion=3.28`, `supportsQt6=True`.
+
+**3.28 is reasoned about, not tested.** No QGIS 3.x is installed here, so no 3.x load has
+been verified, and neither has any Windows load. The basis for the claim: every Qt import
+goes through the `qgis.PyQt` shim (no direct `PyQt5.*`/`PyQt6.*` anywhere), enum members
+are resolved through `qtcompat.member()` so both the Qt5 flat names and the Qt6 scoped
+names work, no Qt5-only API (`exec_()`, `QDesktopWidget`, `QRegExp`, `QVariant(...)`,
+`QStringList`, `toAscii`) is used, and the QGIS API surface is all QGIS 3.0-era. `QAction`
+— which Qt6 moved from `QtWidgets` to `QtGui` — was specifically checked: the QGIS shim
+exposes it from both.
+
+Treat a first run on the institution's QGIS as a test, not a formality.
+
 ## macOS note that will otherwise cost you an afternoon
 
 The QGIS **application** executable is signed with

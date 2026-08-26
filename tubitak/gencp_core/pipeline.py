@@ -7,7 +7,7 @@ plugin's Run button does is here, and all of it is testable without QGIS running
 cancel without gencp_core knowing what a QgsTask is.
 """
 from __future__ import annotations
-import datetime, hashlib, json, os
+import datetime, hashlib, json, os, tempfile
 from pathlib import Path
 
 from . import extent as _extent
@@ -106,7 +106,10 @@ def generate(extent_bbox, crs, model_path, out_tif=None, *, pbf=None,
 
     ext, work_crs, src_crs = _extent.resolve(extent_bbox, crs)
     tiles, stride = _extent.tile_grid(ext, overlap_m)
-    work_dir = Path(work_dir or (Path(os.environ.get("TMPDIR", "/tmp")) / "gencp_work"))
+    # tempfile.gettempdir() honours TMPDIR on POSIX and TEMP/TMP on Windows; reading
+    # TMPDIR directly with a "/tmp" fallback would put the work directory at a
+    # non-existent absolute path on Windows.
+    work_dir = Path(work_dir or (Path(tempfile.gettempdir()) / "gencp_work"))
 
     renders = render_inputs(tiles, work_crs, work_dir / "render", pbf=pbf,
                             base_product=base_product,

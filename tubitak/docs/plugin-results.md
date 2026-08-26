@@ -499,6 +499,77 @@ policy, not results:
 
 ---
 
+## Item E — toolkit-version-agnostic plugin
+
+### Qt imports: already through the shim, and verified
+
+**No direct `PyQt5.*` or `PyQt6.*` import exists anywhere** in `qgis_plugin/`,
+`gencp_core/` or `tubitak/tests/`. All eight Qt import sites go through `qgis.PyQt.*`,
+which resolves to whichever Qt the host QGIS was built against.
+
+Verified inside the running QGIS process (Qt **6.11.1**, PyQt **6.11.0**):
+
+| check | result |
+|---|---|
+| `QAction` importable from `qgis.PyQt.QtWidgets` | **True** — the shim back-fills it on Qt6, where Qt moved it to `QtGui` |
+| `QAction` importable from `qgis.PyQt.QtGui` | True |
+| `qgis_plugin.plugin` imports cleanly | OK |
+| `member(Qt, 'AlignCenter')` | `AlignmentFlag.AlignCenter` |
+| `member(Qt, 'KeepAspectRatio')` | `AspectRatioMode.KeepAspectRatio` |
+| `member(Qgis, 'Critical')` | `MessageLevel.Critical` |
+| `member(QgsTask, 'CanCancel')` | `Flag.CanCancel` |
+| `member(QgsMapLayerProxyModel, 'All')` | `LayerFilter.All` |
+
+`QAction` was the one real hazard: Qt6 moved it out of `QtWidgets`, and `plugin.py` imports
+it from there. The QGIS shim covers it, so no change was needed — but it was **tested, not
+assumed**, because the headless suite constructs the dialog directly and never exercises
+`initGui()`.
+
+### API the shim does not cover: audited, none present
+
+Searched for the usual Qt5-only survivors — `exec_()`, `QDesktopWidget`, `QRegExp`,
+`AA_EnableHighDpiScaling`, `QVariant(...)`, `QStringList`, `setResizeMode`, `toAscii`,
+`QTextCodec`. **None appears in the plugin.**
+
+The QGIS API surface used is small and long-standing (all QGIS 3.0-era):
+`QgsApplication`, `QgsMapLayerComboBox`, `QgsMapLayerProxyModel`, `QgsMessageLog`,
+`QgsProject`, `QgsRasterLayer`, `QgsTask`, and `iface.{addPluginToRasterMenu,
+addToolBarIcon, mainWindow, messageBar, removePluginRasterMenu, removeToolBarIcon}`.
+
+### `qgisMinimumVersion`: set honestly, with the gap stated
+
+`qgisMinimumVersion=3.28`, plus `qgisMaximumVersion=4.99` and `supportsQt6=True`.
+
+**3.28 is reasoned about, not tested. I could not verify a 3.x load — no QGIS 3.x is
+installed on this machine.** What supports the claim is that every Qt access goes through
+the shim, no Qt5-only or Qt6-only API is used, and the QGIS API surface predates 3.28
+entirely. What would refute it is a single 3.x load, which has not happened. That sentence
+is in `metadata.txt`'s `about` field so it travels with the plugin rather than living only
+in this report.
+
+### Windows: one real bug, fixed
+
+| finding | status |
+|---|---|
+| `pipeline.py` built its work directory from `os.environ["TMPDIR"]` with a `"/tmp"` fallback | **Fixed** — now `tempfile.gettempdir()`, which honours `TMPDIR` on POSIX and `TEMP`/`TMP` on Windows. The old code would have produced a non-existent absolute path on Windows. |
+| any other `/tmp`, `/usr/`, `os.system`, or shell invocation in `gencp_core/` or `qgis_plugin/` | **none** |
+| string-concatenated paths with forward slashes | **none** — all path building is `pathlib` |
+| `run_in_qgis.sh` is bash and macOS-specific | **test helper only, not shipped**; noted rather than fixed, since the equivalent on Windows is a different invocation of the same app binary |
+| `osmium` / `onnxruntime` availability on Windows | both publish Windows wheels; **not verified here** |
+
+### Re-verified after the changes
+
+The full headless suite still passes **25/25** in QGIS 4.2.1 after the `tempfile` change
+and the metadata edit.
+
+### Also corrected
+
+`metadata.txt`'s `tracker` and `repository` pointed at `gencp-validation`, which the new
+repository rules make a destination rather than a workspace. Both now point at
+`mvy0502/GenCP`.
+
+---
+
 ## Gate G — georeferencing contract: **PASS (12/12)**
 
 Reference layer `ank_0_30.tif`, EPSG:32636, extent
