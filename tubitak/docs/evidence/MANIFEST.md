@@ -163,4 +163,7 @@ sha256, size in bytes, path relative to this directory.
 | `task2/ov640/reliability.csv` | `f4aba75ffa2a255de450657a7f458647fd3186840cc5f88cc811aefdd56c8d1b` | 1,347 |
 | `task2/ov960/reliability.csv` | `1718584916611e90ba3b43231c5911e9191ff78833838ac24cb547715f2905f9` | 2,075 |
 | `task3/task3_per_chip.csv` | `46eeb60678f920a90cd9286de80694781788badb3ed8f508d17910fe69bee7c9` | 6,367 |
-**80 files, 1.4 MB.** Regenerate this table with `shasum -a 256` over the directory.
+| `C45_s43_modalwarmup/C45_per_chip.csv` | `736bb74648d9bc01650aadc01a403d8642b1aa31613a0d8983828844d310c970` | 9,834 |
+| `C45_s43_modalwarmup/C45_edge_ratio.csv` | `f124f9c800cbe2238594472d56f563c7062fd795ab8f1ebe3ebeea50599ec62a` | 13,598 |
+
+**82 files, 1.4 MB.** (2 added 2026-08-26 by the LR-confound probe.) Regenerate this table with `shasum -a 256` over the directory.
