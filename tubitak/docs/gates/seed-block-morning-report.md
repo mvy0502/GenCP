@@ -109,3 +109,12 @@ branch decision happen in the morning session.
 2. seed-43 Modal values' position within the six-seed range (comparability rule).
 3. The corrections-log/results documents remain untouched overnight, as mandated.
 4. The $1.10 constant's ~38% understatement (§3) for the cost records.
+
+---
+
+**Correction, 05:03 (before hand-off; the 04:01 figures above were pre-settle):** the
+dashboard settled to **usage $53.00 / charged $23.00** once all containers closed. Settled
+wave cost 53.00 − 11.77 = **$41.23** against the driver-computed $36.33: **ratio 1.13**,
+effective ≈ **$1.25 per GPU-container-hour**. The §3 figures ($61.96 / ×1.38) were the
+live estimate at read time and are kept above rather than edited away; this note is the
+settled reconciliation. Total out-of-pocket this cycle so far: **$23.00**.
