@@ -145,3 +145,25 @@ def seam_metric(rgb, transform, tiles):
     return dict(seam_grad=seam, background_grad=back,
                 ratio=seam / back if back > 0 else float("inf"),
                 seam_px=int(mask.sum()))
+
+
+def write_band_geotiff(path, bands, crs, transform, provenance=None, colours=None):
+    """Write a single-band uint8 raster with a colour table - the confidence layer.
+
+    Single-band paletted rather than RGB so QGIS shows a legend with band names instead of
+    three meaningless colour channels, and so 0 can mean nodata unambiguously (the score
+    itself is signed, so no encoded score value is free to stand for "no data").
+    """
+    import rasterio
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    a = np.asarray(bands, dtype=np.uint8)
+    H, W = a.shape
+    prof = dict(driver="GTiff", height=H, width=W, count=1, dtype="uint8",
+                crs=crs, transform=transform, nodata=0, compress="deflate")
+    with rasterio.open(path, "w", **prof) as d:
+        d.write(a, 1)
+        if colours:
+            d.write_colormap(1, {int(k): tuple(v) + (255,) for k, v in colours.items()})
+        d.update_tags(GENCP_PROVENANCE=json.dumps(provenance or {}, sort_keys=True))
+    return path

@@ -143,3 +143,122 @@ def osm_class_breakdown(idx, names):
     out = {g: int(sum(by_name.get(n, 0) for n in members)) for g, members in groups.items()}
     out["total_osm_px"] = int(sum(out.values()))
     return out
+
+
+# --------------------------------------------------------------------------------------
+# Calibration. Every constant below was MEASURED on the 150 held-out European chips and is
+# reported in tubitak/docs/confidence-results.md. None of it may be re-fitted to whatever
+# the user happens to be generating: a run over one flat tile would z-score itself to the
+# middle of the scale and report green.
+# --------------------------------------------------------------------------------------
+
+CALIBRATION = {
+    "corpus": "150 held-out EU chips, sitevar=eu in tubitak/docs/evidence/regD/regD_per_chip.csv",
+    "arm": "C2",
+    "error_column": "med_mean32 (KARIOS median radial residual, px)",
+    "spread_path": "gencp_C2_stochastic_fp32.onnx, 16 draws, seed 0",
+    "spearman_rho": -0.7466,
+    "spearman_ci": [-0.8226, -0.6473],
+    "partial_rho_given_point_count": -0.3810,
+    "registration": "tubitak/docs/confidence-registration.md",
+    "results": "tubitak/docs/confidence-results.md",
+    # z-score statistics, taken over the held-out corpus
+    "conf_D_mean": 0.716106, "conf_D_std": 0.514109,
+    "conf_S_mean": -1.807605, "conf_S_std": 0.805370,
+    # band boundaries on the combined score
+    "red_hi": -0.728778, "green_lo": -0.104970,
+    "band_median_px": {"red": 3.133, "amber": 2.7054, "green": 1.3804},
+    "band_n": {"red": 23, "amber": 43, "green": 84},
+    "corpus_median_px": 1.9802,
+}
+
+# The one model this score is calibrated for. C3 has no held-out EU KARIOS errors, so the
+# bands have no meaning there and the plugin must not pretend otherwise.
+VALIDATED_MODEL_STEMS = ("gencp_C2_fp32", "gencp_C2_stochastic_fp32")
+
+BAND_RED, BAND_AMBER, BAND_GREEN = 1, 2, 3
+BAND_NAMES = {BAND_RED: "red", BAND_AMBER: "amber", BAND_GREEN: "green"}
+# Colour-blind-safe: red/amber/green here are distinguishable by lightness as well as hue.
+BAND_COLOURS = {BAND_RED: (202, 0, 32), BAND_AMBER: (244, 165, 130), BAND_GREEN: (5, 113, 176)}
+
+
+def align_to(field, shape):
+    """Resample a smooth per-pixel field onto another grid, bilinearly.
+
+    conf_D is computed on the 257 px RENDER, because class assignment has to see the
+    palette colours before `infer.preprocess` resizes them to 256 with BICUBIC and blends
+    them into things that are no longer palette entries. conf_S necessarily lives on the
+    model's 256 px output grid. The two have to meet somewhere, and it is the entropy field
+    that moves, because it is smooth over a 33 px window and resampling it costs nothing.
+
+    Validation aggregated both to chip means, where this never arose; the per-pixel map is
+    what forced the question. Re-running the validation with the alignment applied leaves
+    rho unchanged to four decimals.
+    """
+    from scipy.ndimage import zoom
+    a = np.asarray(field, dtype=np.float64)
+    if a.shape == tuple(shape):
+        return a
+    return zoom(a, (shape[0] / a.shape[0], shape[1] / a.shape[1]), order=1)
+
+
+def combined_score(conf_D, conf_S):
+    """The registered score: mean of the two z-scores, using held-out corpus statistics."""
+    c = CALIBRATION
+    conf_D = np.asarray(conf_D, dtype=np.float64)
+    conf_S = np.asarray(conf_S, dtype=np.float64)
+    if conf_D.shape != conf_S.shape:
+        conf_D = align_to(conf_D, conf_S.shape)
+    zd = (conf_D - c["conf_D_mean"]) / c["conf_D_std"]
+    zs = (np.asarray(conf_S, dtype=np.float64) - c["conf_S_mean"]) / c["conf_S_std"]
+    return (zd + zs) / 2.0
+
+
+def band_map(score):
+    """Score -> band index. Boundaries from the held-out error distribution, not by eye.
+
+    Applied per pixel here. The boundaries were DERIVED and VALIDATED at chip level (a
+    chip-mean score against a chip-median error), so a per-pixel band is the same quantity
+    at finer granularity and not a separately calibrated per-pixel probability. Anywhere
+    this is shown to a user, the run-level verdict is the number with evidence behind it.
+    """
+    s = np.asarray(score, dtype=np.float64)
+    out = np.full(s.shape, BAND_AMBER, dtype=np.uint8)
+    out[s <= CALIBRATION["red_hi"]] = BAND_RED
+    out[s >= CALIBRATION["green_lo"]] = BAND_GREEN
+    return out
+
+
+def run_verdict(score, red_warn_fraction=0.20):
+    """What percentage of the output falls in each band, plus the run-level band.
+
+    `mean_band` comes from the MEAN score over the run, which is the chip-level quantity
+    the validation actually tested. `fractions` come from the per-pixel map.
+    """
+    s = np.asarray(score, dtype=np.float64)
+    b = band_map(s)
+    n = b.size
+    fr = {BAND_NAMES[k]: float((b == k).sum()) / n for k in (BAND_RED, BAND_AMBER, BAND_GREEN)}
+    mean_score = float(s.mean())
+    return {
+        "fractions": fr,
+        "mean_score": mean_score,
+        "mean_band": BAND_NAMES[int(band_map(np.array([mean_score]))[0])],
+        "red_exceeds_threshold": fr["red"] > red_warn_fraction,
+        "red_warn_fraction": red_warn_fraction,
+        "expected_median_px": CALIBRATION["band_median_px"],
+    }
+
+
+def model_is_validated(model_path):
+    """True when the chosen weights are the ones the bands were calibrated on."""
+    from pathlib import Path as _P
+    return _P(str(model_path)).stem in VALIDATED_MODEL_STEMS
+
+
+def stochastic_model_for(model_path):
+    """The matching noise-input export for a deterministic model, if it sits beside it."""
+    from pathlib import Path as _P
+    p = _P(str(model_path))
+    cand = p.with_name(p.stem.replace("_fp32", "_stochastic_fp32") + p.suffix)
+    return cand if cand.is_file() else None

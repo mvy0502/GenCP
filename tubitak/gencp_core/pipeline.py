@@ -10,6 +10,8 @@ from __future__ import annotations
 import datetime, hashlib, json, os, tempfile
 from pathlib import Path
 
+import numpy as np
+
 from . import extent as _extent
 from . import infer as _infer
 from . import mosaic as _mosaic
@@ -191,9 +193,29 @@ def preview_image(render_path):
         return Image.fromarray(np.moveaxis(s.read()[:3], 0, -1))
 
 
+# The confidence score is signed and roughly spans [-4, +4]; it is carried through the
+# existing, Gate-G-verified mosaic code as a uint8 image so the blending, the grid and the
+# transform are literally the same code path as the picture. 8/255 of the range is 0.031 in
+# score units, against band boundaries 0.62 apart, so the quantisation is immaterial.
+SCORE_ENCODE_RANGE = 4.0
+
+
+def _encode_score(score):
+    a = (np.clip(np.asarray(score), -SCORE_ENCODE_RANGE, SCORE_ENCODE_RANGE)
+         + SCORE_ENCODE_RANGE) / (2 * SCORE_ENCODE_RANGE)
+    return np.repeat((a * 255.0).round().astype(np.uint8)[:, :, None], 3, axis=2)
+
+
+def _decode_score(rgb):
+    return (np.asarray(rgb, dtype=np.float64)[0] / 255.0) * (2 * SCORE_ENCODE_RANGE) \
+        - SCORE_ENCODE_RANGE
+
+
 def generate(extent_bbox, crs, model_path, out_tif=None, *, pbf=None,
              base_product="clcplus", overlap_m=DEFAULT_OVERLAP_M, dst_crs=None,
-             work_dir=None, progress=None, cancelled=None, seam=True):
+             work_dir=None, progress=None, cancelled=None, seam=True,
+             confidence=False, stochastic_model=None, n_confidence_passes=16,
+             confidence_seed=0):
     """Run the whole chain. Returns a dict describing what was produced.
 
     progress(stage, done, total) where stage is 'render' | 'infer' | 'mosaic'.
@@ -223,6 +245,36 @@ def generate(extent_bbox, crs, model_path, out_tif=None, *, pbf=None,
         if progress is not None:
             progress("infer", n, total)
 
+    # --- confidence, on the same tiles and the same grid -------------------------------
+    conf_tiles = {}
+    conf_meta = None
+    if confidence:
+        from . import confidence as _conf
+        sto = None
+        if stochastic_model:
+            sto = _infer.StochasticOnnxGenerator(str(stochastic_model))
+        for n, (key, path) in enumerate(renders.items(), 1):
+            if cancelled is not None and cancelled():
+                raise Cancelled()
+            sig = _conf.signals(np.asarray(preview_image(path)))
+            if sto is not None:
+                spread, _m = sto.spread(preview_image(path),
+                                        n_passes=n_confidence_passes,
+                                        seed=confidence_seed)
+                conf_s = -spread
+            else:
+                # Without a noise-input export there is no spread term. Rather than
+                # silently substituting a different score, this is refused: the bands were
+                # calibrated on the two-term score and mean nothing without it.
+                raise ValueError(
+                    "a confidence pass needs the matching *_stochastic_fp32.onnx export; "
+                    "without it the score is not the one the bands were calibrated on")
+            conf_tiles[key] = _encode_score(_conf.combined_score(sig["conf_D"], conf_s))
+            if progress is not None:
+                progress("confidence", n, len(renders))
+        conf_meta = dict(n_passes=n_confidence_passes, seed=confidence_seed,
+                         model=str(stochastic_model))
+
     rgb, valid, transform = _mosaic.build(tiles, fakes, work_crs, ext, overlap_m,
                                           progress=sub("mosaic"))
     prov = provenance(model_path, work_crs, ext, overlap_m, len(tiles),
@@ -239,5 +291,32 @@ def generate(extent_bbox, crs, model_path, out_tif=None, *, pbf=None,
     if out_tif:
         result["output"] = str(_mosaic.write_geotiff(out_tif, rgb, work_crs, transform,
                                                      provenance=prov, dst_crs=dst_crs))
+    if conf_tiles:
+        from . import confidence as _conf
+        crgb, _cv, ctransform = _mosaic.build(tiles, conf_tiles, work_crs, ext, overlap_m)
+        score = _decode_score(crgb)
+        bands = _conf.band_map(score)
+        bands[~valid] = 0                      # nodata where the picture has no data
+        verdict = _conf.run_verdict(score[valid]) if valid.any() else None
+        cprov = dict(prov)
+        cprov.update({
+            "product": "GenCP confidence bands",
+            "band_values": {"1": "red - do not use", "2": "amber - use with care",
+                            "3": "green - usable", "0": "nodata"},
+            "inference_path_image": "DETERMINISTIC - gencp_core.infer.OnnxGenerator",
+            "inference_path_confidence": (
+                "STOCHASTIC - dropout re-enabled via explicit noise inputs, "
+                f"{n_confidence_passes} draws, seed {confidence_seed}. The delivered image "
+                "does NOT come from this path."),
+            "confidence": conf_meta,
+            "calibration": _conf.CALIBRATION,
+        })
+        result["confidence"] = dict(verdict=verdict, provenance=cprov)
+        if out_tif:
+            cpath = Path(out_tif).with_name(Path(out_tif).stem + "_confidence.tif")
+            result["confidence"]["output"] = str(_mosaic.write_band_geotiff(
+                cpath, bands, work_crs, ctransform, provenance=cprov,
+                colours=_conf.BAND_COLOURS))
+        result["_confidence_bands"] = bands
     result["_rgb"] = rgb
     return result
