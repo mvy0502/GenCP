@@ -54,21 +54,49 @@ def dataset_size(a):
     return -1
 
 
-def all_files(a):
-    """Page through the complete file list."""
-    names, token, pages = [], None, 0
+def find_prefixes(a, expected):
+    """Page the listing until every expected prefix has been seen at least once.
+
+    Kaggle lists alphabetically, so the archives appear in a known order and the last one
+    (`generated_fakes`, 35,322 entries) begins after roughly 2,160 entries. Enumerating
+    the WHOLE listing is both unnecessary and harmful: 37k entries at 200 per page is ~185
+    rapid calls, which earns a 429 Too Many Requests and verifies nothing. So: stop as
+    soon as all prefixes are found, pause between pages, and back off on 429.
+    """
+    import requests
+    counts = {p: 0 for p in expected}
+    token, pages, seen_total = None, 0, 0
     while True:
-        r = a.dataset_list_files(DATASET, page_token=token, page_size=200)
+        for attempt in range(5):
+            try:
+                r = a.dataset_list_files(DATASET, page_token=token, page_size=200)
+                break
+            except requests.exceptions.HTTPError as e:
+                if e.response is not None and e.response.status_code == 429:
+                    wait = 10 * (attempt + 1)
+                    print(f"  429 rate-limited; backing off {wait}s", flush=True)
+                    time.sleep(wait)
+                    continue
+                raise
+        else:
+            print("  giving up after repeated 429s — NOT VERIFIED")
+            return counts, pages, False
         batch = getattr(r, "files", None) or []
-        names += [str(f.name) for f in batch]
+        for f in batch:
+            name = str(f.name)
+            seen_total += 1
+            for pfx in expected:
+                if name.startswith(pfx + "/"):
+                    counts[pfx] += 1
         pages += 1
+        if all(v > 0 for v in counts.values()):
+            print(f"  all {len(expected)} prefixes seen after {pages} pages "
+                  f"({seen_total:,} entries) — stopping early", flush=True)
+            return counts, pages, True
         token = getattr(r, "nextPageToken", None) or getattr(r, "next_page_token", None)
         if not token or not batch:
-            break
-        if pages > 400:
-            print("  stopped paging at 400 pages")
-            break
-    return names, pages
+            return counts, pages, True
+        time.sleep(1.5)
 
 
 def main():
@@ -85,16 +113,16 @@ def main():
         print("TIMED OUT waiting for a non-zero size — NOT VERIFIED")
         return 2
 
-    names, pages = all_files(a)
-    print(f"enumerated {len(names):,} file entries over {pages} pages\n")
-    ok = True
+    counts, pages, complete = find_prefixes(a, EXPECTED)
+    print(f"paged {pages} pages\n")
+    ok = complete
     for pfx in EXPECTED:
-        # exact prefix: 'checkpoints_C4/' must not be satisfied by 'checkpoints_C4_s43_modal/'
-        n = sum(1 for x in names if x.startswith(pfx + "/"))
+        n = counts[pfx]
         state = "PRESENT" if n > 0 else "*** MISSING ***"
         if n == 0:
             ok = False
-        print(f"  {pfx:<28s} {n:>7,} entries   {state}")
+        print(f"  {pfx:<28s} {n:>7,} entries seen   {state}")
+    print("\n  (counts are 'seen before early exit', not totals — presence is the test)")
     print()
     print("=" * 64)
     print("BACKUP 2: " + ("UPLOADED AND VERIFIED — all four archives present"

@@ -22,28 +22,34 @@ one is not.
 
 ### Backup 2 — Kaggle `vedatyildirim/gencp-evidence-backup-2` (2026-08-26, 14 GB)
 
-> **Status 2026-08-26: PARTIAL — two of four archives are on Kaggle; the other two are
-> being re-pushed. Do not treat this backup as complete until the table below says so.**
+> **Status 2026-08-26: UPLOADED AND VERIFIED.** Kaggle reports **13,732,977,835 bytes**
+> and all four archive prefixes are present, confirmed by paging the file listing:
 >
-> The four tars exist and are verified locally under `tubitak/data/evidence_backup_2/`
-> (14 GB; entry counts checked: `checkpoints_C4.tar` 1,079 entries,
-> `generated_fakes.tar` 35,322 entries). They are pushed to Kaggle as a **second dataset**
-> rather than a new version of the first, because `datasets version` on the first would
-> re-upload its existing 13.7 GB for no benefit.
+> | archive | server-side |
+> |---|---|
+> | `checkpoints_C4/` | PRESENT |
+> | `checkpoints_C5/` | PRESENT |
+> | `checkpoints_C4_s43_modal/` | PRESENT |
+> | `generated_fakes/` | PRESENT |
 >
-> **`kaggle datasets create` uploaded only `checkpoints_C4.tar` and
-> `checkpoints_C4_s43_modal.tar`, then exited with status 0.** `checkpoints_C5.tar` and
-> `generated_fakes.tar` were never attempted — they appear nowhere in the command's output,
-> not even as a "Starting upload" line, and no error was printed. **A zero exit code from
-> this tool does not mean the upload was complete.** That is now a known failure mode for
-> this procedure and the reason the verification step below exists.
+> Verified with `tubitak/tests/verify_kaggle_backup.py`, **not** by trusting an exit code.
+> It took three attempts and the failures are recorded because they are the procedure's
+> real hazards:
 >
-> A `datasets version` push with the full folder is in flight. **This block must be replaced
-> with UPLOADED AND VERIFIED plus a per-file confirmation** once
-> `kaggle datasets files vedatyildirim/gencp-evidence-backup-2` shows all four archive
-> prefixes. Until then, the independent off-machine copy covers **Backup 1 in full and
-> Backup 2 only in part**, and `generated_fakes.tar` — the row this document argues is the
-> most valuable — is **not yet protected off-machine**.
+> 1. **`kaggle datasets create` uploaded two of four archives and exited 0** — no error, and
+>    no "Starting upload" line for the two it skipped. **A zero exit code from this tool
+>    does not mean the upload completed.** A `datasets version` push with the same folder
+>    then sent all four.
+> 2. **A single page of `kaggle datasets files` proves nothing.** `checkpoints_C4` alone has
+>    1,079 entries, so it fills the page and the other three read as absent whether they are
+>    there or not. The check must page, and must match `prefix/` exactly so
+>    `checkpoints_C4` is not satisfied by `checkpoints_C4_s43_modal`.
+> 3. **Enumerating the whole listing earns a 429.** 37k entries at 200 per page is ~185
+>    rapid calls. The verifier stops as soon as every prefix has been seen (22 pages here),
+>    pauses between pages, and backs off on 429.
+>
+> Kaggle reports `total_bytes = 0` until it has finished extracting the tars server-side —
+> here for roughly three hours. **Size 0 means "still processing", not "empty".**
 
 | item | size | why |
 |---|---|---|
