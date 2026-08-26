@@ -211,7 +211,81 @@ formulation.
 **No file has been edited to execute this.** §6 below is the review list of every place the
 three terms appear in a claim sense; the edits happen after that list is reviewed.
 
-### Ruling on the edge-scale interaction, recorded now before anyone is tempted by it
+### RULING 1 — the consequence removes claims, not the disclosure
+
+Recorded before anyone executes the edit list, because a literal reading of "the word
+'interaction' is dropped from the paper" would delete the record that the test was
+pre-registered, run, and failed.
+
+**Suppressing a pre-registered failed test is the single worst thing this paper could do.**
+It is the exact failure the whole registration apparatus exists to prevent, and it is the
+failure this paper accuses the upstream published work of committing. A consequence written
+to stop us over-claiming must not become the instrument of a worse offence.
+
+**Ruling: the consequence removes CLAIMS. It does not remove the DISCLOSURE.**
+
+**Removed** — the claim language, wherever it asserts a result:
+
+- "the same lever"
+- "substitutes" (as a band verdict or a claim about the two pressures)
+- "two pressures act on one lever" and every paraphrase
+- any sentence asserting the interaction as a mechanistic result
+
+**Mandatory, and PROTECTED from the edit list** — a disclosure paragraph in the results or
+limitations section stating that the interaction was registered before the data existed,
+computed on all three registered scales, and was not sign-stable, and that the paper
+therefore makes no interaction claim. This is a deliverable, not an absence. It is written
+out in full below so that it exists as text before any deletion happens, and it is marked
+**PROTECTED TEXT** in the edit list at §6.
+
+**The Kaggle block is named in the disclosure.** Its interaction is negative in both its
+seeds on all three scales. A reader is entitled to see every run that was performed, so the
+disclosure states it — and states in the same breath that it does not change the outcome:
+the two blocks may never be pooled (hardware gate: NOT POOLED), and an n = 2 block does not
+override an n = 6 block. Reporting it and refusing to lean on it are the same act of
+honesty; doing only the second would be concealment, and doing only the first would be the
+back door.
+
+#### The disclosure paragraph, as it should appear in the paper (PROTECTED TEXT)
+
+> **Interaction: registered, tested, not sign-stable, and therefore not claimed.** Before
+> any replication data existed we registered a seed-level interaction between the two
+> reconstruction terms, I = (C4 − C5) − (C1 − C2), to be read as negative in every seed and
+> to survive a monotone re-scaling, with both re-scalings — a natural-log transform of the
+> per-chip residual and a within-chip rank transform — specified in advance. Across the six
+> confirmatory seeds the interaction was negative in five and positive in one (seed 46), and
+> the same seed reversed the sign on the log and rank scales as well: 5/6 on each of the
+> three registered scales. The registered reading therefore fails, and by a consequence
+> committed in advance we make no interaction claim in this paper. An earlier two-seed block
+> run on different hardware returned a negative interaction in both of its seeds on all three
+> scales; it is reported here for completeness and carries no weight against the six-seed
+> result, because the two blocks cannot be pooled and a two-seed block does not override a
+> six-seed one. The seed-level means are negative on all three scales, and the log-scale and
+> rank-scale confidence intervals exclude zero; these are reported, not required, and they do
+> not reinstate a reading whose criterion was sign stability across seeds rather than a
+> nonzero mean. The single-run estimate this project previously published, I = −0.212, falls
+> outside the range spanned by the six replicates on the raw and rank scales, which is
+> reported as a finding in its own right below.
+
+That paragraph is the deliverable. It may be shortened for the letter format, but it may not
+lose any of these five elements: registered in advance, computed on all three scales,
+5/6 with the same seed breaking each, no claim made, and the other block reported with its
+weight stated.
+
+#### How to write the intervals, and how not to
+
+The log-scale and rank-scale interaction intervals exclude zero; the raw-scale one contains
+it. **State plainly what that means and nothing more:** the mean is reliably negative, the
+sign is not stable across seeds, and the registered reading was sign stability.
+
+**Forbidden**, in the paper and in every document downstream of this one: any sentence of
+the form *"the interval excludes zero, so the interaction is real"*, and any sentence that
+functions as one however it is phrased. **An interval is not a back door to a reading that
+failed.** The intervals were registered as reported-not-required precisely so that they
+could not be used as a gate in either direction — a zero-containing interval does not fail a
+reading, and a zero-excluding interval does not pass one.
+
+### RULING 2 — the edge-scale interaction, recorded now before anyone is tempted by it
 
 The quantity (edge C4 − edge C5) − (edge C1 − edge C2) is strikingly stable across the
 block:
@@ -325,15 +399,78 @@ checked for every primary quantity.
 LPIPS is milder than any of the six confirmatory seeds, by two-thirds of the width they
 span; its C5 − C2 sits at the very top edge; its C1 edge mean is marginally below the block.
 Its signs all agree with the block. Nothing here is a gate — SEED-c (c) asks for the
-position to be checked and reported, and that is what this table is. Seed 43's edge C1 was
-also the single quantity that failed the hardware gate (4.2× its seed spread across
-platforms), so its position outside the block on that same quantity is consistent with what
-the gate already recorded and should not be read as a second, independent finding.
+position to be checked and reported, and that is what this table is. **The three
+out-of-range rows are reported as findings under the registration's rule 3, in §5(c)
+below**, which is where the out-of-range result is stated in full.
 
-### (c) Seed 42 comparability, per the existing rule
+### (c) RESULT — the single-run estimate falls outside the range of six replicates
+
+This is a named result, not a housekeeping check, and it is written as one.
+
+**The paper's existing interaction estimate, I = −0.212, measured once at seed 42, falls
+outside the range spanned by six replicates of the same treatment.** It falls outside on the
+raw scale and outside on the rank scale:
+
+| scale | seed 42 (single run) | range spanned by the six replicates | position |
+|---|---|---|---|
+| raw | **−0.2123** | [−0.1602, +0.0594] | **outside**, below the bottom by 0.0521 |
+| log | −0.1125 | [−0.1262, +0.0118] | inside, at the bottom end |
+| rank | **−0.4154** | [−0.2615, +0.1231] | **outside**, below the bottom by 0.1538 |
+
+The single run is more negative than every one of the six replicates on two of the three
+registered scales — that is, the published number is not merely uncertain, it sits beyond
+the entire observed spread of the thing it was meant to estimate, in the direction that
+favoured the claim it was used to support.
+
+**The registration anticipated exactly this and fixed its treatment in advance.** Rule 3 of
+the registered disposition for seed 42: if it *"falls outside the range spanned by"* the
+confirmatory seeds on any primary quantity, *"that is reported as a finding, not smoothed
+over"*. It does. This is that report.
+
+**What it demonstrates.** The treatment in this design was applied **once per cell**. Every
+error bar attached to the published interaction is chip-level: it measures how consistently
+one checkpoint beats another across 130 evaluation chips, not how consistently the treatment
+works. Chip-level replication is not treatment-level replication, and using the first in
+place of the second is pseudoreplication. The published I = −0.212 ± 0.069 (t = −3.07)
+looked decisive on a chip-level error bar. Six actual replicates of the same treatment
+produce a spread that does not contain it, and a sign that flips in one of them.
+
+**This is the paper's own methodological thesis, demonstrated on the paper's own data,
+against the paper's own earlier claim.** That is what makes it the strongest available
+version of the demonstration rather than a weaker one: it is not a cautionary example
+borrowed from someone else's work, and it is not free. It costs us the interaction claim —
+the consequence in §4 fires because of it. A demonstration of pseudoreplication that cost us
+nothing would be worth less.
+
+**The same check, under the same rule, for seed 43 on Modal.** Seed 43 is the gate seed,
+excluded from the confirmatory n as a seen observation, and it too falls outside the six-seed
+range on a primary quantity: **C5 − C4 = −0.5292 against [−0.6462, −0.5775], outside the top
+by 0.0483, which is 0.70 of the entire width the six replicates span.** Its C5 − C2 (+0.1086)
+sits fractionally above the top of the range, and its edge C1 mean (1.0650) falls below it.
+Reported as a finding under the same rule, not smoothed over. Seed 43's edge C1 was also the
+one quantity that failed the hardware gate at 4.2× its seed spread, so that row is consistent
+with what the gate already recorded and is not a second independent finding; the C5 − C4 row
+is not covered by the gate and stands on its own.
+
+**Two single runs, two quantities, both outside the replicate range.** Seed 42 on the
+interaction and seed 43 on the primary contrast. Neither was cherry-picked for this section:
+they are the only two non-confirmatory runs the package has, and both were range-checked
+because the registration required it before any of these numbers existed.
+
+**Scope, stated so the result is not over-read.** Falling outside the range of six replicates
+is not a significance test and no p-value is attached to it. Six replicates span a finite
+range and a seventh draw can land outside it by chance; what makes this reportable is not the
+bare fact of falling outside but that it happens on the quantity the paper built a mechanistic
+claim on, in the direction that supported the claim, and that the registered reading on the
+same quantity independently fails at 5/6. The code-path caveat on seed 42 (its C1/C2 trained
+19–20 August on an earlier build than its C4/C5) remains attached and is a live alternative
+contributor to its position; this block does not separate the two, and the registration
+already recorded that it could not.
+
+### (c-continued) Seed 42's full comparability table
 
 Seed 42 is the **generating observation, not a replicate** — the direction under test was
-read off it, so it cannot confirm it. Its position within the six-seed range:
+read off it, so it cannot confirm it. Its position within the six-seed range, all quantities:
 
 | quantity | seed 42 | six-seed range | position |
 |---|---|---|---|
@@ -387,7 +524,9 @@ the Kaggle block's role was demoted to consistency by SEED-c (f); and the confir
 count for these readings is the six-seed Modal block, n = 6, by SEED-c (b). Two seeds
 agreeing on a direction, at df = 1 with intervals this wide, is the situation the six-seed
 block was commissioned to replace. It is reported because the registration says report both
-blocks, and for no other purpose.
+blocks, and for no other purpose. **Per RULING 1, it is also named in the paper's disclosure
+paragraph, with that weighting stated in the same sentence** — a reader sees every run, and
+sees at the same time why the two-seed block does not override the six-seed one.
 
 ### (e) Cost reconciliation
 
@@ -420,6 +559,21 @@ unchanged**: they are the historical record, and rewriting them would erase the 
 that the consequence was pre-committed and honoured.
 
 Nothing in this section has been edited.
+
+### 6.0 PROTECTED TEXT — must exist after the edit pass, not merely survive it
+
+Per **RULING 1** in §4, the edit pass is not complete when the ten occurrences below are
+removed. It is complete when they are removed **and** the disclosure paragraph exists in the
+paper's results or limitations section.
+
+| item | status | source |
+|---|---|---|
+| The interaction disclosure paragraph — registered in advance, three scales, 5/6 with the same seed breaking each, no claim made, other block reported with its weight stated | **PROTECTED. Must be ADDED, not preserved — it does not exist in the paper yet.** The edit list may not be executed without it. | drafted in full at §4, RULING 1 |
+| The word "interaction" **inside that paragraph** | **PROTECTED.** The consequence removes the word where it asserts a result. It does not remove the word where it discloses that a registered test failed. | §4, RULING 1 |
+| The out-of-range result at §5(c) — single-run I = −0.212 outside the six-replicate range | **PROTECTED.** It is a result in its own right and does not depend on the interaction claim; it survives the consequence because it is a finding *about* the estimate, not a claim *from* it. | §5(c) |
+
+An edit pass that deletes the ten occurrences and stops there produces a paper that silently
+drops a pre-registered failed test. That outcome is forbidden.
 
 ### 6.1 Claim-sense occurrences — candidates for the consequence
 
@@ -484,9 +638,13 @@ to preserve.
 
 ## 7. What is deliberately not in this document
 
-- **The warm-up de-confound curves are untouched.** `loss_log.txt` for C5_warmup and
-  C2_warmup is downloaded and unread. That package has its own registered branches and its
-  own session.
+- **The warm-up de-confound is a separate package with its own registration**, read in the
+  same session as this document but reported separately in
+  [warmup-deconfound-results.md](warmup-deconfound-results.md). Its second registered branch
+  fired: neither warmed non-adversarial arm rises, so the learning-rate-jump explanation of
+  the two-epoch window is refuted at seed 43. It is n = 1, a mechanism probe, and it enters
+  no contrast in this document.
 - **No manuscript, title or claim text has been edited.** §6 is a review list; the edits
-  follow review.
-- **No corrections-log entry.** See the head of this document.
+  follow review, and §6.0 records what must be added before they are executed.
+- **No corrections-log entry.** See the head of this document. The warm-up package proposes
+  an addition to entry 26, drafted for review and likewise not applied.
