@@ -11,6 +11,12 @@ So: poll until the dataset reports a non-zero size (Kaggle extracts tars server-
 reports 0 until it has finished), then page through the ENTIRE file list and count
 entries per expected archive prefix.
 """
+NOTE_INTERPRETER = """
+Run with the interpreter that HAS the kaggle module. On this machine the CLI's shebang
+points at the miniforge base python, not the `gencp` env:
+
+    /opt/homebrew/Caskroom/miniforge/base/bin/python tubitak/tests/verify_kaggle_backup.py
+"""
 from __future__ import annotations
 import sys, time
 
