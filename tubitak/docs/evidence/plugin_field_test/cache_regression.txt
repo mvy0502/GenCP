@@ -1,0 +1,19 @@
+default work_dir the dialog would use: /var/folders/my/zq5vn6hj0ys8xb2fwt0f7mlm0000gn/T/gencp_work
+  (cleared, so this probe starts from nothing)
+extent A (ank_0_30): (399960.0, 4420330.0, 402530.0, 4422900.0)
+extent B (ank_0_41): (399960.0, 4392060.0, 402530.0, 4394630.0)
+they are DIFFERENT extents
+
+run A: wrote run_A.tif, cache now holds ['t_0_0_2e778e8b9cff1558.tif']
+run B: wrote run_B.tif, cache now holds ['t_0_0_13ba16136e3aba93.tif', 't_0_0_2e778e8b9cff1558.tif']
+
+output A == output B ?  False
+  [PASS] outputs differ: mean |diff| 58.901 DN, max 186 DN
+
+cache after both runs: ['t_0_0_13ba16136e3aba93.tif', 't_0_0_2e778e8b9cff1558.tif']
+  [PASS] two distinct cache entries expected, got 2
+
+--- re-running extent A must HIT the cache (the cache still has to work) ---
+  re-run of A took 0.22s; cache entries still 2
+  [PASS] no new render was made for a repeat extent
+  [PASS] repeat of A reproduces A byte for byte

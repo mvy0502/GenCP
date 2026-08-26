@@ -1,0 +1,39 @@
+========================================================================
+ZIP INSTALL INTO A CLEAN PROFILE
+========================================================================
+  profile   : /Users/vedat/Library/Application Support/QGIS/QGIS4/profiles/gencp_zip_test/
+  QGIS      : 4.2.1-Belém do Pará
+  zip       : /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/dist/gencp_plugin.zip  (0.05 MB)
+  [PASS] the profile starts with this plugin absent  - plugins present before install: []
+  [PASS] nothing in the profile is a symlink to the checkout  - []
+
+  --- install from ZIP ---
+  [PASS] installFromZipFile completed without raising  - pyplugin_installer.installFromZipFile (the Install from ZIP button's own path)
+  [PASS] the zip unpacked to one folder named for the plugin  - /Users/vedat/Library/Application Support/QGIS/QGIS4/profiles/gencp_zip_test/python/plugins/gencp_synthetic_reference
+  [PASS] metadata.txt is at the root of that folder
+  [PASS] gencp_core came with it (vendored, not borrowed)
+  [PASS] the installed folder is a real directory, not a symlink
+
+  --- load and start it ---
+  [PASS] the plugin is started (classFactory + initGui ran)  - started by installFromZipFile
+  [PASS] the plugin object is registered
+  [PASS] initGui created the menu/toolbar action  - GenCP Synthetic Reference...
+  [PASS] gencp_core resolves to the copy INSIDE the installed plugin  - /Users/vedat/Library/Application Support/QGIS/QGIS4/profiles/gencp_zip_test/python/plugins/gencp_synthetic_reference/gencp_core/__init__.py
+  [PASS] gencp_core did NOT come from the repository checkout  - /Users/vedat/Library/Application Support/QGIS/QGIS4/profiles/gencp_zip_test/python/plugins/gencp_synthetic_reference/gencp_core/__init__.py
+
+  --- one generation, through the dialog ---
+  [PASS] the toolbar action opens the dialog
+  [PASS] reference layer loads
+  [PASS] section 1 reads the extent from the layer  - 399960.00, 4420330.00 → 402530.00, 4422900.00  (2570 × 2570 
+  [PASS] preview renders  - 384x384 px in 0.2s
+  [PASS] Generate is enabled
+  [PASS] generation completed  - 1.06s
+  [PASS] GeoTIFF written  - 0.10 MB
+  [PASS] Gate G contract holds on the zip-installed plugin's output  - 257x257 px, transform (10.0, 0.0, 399960.0, 0.0, -10.0, 4422900.0), EPSG:32636
+  [PASS] provenance embedded  - 17 fields
+  [PASS] output added to the project as a layer  - gencp_zip_install_output, reference
+  [PASS] no exceptions were raised inside Qt slots  - 0 slot exception(s)
+
+========================================================================
+23/23 checks passed
+========================================================================

@@ -1,0 +1,80 @@
+========================================================================
+PHASE A - is the plugin actually INSTALLED in this profile?
+========================================================================
+  profile in use : /Users/vedat/Library/Application Support/QGIS/QGIS4/profiles/default/
+  QGIS           : 4.2.1-Belém do Pará
+  executable     : /Applications/QGIS-final-4_2_1.app/Contents/MacOS/QGIS-final-4_2_1
+  loaded plugins : ['MetaSearch', 'db_manager', 'gencp_synthetic_reference', 'grassprovider', 'processing', 'sentinel_stac_loader', 'stac_browser']
+  [PASS] plugin is loaded by QGIS from the user profile  - gencp_synthetic_reference in qgis.utils.plugins
+  plugin object  : <gencp_synthetic_reference.plugin.GenCPPlugin object at 0x1579cf1d0>
+  plugin module  : /Users/vedat/Library/Application Support/QGIS/QGIS4/profiles/default/python/plugins/gencp_synthetic_reference/__init__.py
+  [PASS] initGui() completed - the QAction exists  - GenCP Synthetic Reference...
+  [PASS] the action is registered on the main window (menu/toolbar)  - GenCP Synthetic Reference...
+
+========================================================================
+PHASE B - drive the dialog the way the toolbar button does
+========================================================================
+  [PASS] triggering the toolbar action opened the dialog
+    [shot] 01_dialog_on_open.png  780x1180  ok
+  [PASS] shot 1: dialog on open, nothing selected
+  [PASS] with no layer in the project the extent reads as unset  - '—'
+  [PASS] Generate is disabled on open
+  [PASS] reference layer loads  - ank_0_30.tif
+    extent : 399960.00, 4420330.00 → 402530.00, 4422900.00  (2570 × 2570 map units)
+    crs    : EPSG:32636 — WGS 84 / UTM zone 36N
+    tiles  : <b>1 tile</b> → output 257 × 257 px (0.1 Mpx) in EPSG:32636<br><span style='color:gray'>rough estimate 0.1 min on CPU — an estimate, not a guarantee</span>
+    [shot] 02_reference_selected.png  780x1180  ok
+  [PASS] shot 2: reference chosen, extent and CRS displayed
+  [PASS] section 1 displays the extent
+  [PASS] section 1 displays the CRS  - EPSG:32636 — WGS 84 / UTM zone 36N
+  [PASS] section 1 displays tile count and an estimate
+    parsed estimate: 0.1 min for 1 tile(s)
+
+  --- preview ---
+  [PASS] preview renders a real rasterised input  - 384x384 px in 5.3s
+    [shot] 03_preview_rendered.png  780x1180  ok
+  [PASS] shot 3: preview section with the render in it
+    [shot] 03b_preview_tile_only.png (the preview pixmap alone)
+  [PASS] Generate enabled once the preview is confirmed
+
+  --- run ---
+  [PASS] clicking Generate created a QgsTask  - QgsTask
+    [shot] 04_run_in_progress.png  780x1180  ok
+  [PASS] shot 4: run in progress, progress bar advancing  - captured at 25%
+    stage first seen at (s): {'render': 0.0, 'mosaic': 0.22}
+  [PASS] generation completed  - wrote /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/p
+  [PASS] inference ran OFF the main thread  - <PyQt6.QtCore.QThread object at 0x1636ff7f0>
+  [PASS] progress bar advanced through distinct values  - 3 distinct values, max 100%
+    wall clock (Generate click -> done): 0.38s (0.006 min)
+    preview render before it:            5.32s
+    what the user actually waits for:    5.70s
+    what the dialog PREDICTED:           6.00s (0.1 min for 1 tile(s))
+    estimate / actual run  = 15.85x
+    estimate / actual total= 1.05x
+    [shot] 05_after_completion.png  780x1180  ok
+  [PASS] shot 5: final state after the output layer was added
+    [shot] 05b_full_form.png  738x1277  ok
+  [PASS] shot 5b: the whole form in one image, no scrolling
+    status line: wrote /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/plugin_gates/plugin_e2e_output.tif · added as a layer
+  [PASS] GeoTIFF written to the chosen path  - 0.10 MB
+  [PASS] output added to the project as a layer  - plugin_e2e_output, reference (ank_0_30)
+  [PASS] the added layer is valid and opens  - 257x257 px, EPSG:32636
+  [PASS] output layer CRS == reference layer CRS  - EPSG:32636 vs EPSG:32636
+  [PASS] output extent overlaps the reference extent  - out 399960.0,4420330.0 : 402530.0,4422900.0  ref 399960.0,4420330.0 : 402530.0,4422900.0
+  [PASS] output NW corner coincides with the reference NW corner  - dx 0.0 m, dy 0.0 m
+
+  --- Gate G georeferencing contract, on the dialog's own output ---
+  [PASS] G/A pixel size is exactly 10.0 m on both axes  - x=10.0 y=10.0
+  [PASS] G/A origin is the reference NW corner exactly  - offset x 0.0 m, y 0.0 m
+  [PASS] G/A size == ceil(span / GSD)  - got 257x257, expected 257x257
+  [PASS] G/A transform equals the registered affine term by term  - (10.0, 0.0, 399960.0, 0.0, -10.0, 4422900.0)
+  [PASS] G/A output CRS == reference CRS  - EPSG:32636 vs EPSG:32636
+  [PASS] G provenance embedded in the dialog's output  - 17 fields; model gencp_C3_fp32.onnx
+    [canvas] 06_canvas_output_only.png  760x760  ok
+    [canvas] 07_canvas_reference_only.png  760x760  ok
+    [checker] 08_checkerboard_output_vs_reference.png  760x760  (8x8 blocks: generated output vs the real reference image)
+  [PASS] shot 8: checkerboard of output against reference
+
+========================================================================
+35/35 checks passed
+========================================================================
