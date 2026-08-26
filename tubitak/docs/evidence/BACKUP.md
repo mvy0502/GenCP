@@ -22,31 +22,53 @@ one is not.
 
 ### Backup 2 — Kaggle `vedatyildirim/gencp-evidence-backup-2` (2026-08-26, 14 GB)
 
-> **Status 2026-08-26: UPLOADED AND VERIFIED.** Kaggle reports **13,732,977,835 bytes**
-> and all four archive prefixes are present, confirmed by paging the file listing:
+> **Status 2026-08-27: VERIFIED COMPLETE — counted, not merely seen.** Kaggle reports
+> **13,732,977,835 bytes**. The 2026-08-26 check below established only that each archive
+> was **present**; a half-uploaded tar extracts to a prefix that reads present exactly like
+> a whole one. The listing has now been enumerated in full — **375 pages, 74,867 entries,
+> no early exit, nothing unmatched** — and every archive matches its local tar exactly:
 >
-> | archive | server-side |
-> |---|---|
-> | `checkpoints_C4/` | PRESENT |
-> | `checkpoints_C5/` | PRESENT |
-> | `checkpoints_C4_s43_modal/` | PRESENT |
-> | `generated_fakes/` | PRESENT |
+> | archive | local members | server entries | match | real payload |
+> |---|---|---|---|---|
+> | `checkpoints_C4/` | 2,108 | 2,108 | **yes** | 1,029 files (+50 dirs) |
+> | `checkpoints_C5/` | 2,108 | 2,108 | **yes** | 1,029 files (+50 dirs) |
+> | `checkpoints_C4_s43_modal/` | 7 | 7 | **yes** | 2 files (+3 dirs) |
+> | `generated_fakes/` | 70,644 | 70,644 | **yes** | 35,322 `*_fake.png` |
+>
+> Run with `verify_kaggle_backup.py --full`. Kaggle lists **files only, never directories**
+> — confirmed by the match, since the local side counts non-directory members.
 >
 > Verified with `tubitak/tests/verify_kaggle_backup.py`, **not** by trusting an exit code.
-> It took three attempts and the failures are recorded because they are the procedure's
-> real hazards:
+> The failures along the way are recorded because they are the procedure's real hazards:
 >
 > 1. **`kaggle datasets create` uploaded two of four archives and exited 0** — no error, and
 >    no "Starting upload" line for the two it skipped. **A zero exit code from this tool
 >    does not mean the upload completed.** A `datasets version` push with the same folder
 >    then sent all four.
-> 2. **A single page of `kaggle datasets files` proves nothing.** `checkpoints_C4` alone has
->    1,079 entries, so it fills the page and the other three read as absent whether they are
->    there or not. The check must page, and must match `prefix/` exactly so
->    `checkpoints_C4` is not satisfied by `checkpoints_C4_s43_modal`.
-> 3. **Enumerating the whole listing earns a 429.** 37k entries at 200 per page is ~185
->    rapid calls. The verifier stops as soon as every prefix has been seen (22 pages here),
->    pauses between pages, and backs off on 429.
+> 2. **A single page of `kaggle datasets files` proves nothing.** `checkpoints_C4` alone
+>    fills many pages, so the other three read as absent whether they are there or not. The
+>    check must page, and must match `prefix/` exactly so `checkpoints_C4` is not satisfied
+>    by `checkpoints_C4_s43_modal`.
+> 3. **Enumerating the whole listing risks a 429.** The fast mode stops as soon as every
+>    prefix has been seen; `--full` pauses 2.5 s between pages and backs off on 429. The
+>    full 375-page walk drew no 429 at that pace. It *did* die once on a bare
+>    `ConnectionResetError` — a walk this long outlives the connection, and a handler that
+>    catches only 429 loses the whole run to it. `--full` now retries any transport error
+>    on the same page token.
+> 4. **macOS `tar -tf` undercounts these archives by half, and that nearly produced a wrong
+>    answer here.** macOS ships libarchive, whose reader silently merges an AppleDouble
+>    `._x` member back into `x` as extended attributes, so `tar -tf` never prints them.
+>    Kaggle extracts on Linux, which has no such reader, so **every `._` member becomes a
+>    real file in the dataset** — one per real entry, directories included. The first
+>    comparison used `tar -tf`, expected ~37 k entries, and read the perfectly healthy
+>    74,867-entry listing as an endless pagination loop. The local side must be counted
+>    with Python's `tarfile`, which merges nothing. **This also corrects the 2026-08-26 note
+>    above, which put `checkpoints_C4` at 1,079 entries: that was the macOS-merged figure
+>    (1,029 files + 50 dirs). The true stored count is 2,108.**
+>
+> The AppleDouble members are inert metadata, not corruption — the payload is intact and
+> the `real payload` column is the number that matters. They cost roughly nothing in bytes.
+> Future archives should be created with `COPYFILE_DISABLE=1` to avoid them.
 >
 > Kaggle reports `total_bytes = 0` until it has finished extracting the tars server-side —
 > here for roughly three hours. **Size 0 means "still processing", not "empty".**
@@ -129,15 +151,24 @@ specific weights. We accept that.
 ```bash
 # backup 1
 cd tubitak/data/evidence_backup && shasum -a 256 -c ../../docs/evidence-backup-manifest.txt
+
 # backup 2 — Kaggle auto-extracts tars server-side, so archives appear as directories.
-# Check all four prefixes explicitly: a zero exit code from `datasets create` has already
-# once meant "two of four uploaded".
-for f in checkpoints_C4 checkpoints_C5 checkpoints_C4_s43_modal generated_fakes; do
-  echo -n "$f: "
-  kaggle datasets files vedatyildirim/gencp-evidence-backup-2 --page-size 200 \
-    | grep -c "^$f/" || echo 0
-done
+# The kaggle module is NOT in the `gencp` env; use the miniforge base interpreter.
+PY=/opt/homebrew/Caskroom/miniforge/base/bin/python
+
+# presence only — fast, catches a wholly missing archive, ~22 pages
+$PY tubitak/tests/verify_kaggle_backup.py
+
+# completeness — counts every server entry and diffs it against the local tars.
+# 375 pages at 2.5 s apart, so budget ~30 min. This is the only mode that can say
+# "complete"; the fast mode can only say "present".
+$PY tubitak/tests/verify_kaggle_backup.py --full
 ```
+
+**Do not count the local side with `tar -tf` on macOS.** libarchive merges AppleDouble
+`._x` members into `x` and never prints them, so `tar -tf` reports roughly half the
+entries Kaggle actually stores. `--full` counts with Python's `tarfile`, which merges
+nothing. Kaggle lists **files only, not directories**.
 
 **Next review: at the next milestone, or whenever a new unregenerable artifact is produced.**
 Standing practice 9 now requires every run to record its seed and its numerics-affecting
