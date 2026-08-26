@@ -22,13 +22,28 @@ one is not.
 
 ### Backup 2 — Kaggle `vedatyildirim/gencp-evidence-backup-2` (2026-08-26, 14 GB)
 
-> **Status at time of writing: archives built and verified locally; upload IN PROGRESS.**
-> The four tars below exist under `tubitak/data/evidence_backup_2/` (14 GB, entry counts
-> verified: C4 1,079 entries, fakes 35,322 entries) and are being pushed to Kaggle as a
-> **second dataset** rather than a new version of the first — a `datasets version` would
-> re-upload the existing 13.7 GB for no benefit. **This line must be updated to
-> UPLOADED AND VERIFIED, with the file count, once the push completes.** Until then the
-> independent off-machine copy covers Backup 1 only.
+> **Status 2026-08-26: PARTIAL — two of four archives are on Kaggle; the other two are
+> being re-pushed. Do not treat this backup as complete until the table below says so.**
+>
+> The four tars exist and are verified locally under `tubitak/data/evidence_backup_2/`
+> (14 GB; entry counts checked: `checkpoints_C4.tar` 1,079 entries,
+> `generated_fakes.tar` 35,322 entries). They are pushed to Kaggle as a **second dataset**
+> rather than a new version of the first, because `datasets version` on the first would
+> re-upload its existing 13.7 GB for no benefit.
+>
+> **`kaggle datasets create` uploaded only `checkpoints_C4.tar` and
+> `checkpoints_C4_s43_modal.tar`, then exited with status 0.** `checkpoints_C5.tar` and
+> `generated_fakes.tar` were never attempted — they appear nowhere in the command's output,
+> not even as a "Starting upload" line, and no error was printed. **A zero exit code from
+> this tool does not mean the upload was complete.** That is now a known failure mode for
+> this procedure and the reason the verification step below exists.
+>
+> A `datasets version` push with the full folder is in flight. **This block must be replaced
+> with UPLOADED AND VERIFIED plus a per-file confirmation** once
+> `kaggle datasets files vedatyildirim/gencp-evidence-backup-2` shows all four archive
+> prefixes. Until then, the independent off-machine copy covers **Backup 1 in full and
+> Backup 2 only in part**, and `generated_fakes.tar` — the row this document argues is the
+> most valuable — is **not yet protected off-machine**.
 
 | item | size | why |
 |---|---|---|
@@ -108,8 +123,14 @@ specific weights. We accept that.
 ```bash
 # backup 1
 cd tubitak/data/evidence_backup && shasum -a 256 -c ../../docs/evidence-backup-manifest.txt
-# backup 2 — Kaggle auto-extracts tars server-side, so archives appear as directories
-kaggle datasets files vedatyildirim/gencp-evidence-backup-2
+# backup 2 — Kaggle auto-extracts tars server-side, so archives appear as directories.
+# Check all four prefixes explicitly: a zero exit code from `datasets create` has already
+# once meant "two of four uploaded".
+for f in checkpoints_C4 checkpoints_C5 checkpoints_C4_s43_modal generated_fakes; do
+  echo -n "$f: "
+  kaggle datasets files vedatyildirim/gencp-evidence-backup-2 --page-size 200 \
+    | grep -c "^$f/" || echo 0
+done
 ```
 
 **Next review: at the next milestone, or whenever a new unregenerable artifact is produced.**
