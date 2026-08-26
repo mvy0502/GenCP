@@ -285,7 +285,32 @@ failed.** The intervals were registered as reported-not-required precisely so th
 could not be used as a gate in either direction — a zero-containing interval does not fail a
 reading, and a zero-excluding interval does not pass one.
 
-### RULING 2 — the edge-scale interaction, recorded now before anyone is tempted by it
+### RULING 2 — the frozen harness still prints "substitutes", and that is not a live claim
+
+`tubitak/scripts/c45_eval/c45_score.py:100` assigns a band string that reads
+`"substitutes (I < 0 at >=2 SE, D_LPIPS > 0 at >=2 SE): LPIPS already supplies the
+pressure"`, and prints it in the harness output. **That line is NOT edited, and the decision
+not to edit it is deliberate.**
+
+The evaluation harness is frozen at the `48ced64` pins and committed at `40cde9b`. It
+computes the registered quantity, and it computed the numbers in this document. **Breaking a
+freeze to fix a cosmetic label is the wrong trade** — the freeze is what makes every number
+in this package traceable to code that could not have been adjusted after the fact, and that
+guarantee is worth far more than a tidy string. Changing frozen evaluation code would also
+require its own dated registration under the rule that governs the analysis script.
+
+**Recorded here so nobody quoting harness output mistakes it for a live claim:** the band
+line is an artefact of frozen code written before the six-seed block existed. It reports
+which band a *single run's* chip-level interaction falls into, on the seed-42-era band
+definitions. It is not a claim, it is not evidence, and **it must never be quoted, screenshotted,
+pasted into a table, or cited as a result.** The paper makes no interaction claim; see
+RULING 1 and §6.0.
+
+The same applies to the function names and printed headings in the frozen analysis script
+`seed_analysis.py` (§6.3): that code must keep computing and naming the interaction, because
+computing it is how this document knows the reading failed.
+
+### RULING 3 — the edge-scale interaction, recorded now before anyone is tempted by it
 
 The quantity (edge C4 − edge C5) − (edge C1 − edge C2) is strikingly stable across the
 block:
@@ -558,7 +583,13 @@ audit/correction record of what was claimed at the time, are listed separately a
 unchanged**: they are the historical record, and rewriting them would erase the evidence
 that the consequence was pre-committed and honoured.
 
-Nothing in this section has been edited.
+**STATUS: EXECUTED 2026-08-26.** The pass was run under a governing rule of **strike and
+annotate, do not delete** — every claim-sense occurrence keeps its original text, struck and
+marked superseded with a dated note pointing here. Ten claim sentences vanishing from the
+repository history would read as claims quietly disappearing; struck and dated, the same
+history reads as a scientific correction, which is what it is. One item was rewritten rather
+than struck (the live claim statement), two were ruled to stay with forward pointers, and
+one line of frozen code was deliberately not touched. Details per row below.
 
 ### 6.0 PROTECTED TEXT — must exist after the edit pass, not merely survive it
 
@@ -568,27 +599,31 @@ paper's results or limitations section.
 
 | item | status | source |
 |---|---|---|
-| The interaction disclosure paragraph — registered in advance, three scales, 5/6 with the same seed breaking each, no claim made, other block reported with its weight stated | **PROTECTED. Must be ADDED, not preserved — it does not exist in the paper yet.** The edit list may not be executed without it. | drafted in full at §4, RULING 1 |
+| The interaction disclosure paragraph — registered in advance, three scales, 5/6 with the same seed breaking each, no claim made, other block reported with its weight stated | **PROTECTED. ADDED 2026-08-26** as [paper-context-addendum.md](paper-context-addendum.md) **§24**, marked REQUIRED TEXT. The edit pass is complete only because it exists. | drafted at §4, RULING 1; installed at addendum §24 |
 | The word "interaction" **inside that paragraph** | **PROTECTED.** The consequence removes the word where it asserts a result. It does not remove the word where it discloses that a registered test failed. | §4, RULING 1 |
 | The out-of-range result at §5(c) — single-run I = −0.212 outside the six-replicate range | **PROTECTED.** It is a result in its own right and does not depend on the interaction claim; it survives the consequence because it is a finding *about* the estimate, not a claim *from* it. | §5(c) |
 
 An edit pass that deletes the ten occurrences and stops there produces a paper that silently
 drops a pre-registered failed test. That outcome is forbidden.
 
-### 6.1 Claim-sense occurrences — candidates for the consequence
+### 6.1 Claim-sense occurrences — DISPOSITION OF THE EXECUTED PASS
 
-| file | line | text | why it is claim-sense |
-|---|---|---|---|
-| [paper-context-addendum.md](paper-context-addendum.md) | 41 | "…and they act on the **same lever**." | The closing clause of **the paper's stated claim**, quoted as a block at the head of the document. This is the load-bearing one. |
-| [paper-context-addendum.md](paper-context-addendum.md) | 104–107 | "**Interaction — substitutes.** … Interaction I = −0.212 ± 0.069 (t = −3.07). LPIPS already supplies part of the plausibility pressure…" | Reports the interaction as a result, with a chip-level error bar, in the results summary the paper draws from. |
-| [paper-context-addendum.md](paper-context-addendum.md) | 592–593 | "What the factorial adds and the theory lacks is *substitutability between sources of plausibility pressure*, which is what the **interaction** term measures." | Positions the interaction as this work's contribution against Blau–Michaeli. Claim-sense, in the related-work argument. |
-| [paper-roadmap.md](paper-roadmap.md) | 138–139 | "**Interaction: −0.212 ± 0.069, t = −3.07**, the registered *substitutes* band." | The GRSL letter's scope decision lists the interaction as spine content. |
-| [phase-c-lpips-results.md](phase-c-lpips-results.md) | 12–15 | "…the **interaction** lands in the registered *substitutes* band (t = −3.07)… the two pressures act on the **same lever**, not additively." | The headline paragraph of the results document. Both terms, both claim-sense. |
-| [phase-c-lpips-results.md](phase-c-lpips-results.md) | 88–94 | "**INTERACTION — substitutes, the richer mechanistic result.** … two mechanisms, one lever." | The full interaction result section. |
-| [related-work.md](related-work.md) | 90–94 | "…says nothing about *substitutability between sources of plausibility pressure*. The **interaction** term (I = -0.212 +/- 0.069) is a measurement of exactly that… supporting citation for the '**same lever**' half of the claim." | Builds the citation strategy on the interaction and names the "same lever" half of the claim explicitly. |
-| [phase-c-audit.md](phase-c-audit.md) | 125–127 | "**Interaction reproduces**: … ≥ 2 SE → *substitutes*, as reported." | Audit **verdict** affirming the interaction as reproduced — a claim about a result, not a description of the test. Borderline; flagged for your call. |
-| [phase-c-audit.md](phase-c-audit.md) | 443, 455 | "…the **interaction**, the dose-response and the edge-ratio…" / "**Quotable as:** the primary result, the **interaction**, …" | Lists the interaction among the quotable results. The "quotable as" line is directly claim-sense. |
-| [scripts/c45_eval/c45_score.py](../scripts/c45_eval/c45_score.py) | 100 | `i_band = "substitutes (I < 0 at >=2 SE, D_LPIPS > 0 at >=2 SE): LPIPS already supplies the pressure"` | Emits the claim wording as scored output. Code, so an edit here is a code change with its own freeze considerations — see 6.3. |
+All ten dispositions below are applied and committed. "Struck" means the original text is
+wrapped in strikethrough and preserved verbatim in place, followed by a dated
+**SUPERSEDED 2026-08-26** note pointing at §4.
+
+| file | line | disposition |
+|---|---|---|
+| [paper-context-addendum.md](paper-context-addendum.md) | §1, the claim | **REWRITTEN** — the one exception, because this is the paper's live claim statement rather than a record. The claim now ends at the two pressures being *each such a pressure, established separately*; "and they act on the same lever" is dropped. The previous wording is preserved beneath it in a dated note, struck. |
+| [paper-context-addendum.md](paper-context-addendum.md) | §3, "Interaction — substitutes" | **STRUCK + annotated.** Note records that the number is seed 42's with a chip-level bar and points to §5(c). |
+| [paper-context-addendum.md](paper-context-addendum.md) | §16, Blau–Michaeli bullet | **STRUCK + annotated**, with a replacement framing supplied: the factorial identifies a downstream consumer, it does not measure substitutability. |
+| [paper-roadmap.md](paper-roadmap.md) | §B.1, spine | **STRUCK + annotated.** The interaction is removed from spine content; the spine gains the §24 disclosure and the §5(c) result instead. |
+| [phase-c-lpips-results.md](phase-c-lpips-results.md) | headline, 12–15 | **STRUCK in part + annotated.** Two clauses struck; the rest of the headline stands and is now a six-seed result rather than a single-seed one. |
+| [phase-c-lpips-results.md](phase-c-lpips-results.md) | "INTERACTION — substitutes" section | **STRUCK in full + annotated.** |
+| [related-work.md](related-work.md) | 90–94 | **STRUCK + annotated**, with a restated contribution. Also records that the Freirich/Michaeli/Meir citation loses the half of the claim it was recruited to support and must not be cited for it. |
+| [phase-c-audit.md](phase-c-audit.md) | 125–127, "Interaction reproduces" | **STAYS, unedited, + dated forward pointer.** It is a reproducibility verdict about a seed-42 computation and it is still true; the quantity does reproduce. Editing it would falsify an audit record. The pointer records that the reading built on it later failed at n = 6. |
+| [phase-c-audit.md](phase-c-audit.md) | 443, 455, "Quotable as" | **AMENDED**, original struck and preserved. These are forward-acting licences, not history — they told a future writer what may enter the paper, and they licensed the interaction. The interaction is now explicitly not quotable in any form; the other items on the line are unaffected. Line 443's "the interaction" is clarified as meaning the cell reproduces, which is not a quoting licence. |
+| [scripts/c45_eval/c45_score.py](../scripts/c45_eval/c45_score.py) | 100, band string | **NOT EDITED, deliberately.** The harness is frozen at the `48ced64` pins; breaking a freeze for a cosmetic label is the wrong trade. Recorded instead as a known frozen-code artefact at **RULING 2** in §4, so nobody quoting harness output mistakes it for a live claim. |
 
 ### 6.2 Registration / historical-record occurrences — these stay
 

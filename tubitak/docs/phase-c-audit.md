@@ -125,6 +125,15 @@ medians):
 - **Interaction reproduces**: D_L1 = +0.6995 ± 0.0592, D_LPIPS = +0.4871 ± 0.0531,
   I = **−0.2123 ± 0.0691, t = −3.07**. Band: I negative at ≥ 2 SE with D_LPIPS positive at
   ≥ 2 SE → *substitutes*, as reported.
+  **Forward pointer added 2026-08-26 — this verdict is unchanged and stands.** It is a
+  reproducibility finding about a seed-42 computation and it is still true: the quantity
+  reproduces from raw, exactly as audited. What happened later is separate and does not
+  reach back into this cell — the seed-level reading built on that quantity **failed at
+  n = 6** (5/6, seed 46 positive on all three registered scales), and the pre-committed
+  consequence withdrew the interaction claim and the *substitutes* language from the paper.
+  See [seed-block-results.md](seed-block-results.md) §4. **A number can reproduce perfectly
+  and still not support the claim that was built on it**; that is precisely the distinction
+  this audit's leg-B/leg-C split exists to preserve.
 - **Dose-response sweep reproduces, 25/25 cells** (5 epochs × {C4 mean, C5 mean, penalty,
   SE, t}), including the endpoint claims: C5 improves e1 → e20 at **4.25 SE**, C4 flat at
   **0.24 SE**. Both match to two decimals.
@@ -441,7 +450,10 @@ wall times are confirmed (C4 3 h 28 m against "≈ 3 h 25 m"; C5 3 h 33 m agains
 
 **Leg B PASS on every cell backed by an artifact:** 1,300 per-chip cells, 25 per-arm summary
 cells, 30 paired cells, the interaction, 25 sweep cells and 20 edge-ratio cells all
-reproduce from raw. The "fourth digit" claim that validates the extension is true, verified
+reproduce from raw.
+**Note added 2026-08-26:** "the interaction" in this sentence means the interaction *cell
+reproduces from raw*, which remains true and is not amended. It is not a licence to quote
+the interaction — see the amended "Quotable as" ruling below. The "fourth digit" claim that validates the extension is true, verified
 independently. Three transcription defects (entry 24) and one column with no traceable
 origin — the secondary table's SEs — none of which touches a registered band.
 
@@ -452,9 +464,22 @@ recur here. The failure is the stop rule (entry 26): a registered stop condition
 its literal reading, the run continued, and the results document reported it as untriggered
 by substituting a different test.
 
-**Quotable as:** the primary result, the interaction, the dose-response and the edge-ratio
-mechanism are all quotable as registered and reproduced from raw, with the stop-rule caveat
-attached. The 20-chip secondary row is quotable for its means, medians, point counts and
+**Quotable as:** the primary result, ~~the interaction,~~ the dose-response and the
+edge-ratio mechanism are all quotable as registered and reproduced from raw, with the
+stop-rule caveat attached.
+
+**AMENDED 2026-08-26 — THE INTERACTION IS NO LONGER QUOTABLE.** This line is a
+forward-acting licence, not a historical record: it tells a future writer what may go into
+the paper. It is therefore amended rather than annotated, with the original struck above and
+preserved. **The interaction may not be quoted in the manuscript in any form** — not the
+value, not the *substitutes* band, not "the same lever". The registered seed-level reading
+failed at 5/6 across six confirmatory seeds on all three registered scales and the
+pre-committed consequence fired ([seed-block-results.md](seed-block-results.md) §4). Two
+things replace it, and both are required rather than optional: the interaction disclosure at
+[paper-context-addendum.md](paper-context-addendum.md) §24, and the out-of-range result at
+[seed-block-results.md](seed-block-results.md) §5(c). **The remaining items on this line are
+unaffected and stay quotable**, and the primary is now stronger than when this audit was
+written, having replicated 6/6 at seed level. The 20-chip secondary row is quotable for its means, medians, point counts and
 paired deltas but **its ± values must not be quoted until they are recomputed** — the
 artifact's values (pretrained ± 0.1612, C1 ± 0.0712, C2 ± 0.0409, C3 ± 0.0375, C4 ± 0.0949,
 C5 ± 0.0660) are the correct ones.

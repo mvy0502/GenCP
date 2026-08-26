@@ -37,8 +37,23 @@ rate), §22 (pretrained's edge ratio was measured after all). Sections not liste
 ## 1. The claim
 
 > **Plausibility pressure degrades generated reference imagery for geometric matching.
-> The adversarial term and a perceptual (LPIPS) reconstruction loss are both such pressures,
-> and they act on the same lever.**
+> The adversarial term and a perceptual (LPIPS) reconstruction loss are each such a
+> pressure, established separately.**
+
+**REWRITTEN 2026-08-26 — this is the live claim statement, so it is rewritten rather than
+struck.** The previous wording is preserved here:
+
+> ~~Plausibility pressure degrades generated reference imagery for geometric matching. The
+> adversarial term and a perceptual (LPIPS) reconstruction loss are both such pressures, and
+> they act on the same lever.~~
+
+The final clause is dropped. "The same lever" was the interaction claim, and the registered
+seed-level interaction reading failed at 5/6 across six confirmatory seeds on all three
+registered scales — see [seed-block-results.md](seed-block-results.md) §4, where the
+pre-committed consequence fires. The claim now stops at what the six-seed block establishes:
+each pressure is separately established, and nothing is asserted about how they combine.
+**The word "separately" is doing deliberate work — it marks the absence of a joint claim,
+rather than leaving the reader to assume one.**
 
 Mechanism: where the conditioning input carries no information, a loss that rewards
 plausibility causes the generator to invent structure. An invented edge is a false control
@@ -101,11 +116,20 @@ C4 as an empty cell.
 113/130 chips; registered band was ≥ 2 SE). Adversarial OFF beats ON under *both*
 reconstruction terms. The main effect is replicated, not observed once.
 
-**Interaction — substitutes.** Adversarial penalty under L1 = +0.700 ± 0.059; under LPIPS =
+~~**Interaction — substitutes.** Adversarial penalty under L1 = +0.700 ± 0.059; under LPIPS =
 +0.487 ± 0.053. Interaction I = −0.212 ± 0.069 (t = −3.07). LPIPS already supplies part of the
 plausibility pressure, so the discriminator adds less on top of it. Consistent with this:
 C4 − C1 = −0.110 (1.9 SE) — **not significant at the registered threshold**; do not write
-"null".
+"null".~~
+
+**SUPERSEDED 2026-08-26.** Struck, not deleted — the original wording stands above as the
+record of what was claimed on single-seed data. The registered seed-level interaction
+reading failed at 5/6 across the six confirmatory seeds, on the raw, log and rank scales
+alike, and the pre-committed consequence removed "substitutes" and the interaction claim
+from the paper. See [seed-block-results.md](seed-block-results.md) §4. The number above is
+seed 42's, with a chip-level error bar; §5(c) of the same document records that it falls
+outside the range spanned by the six replicates on two of the three scales. **The paper
+makes no interaction claim; it carries the disclosure at §24 below instead.**
 
 **Secondary (fired, own finding).** C5 − C2 = +0.103 ± 0.042 (t = 2.5): perceptual
 reconstruction carries its own positional penalty even with no discriminator present.
@@ -589,8 +613,15 @@ paragraph.
   the *solution* ("a principled way to approach the perception-distortion bound"), so
   **position the result as identifying the consumer, not as contradicting the theory**: a
   matcher lives on the distortion axis, so for it the perceptual end of the bound is the wrong
-  end. What the factorial adds and the theory lacks is *substitutability between sources of
-  plausibility pressure*, which is what the interaction term measures.
+  end. ~~What the factorial adds and the theory lacks is *substitutability between sources of
+  plausibility pressure*, which is what the interaction term measures.~~
+  **SUPERSEDED 2026-08-26** — struck, not deleted. The interaction reading failed at 5/6
+  across six seeds and the claim is withdrawn ([seed-block-results.md](seed-block-results.md)
+  §4), so the factorial may no longer be positioned as adding *substitutability* to the
+  theory. **What it does add, and what this bullet should now say:** the factorial identifies
+  a downstream consumer for which the perceptual end of the bound is the wrong end, and
+  establishes each pressure separately. The comparison to Blau–Michaeli stands on that and
+  not on a measured substitutability.
 - **Liu, Zhang, Xiong, *On the Classification-Distortion-Perception Tradeoff*, NeurIPS 2019**
   (arXiv 1904.08816). The tradeoff already reaching a downstream task. Not citing it is a
   larger risk than citing it. The distinguishing sentence: their task is semantic classification
@@ -897,3 +928,50 @@ makes it a *quality* difference rather than a *matchability* difference:
 
 Showing this row makes the design rule's support one step from the recovery benchmark rather
 than an extrapolation from a different measurement.
+
+---
+
+## 24. REQUIRED TEXT — the interaction disclosure
+
+**Added 2026-08-26. This section is PROTECTED: it is a deliverable of the interaction
+consequence, not an optional extra.** Per RULING 1 in
+[seed-block-results.md](seed-block-results.md) §4, the consequence removes claims and does
+**not** remove the disclosure that a pre-registered test was run and failed. An edit pass
+that struck the interaction claims and stopped there would produce a paper that silently
+drops a pre-registered failed test — the precise failure this paper accuses the upstream
+published work of committing, and the reason §21's binding wording rule exists at all.
+
+**The paragraph below must appear in the manuscript's results or limitations section.** It
+may be shortened for the letter format, but it may not lose any of these five elements:
+registered in advance; computed on all three registered scales; 5/6 with the same seed
+breaking each; no claim made; the other block reported with its weight stated.
+
+> **Interaction: registered, tested, not sign-stable, and therefore not claimed.** Before
+> any replication data existed we registered a seed-level interaction between the two
+> reconstruction terms, I = (C4 − C5) − (C1 − C2), to be read as negative in every seed and
+> to survive a monotone re-scaling, with both re-scalings — a natural-log transform of the
+> per-chip residual and a within-chip rank transform — specified in advance. Across the six
+> confirmatory seeds the interaction was negative in five and positive in one (seed 46), and
+> the same seed reversed the sign on the log and rank scales as well: 5/6 on each of the
+> three registered scales. The registered reading therefore fails, and by a consequence
+> committed in advance we make no interaction claim in this paper. An earlier two-seed block
+> run on different hardware returned a negative interaction in both of its seeds on all three
+> scales; it is reported here for completeness and carries no weight against the six-seed
+> result, because the two blocks cannot be pooled and a two-seed block does not override a
+> six-seed one. The seed-level means are negative on all three scales, and the log-scale and
+> rank-scale confidence intervals exclude zero; these are reported, not required, and they do
+> not reinstate a reading whose criterion was sign stability across seeds rather than a
+> nonzero mean. The single-run estimate this project previously published, I = −0.212, falls
+> outside the range spanned by the six replicates on the raw and rank scales, which is
+> reported as a finding in its own right below.
+
+### Writing rule that travels with it
+
+**Forbidden**, here and in every document downstream: any sentence of the form *"the interval
+excludes zero, so the interaction is real"*, and any sentence that functions as one however
+it is phrased. The log-scale and rank-scale interaction intervals do exclude zero; the
+raw-scale one does not. State plainly what that means and nothing more — the mean is
+reliably negative, the sign is not stable across seeds, and the registered reading was sign
+stability. **An interval is not a back door to a reading that failed.** The intervals were
+registered as reported-not-required precisely so they could not act as a gate in either
+direction.

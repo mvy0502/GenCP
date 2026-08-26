@@ -135,9 +135,17 @@ rewriting leg 3 in place.
 
 1. **Spine — the 2×2 loss factorial**, five arms (pretrained, C1, C2, C4, C5),
    [phase-c-lpips-results.md](phase-c-lpips-results.md). Primary: C5 − C4 =
-   **−0.487 ± 0.053 px, t = −9.18** (ank130, n = 130). Interaction: **−0.212 ± 0.069,
-   t = −3.07**, the registered *substitutes* band. Dose-response replicates under LPIPS
-   at every epoch at ≥ 6 SE. B2's production path survives here as the secondary row,
+   **−0.487 ± 0.053 px, t = −9.18** (ank130, n = 130). ~~Interaction: **−0.212 ± 0.069,
+   t = −3.07**, the registered *substitutes* band.~~ Dose-response replicates under LPIPS
+   at every epoch at ≥ 6 SE.
+
+   **SUPERSEDED 2026-08-26** — the interaction sentence is struck, not deleted. The
+   registered seed-level reading failed at 5/6 across six confirmatory seeds on all three
+   registered scales and the pre-committed consequence fired, so the interaction is not spine
+   content and is not quotable ([seed-block-results.md](seed-block-results.md) §4). **The
+   spine gains the required interaction disclosure instead**
+   ([paper-context-addendum.md](paper-context-addendum.md) §24), and the out-of-range result
+   at [seed-block-results.md](seed-block-results.md) §5(c). B2's production path survives here as the secondary row,
    now extended to six arms (C5 − C4 = −0.182 ± 0.054, t = −3.36).
 2. **Mechanism section leads with the edge-ratio measurement** (C2 0.28 vs C1 1.10 /
    C4 1.12 / C5 1.16; pretrained ≈ 1.02) — the direct measurement, all five arms in one

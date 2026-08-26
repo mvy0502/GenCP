@@ -8,11 +8,21 @@
 
 **Headline: the registered generalisation case fired in full.** The adversarial main effect
 replicates under LPIPS (C5 − C4 = −0.487 ± 0.053 px, t = −9.2); C5 hallucinates exactly as
-the corrected framing predicted (edge ratio 1.16 — the highest of all five arms); and the
-interaction lands in the registered *substitutes* band (t = −3.07). **The right level of
+the corrected framing predicted (edge ratio 1.16 — the highest of all five arms); ~~and the
+interaction lands in the registered *substitutes* band (t = −3.07)~~. **The right level of
 description is "plausibility pressure", not "adversarial".** The claim generalises from "the
-adversarial term degrades matchable content" to "any plausibility pressure does" — and the
-two pressures act on the same lever, not additively.
+adversarial term degrades matchable content" to "any plausibility pressure does" ~~— and the
+two pressures act on the same lever, not additively~~.
+
+**SUPERSEDED 2026-08-26, in part.** The two struck clauses are preserved above rather than
+deleted; the rest of the headline stands and is confirmed at six seeds. The registered
+seed-level interaction reading failed at 5/6 across the six confirmatory seeds on the raw,
+log and rank scales alike, and the pre-committed consequence removed "substitutes" and "the
+same lever" from the paper — see [seed-block-results.md](seed-block-results.md) §4. **What
+survives is stronger than what was struck**: the primary (C5 − C4 negative) replicated 6/6 at
+P = 1/64, the secondary (C5 − C2 positive) 6/6, and the mechanism readings 6/6, so the
+generalisation from "adversarial" to "plausibility pressure" is now a six-seed result rather
+than a single-seed one. Only the claim about how the two pressures *combine* is withdrawn.
 
 ## The training runs
 
@@ -85,13 +95,25 @@ plausibility pressure, and LPIPS is one. (The small recompute-vs-committed offse
 pretrained/C1 are mask-recipe sensitivity, disclosed at reconstruction time; C2 reproduces
 essentially exactly. All cross-arm comparisons here use the one-pass recompute.)
 
-**INTERACTION — substitutes, the richer mechanistic result.** Adversarial penalty under L1:
+~~**INTERACTION — substitutes, the richer mechanistic result.** Adversarial penalty under L1:
 D_L1 = C1 − C2 = +0.700 ± 0.059. Under LPIPS: D_LPIPS = C4 − C5 = +0.487 ± 0.053.
 I = D_LPIPS − D_L1 = **−0.212 ± 0.069 (t = −3.07)**, with D_LPIPS itself positive at 9 SE:
 the registered *substitutes* band. The discriminator adds less on top of LPIPS than on top
 of L1 because LPIPS already supplies part of the same pressure — two mechanisms, one lever.
 Consistent with the (unregistered, noted) near-null C4 − C1 = −0.110 ± 0.058: swapping the
-reconstruction term barely matters once a discriminator is present.
+reconstruction term barely matters once a discriminator is present.~~
+
+**SUPERSEDED 2026-08-26.** Struck in full, preserved verbatim above as the record of what
+this document reported on seed-42 data. Every number in it is a single run with a chip-level
+error bar. At six confirmatory seeds the registered sign reading on the interaction failed
+**5/6** — seed 46 is positive on the raw scale (+0.0594) and reverses on the log (+0.0118)
+and rank (+0.1231) scales too — so the pre-committed consequence fired and "substitutes",
+"the same lever" and the interaction claim are removed from the paper
+([seed-block-results.md](seed-block-results.md) §4). The −0.212 above additionally falls
+**outside** the range spanned by the six replicates on the raw and rank scales, recorded as
+a result in its own right at §5(c) of that document. **The paper carries the required
+disclosure at [paper-context-addendum.md](paper-context-addendum.md) §24 in place of this
+section's claim.**
 
 **NULL INTERPRETATION 2 — also fired, as a separate finding.** C5 − C2 = +0.103 ± 0.042
 (t = +2.46): perceptual reconstruction carries its own positional penalty even without a

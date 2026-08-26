@@ -86,12 +86,27 @@ matcher lives on the distortion axis, so for a matcher the perceptual end of the
 the wrong end. That reading is fully consistent with the theorem and is the safest place to
 stand. Claiming to contradict Blau and Michaeli would be both wrong and easy to attack.
 
-What the factorial adds that the theory does not have: PD treats plausibility as one axis
+~~What the factorial adds that the theory does not have: PD treats plausibility as one axis
 and says nothing about *substitutability between sources of plausibility pressure*. The
 interaction term (I = -0.212 +/- 0.069) is a measurement of exactly that, and it has no
 counterpart in the theory. Freirich, Michaeli, Meir (NeurIPS 2021, arXiv:2107.02555) is the
 closest formal statement that the axis is a single traversable lever, and is the right
-supporting citation for the "same lever" half of the claim.
+supporting citation for the "same lever" half of the claim.~~
+
+**SUPERSEDED 2026-08-26.** Struck, preserved verbatim above. The interaction reading failed
+at 5/6 across six confirmatory seeds and the pre-committed consequence withdrew the "same
+lever" half of the claim ([seed-block-results.md](seed-block-results.md) §4), so the
+factorial can no longer be positioned as supplying a measurement of substitutability, and
+**the Freirich, Michaeli, Meir citation loses the half of the claim it was recruited to
+support**. Do not cite it for that purpose.
+
+**What the factorial adds, restated on what six seeds establish:** PD theory treats
+plausibility as one axis and does not identify which downstream consumers sit on the wrong
+end of it. The factorial identifies one — a geometric matcher — and establishes each
+plausibility pressure separately, at n = 6 with the sign fixed in advance. That is a
+contribution about *who pays* for movement along the axis, not about how sources of pressure
+substitute for one another. It is the weaker of the two framings and it is the one the
+evidence carries.
 
 Adjacent, worth one clause each: Blau & Michaeli ICML 2019 (rate-distortion-perception,
 arXiv:1901.07821); Ohayon, Michaeli, Elad, "The Perception-Robustness Tradeoff in
