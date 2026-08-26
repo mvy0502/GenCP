@@ -267,50 +267,190 @@ one does too. No disclosure made in entry 26 or anywhere else is retracted by th
 
 ---
 
-## 5. Proposed paragraph for corrections-log entry 26 — FOR REVIEW, NOT APPLIED
+## 4a. CORRECTION, 26 August 2026 — the attenuation, redone within platform and within seed
+
+The figures in §3 and §4 above compare **Modal seed-43 warmed arms against Kaggle seed-42 and
+seed-43 un-warmed arms**. That crosses the boundary the hardware gate declared **NOT
+POOLED**, and it confounds the warm-up with both a platform change and a seed change. The
+Modal seed-43 C1, C2, C4 and C5 loss logs have since been downloaded from the Volume
+(committed at `docs/gates/loss_logs/`, provenance in
+[sustained-trend-results.md](sustained-trend-results.md) §1), so the comparison can now be
+made **within platform and within seed**. The cross-platform version is kept beside it,
+labelled as what it was, rather than replaced silently.
+
+### The within-platform, within-seed pair — the only test that isolates the warm-up
+
+Every arm below is Modal, seed 43, commit-pinned. The only difference within each pair is
+the warm-up.
+
+| family | un-warmed (Modal s43) | warmed (Modal s43) | attenuation | fall retained |
+|---|---|---|---|---|
+| L1 | C2 **−5.16%** (20 main ep) | C2_warmup **−2.98%** (18 main ep) | **2.18 points** | 57.7% |
+| LPIPS | C5 **−7.98%** (20 main ep) | C5_warmup **−5.32%** (18 main ep) | **2.67 points** | 66.6% |
+
+### The cross-seed spread, printed beside it every time
+
+Without this column a reader cannot tell an effect from seed noise, so it travels with the
+attenuation wherever the attenuation goes. Spreads are from the six confirmatory seeds
+45–50.
+
+| family | attenuation | six-seed spread of the un-warmed arm | verdict |
+|---|---|---|---|
+| **L1 (C2)** | 2.18 points | **3.05 points** (C2 range −7.83 to −4.78) | **attenuation is WITHIN the seed spread — not distinguishable from seed variation** |
+| **LPIPS (C5)** | 2.67 points | **0.73 points** (C5 range −7.98 to −7.25) | **attenuation EXCEEDS the seed spread by 3.7×** |
+
+**The two families do not give the same answer, and the difference is not cosmetic.** C5's
+sustained fall is extremely stable across seeds (sd 0.27 over six seeds), so a 2.67-point
+attenuation stands well clear of that noise. C2's is not (sd 1.03, range 3.05), so its
+2.18-point attenuation could be a seed draw and this n = 1 pair cannot tell. **The warm-up
+attenuation is established for the LPIPS family and unestablished for the L1 family.**
+
+### The properly-controlled sustained-trend gap — the number the manuscript carries
+
+The comparison that matters is **adversarial-with-warm-up against non-adversarial-with-warm-
+up**, not against non-adversarial-without. Both arms in each controlled gap below carry the
+same warm-up ladder, so the warm-up is held fixed and only the discriminator varies.
+
+| family | uncontrolled gap | **controlled gap** | share of the gap attributable to warm-up |
+|---|---|---|---|
+| L1 | C1 +1.03 vs C2 −5.16 = **6.19** | C1 +1.03 vs C2_warmup −2.98 = **4.00** | **35.3%** |
+| LPIPS | C4 +1.01 vs C5 −7.98 = **9.00** | C4 +1.01 vs C5_warmup −5.32 = **6.33** | **29.7%** |
+
+**Roughly a third of what the uncontrolled comparison attributed to the discriminator is
+attributable to the warm-up** — 35% in the L1 family and 30% in the LPIPS family, on the
+within-platform within-seed pairs. **The argument survives**: in both families the
+adversarial arm still fails to fall at all while the warm-matched non-adversarial arm falls
+by 3 to 5 percent, and the controlled gap remains large. **But the magnitude is smaller, and
+the manuscript carries the controlled number, not the uncontrolled one.**
+
+Two limits on that sentence, stated with it:
+
+1. **The L1 family's 35% is not separable from seed variation** at n = 1 pair, per the
+   spread table above. The LPIPS family's 30% is.
+2. **Both controlled gaps are n = 1 seed.** The warm-up variants exist only at seed 43. The
+   six-seed block has no warmed non-adversarial arms, so the controlled gap cannot be
+   replicated without four more runs, and it is a mechanism probe wherever it appears.
+
+### The cross-platform version, kept beside and labelled
+
+The previously reported figures, retained so the correction is visible rather than silent.
+These compare Modal seed-43 warmed arms against **Kaggle seed-42** un-warmed arms and
+therefore confound warm-up with platform and seed:
+
+| family | uncontrolled | controlled | attenuation |
+|---|---|---|---|
+| L1 (C1 s42 +1.16 vs C2 s42 −7.90 / C2_warmup −2.98) | 9.06 | 4.14 | 54.3% |
+| LPIPS (C4 s42 +2.50 vs C5 s42 −7.54 / C5_warmup −5.32) | 10.04 | 7.82 | 22.1% |
+
+The cross-platform figures disagree with the controlled ones in both directions — they
+overstate the L1 attenuation (54% against 35%) and understate the LPIPS one (22% against
+30%). **That disagreement is the reason the controlled version is the one that counts**, and
+it is a concrete demonstration of what the NOT POOLED verdict was protecting against.
+
+### One consequence for §3 and §4 above
+
+The sentence in §4 that the warmed variants achieve "roughly 60% of the un-warmed
+counterpart's proportional fall" was computed cross-platform. **Within platform and seed it
+is 57.7% (L1) and 66.6% (LPIPS)** — close, and now for the right reason rather than by
+luck. The §3 and §4 text above is left unedited as the record of what was reported before
+the Modal comparators were available; this section supersedes its comparator arithmetic.
+
+**Nothing about the alternative warm-up-epoch-1 window is revisited here.** It remains
+disclosed and refused, as recorded above.
+
+---
+
+## 5. Proposed addition to corrections-log entry 26 — FOR REVIEW, NOT APPLIED
 
 `corrections-log.md` has **not** been edited. The text below is proposed for review and is
 written to be appended to entry 26 as a dated addition with the original preserved verbatim,
-per standing practice 4.
+per standing practice 4. **Revised 26 August 2026** to carry the six-seed sustained-trend
+result, the within-platform comparator, and the specification flaw in the branch text; the
+earlier draft is superseded by this one and was never applied.
 
-> **Addition, 2026-08-26 — the confound named in this entry has now been tested directly,
-> and the LR-jump explanation is refuted at seed 43.** This entry's revised argument rested
-> on a collinearity: warm-up presence and discriminator presence could not be separated, so
-> the first two main-stage epochs could not distinguish "the adversarial term competes with
-> the reconstruction term" from "a 5× LR jump causes a transient". The de-confound
-> registered in [warmup-deconfound-registration.md](warmup-deconfound-registration.md) broke
-> that collinearity by giving C2 and C5 C1's exact warm-up ladder at seed 43 on Modal, with
-> both outcomes written before the runs. **Neither warmed arm rises across the registered
-> window** — C5_warmup 51.893 → 50.508 (G_LPIPS), C2_warmup 29.963 → 29.485 (G_L1), each on
-> its own main-stage epochs 1–2 of 18. The registered second branch therefore fires: the
-> rise does not come from the learning-rate jump, and this entry's revision was more
-> conservative than it needed to be. **Nothing recorded in this entry is withdrawn.**
+> **Addition, 2026-08-26. Two things happened to this entry's argument: the confound it
+> named was tested directly and refuted, and the argument it fell back on failed to
+> replicate at six seeds.** Both are recorded here; neither withdraws anything disclosed
+> above.
 >
-> **The window is nonetheless not restored as a per-arm signal, for a reason the de-confound
-> also exposed.** Which discriminator-bearing arm shows the rise varies by seed: at seed 42
-> both C1 and C4 rise at the first main-stage transition (and, over both transitions, only
-> C4 rises at each while C1 rises then falls, as recorded above); at seed 43 C1 rises
-> (+0.141) and C4 falls (−0.454). Across every arm-instance measured, the rise has occurred
-> in 3 of 4 discriminator-bearing arms and in 0 of 6 arms without one — including 0 of the 2
-> that were given the warm-up. So the rise has never appeared without a discriminator, but it
-> does not appear reliably with one. **This entry's decision to rest the argument on the
-> sustained main-stage trend rather than on the two-epoch window is retained**, now on the
-> ground that the window is an inconsistent per-arm signal rather than on the ground that it
-> is confounded with the learning rate. AMENDMENT C45-a, which replaced the coarse stop rule
+> **1. The LR-jump explanation of the window is refuted.** This entry's revised argument
+> rested on a collinearity: warm-up presence and discriminator presence could not be
+> separated, so the first two main-stage epochs could not distinguish "the adversarial term
+> competes with the reconstruction term" from "a 5× LR jump causes a transient". The
+> de-confound registered in
+> [warmup-deconfound-registration.md](warmup-deconfound-registration.md) broke that
+> collinearity by giving C2 and C5 C1's exact warm-up ladder at seed 43 on Modal, with both
+> outcomes written before the runs. **Neither warmed arm rises across the registered
+> window** — C5_warmup 51.893 → 50.508 (G_LPIPS), C2_warmup 29.963 → 29.485 (G_L1), each on
+> its own main-stage epochs 1–2 of 18. The registered second branch fires: the rise does not
+> come from the learning-rate jump, and this entry's revision was more conservative than it
+> needed to be on that specific point.
+>
+> **2. But the window is not restored as a per-arm signal — the discriminator is necessary
+> and not sufficient.** Across every arm-instance measured, the window rise occurs in **3 of
+> 4** discriminator-bearing arms and **0 of 6** arms without one, including 0 of the 2 that
+> were given the warm-up. Which adversarial arm rises varies by seed: at seed 42 both C1 and
+> C4 rise at the first main-stage transition (and over both transitions only C4 rises at
+> each, while C1 rises then falls, as recorded above); at seed 43 C1 rises (+0.141) and C4
+> falls (−0.454). So the rise has never appeared without a discriminator, but it does not
+> appear reliably with one. **This entry's decision to rest the argument on the sustained
+> main-stage trend rather than on the two-epoch window is retained**, now on the ground that
+> the window is an inconsistent per-arm signal rather than on the ground that it is
+> confounded with the learning rate. AMENDMENT C45-a, which replaced the coarse stop rule
 > outright, is unaffected either way.
 >
-> **The sustained trend, checked on the same runs.** The warmed non-adversarial arms still
-> fall over their main stage — C5_warmup −5.32% and C2_warmup −2.98% over 18 main epochs —
-> against −8.00% and −5.16% over 20 for their un-warmed counterparts at the same seed. The
-> fall survives the warm-up in sign and remains categorically opposite to the adversarial
-> arms, which rise; it is **attenuated**, at roughly 60% of the un-warmed proportional fall,
-> so the stronger form "warm-up does not touch the sustained trend" is not supported and is
-> not adopted.
+> **3. A specification flaw in the de-confound's own branch text, recorded and not
+> repaired.** The registered branch reads "IF C2_warmup and/or C5_warmup RISE **as C1 and C4
+> did**" — presuming both discriminator arms rise, which is true at seed 42 and false at
+> seed 43, where C4 does not rise. The branch fires on its antecedent (neither warmed arm
+> rises), so the flaw changes no outcome here; but had one warmed arm risen, the clause would
+> have had no determinate referent. **The flaw was noticed only after the curves were read**,
+> which is the moment at which repairing it is forbidden. It is therefore recorded, the
+> post-hoc timing of noticing it is recorded, and the branch stands as written. **This is
+> the same family as the hardware gate's single-global-verdict flaw**
+> ([hardware-gate-results.md](hardware-gate-results.md)), which was likewise "noticed only
+> after seeing which quantity failed" and likewise recorded rather than fixed, with the
+> verdict left standing under the rule as written. Forward fix, for future registrations: a
+> branch may not name a reference pattern it has not itself established across the seeds it
+> will be read at.
 >
-> **Scope: n = 1 seed, a mechanism probe and not a confirmatory estimate.** It enters no
-> registered contrast and its checkpoints are not scored. Full numbers, the reference-curve
-> platform gap, and the disclosed-and-refused alternative window are in
-> [warmup-deconfound-results.md](warmup-deconfound-results.md).
+> **4. The sustained trend, this entry's load-bearing argument, does NOT replicate at six
+> seeds in the form written here.** It was registered before the seed-45–50 loss logs were
+> downloaded ([sustained-trend-registration.md](sustained-trend-registration.md)) and scored
+> at n = 6 ([sustained-trend-results.md](sustained-trend-results.md)). Outcome, per arm:
+> **C4's change is positive in all six seeds** (mean +1.45%, range +0.98 to +2.22) — this
+> replicates. **C1's is not: five of six, with seed 45 at −0.99%** (its reconstruction loss
+> fell) and seed 48 at +0.02% (indistinguishable from no change). Both non-adversarial arms
+> reduce their loss in all six (C2 mean −6.24%, C5 mean −7.62%). **The registered
+> consequence fires: the manuscript no longer asserts that adversarial arms fail to reduce
+> the reconstruction loss as a general finding.** The surviving statements are per arm — C4
+> fails to fall in all six seeds; C1 does not fall *reliably*, which is weaker than "fails to
+> fall". This entry's seed-42 observation stands as the historical record of what was seen at
+> seed 42; what changes is what the manuscript may assert. Note also that this entry's
+> "roughly 8%" for the non-adversarial arms is nearer **6–8%** across six seeds, and its
+> −7.90% C2 figure lies outside the six-seed C2 range (−7.83 to −4.78).
+>
+> **5. The magnitude the manuscript carries is the warm-up-matched one, and it is smaller.**
+> The comparison that isolates the discriminator is adversarial-with-warm-up against
+> non-adversarial-**with**-warm-up, within platform and within seed. On Modal seed 43: the L1
+> gap is **6.19 uncontrolled → 4.00 controlled** and the LPIPS gap is **9.00 → 6.33**, so
+> **roughly a third of what the uncontrolled comparison attributed to the discriminator is
+> attributable to the warm-up** (35% and 30%). The argument survives — the adversarial arm
+> still fails to fall at all while the warm-matched non-adversarial arm falls 3–5% — but the
+> uncontrolled gap overstates it and is not the number to quote. **The L1 family's attenuation
+> (2.18 points) is within the six-seed C2 seed spread (3.05) and is therefore not separable
+> from seed variation; the LPIPS family's (2.67 points) exceeds the C5 spread (0.73) by
+> 3.7× and is.** Earlier cross-platform figures for the same quantities (54% and 22%) are
+> superseded and are retained beside the corrected ones in
+> [warmup-deconfound-results.md](warmup-deconfound-results.md) §4a.
+>
+> **Scope: the de-confound and every controlled gap above are n = 1 seed — a mechanism
+> probe, not a confirmatory estimate.** They enter no registered positional contrast and the
+> warm-up checkpoints are not scored. The six-seed sustained-trend result is n = 6 and is a
+> training-dynamics reading, not a positional one. Full numbers, the reference-curve platform
+> gap, and the disclosed-and-refused alternative window are in
+> [warmup-deconfound-results.md](warmup-deconfound-results.md) and
+> [sustained-trend-results.md](sustained-trend-results.md).
 
 ---
 
