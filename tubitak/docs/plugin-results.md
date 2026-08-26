@@ -307,6 +307,84 @@ class standing practice 22 exists to prevent. The reconstructed harness is commi
 as `tubitak/tests/gate_d_*.py`.
 ---
 
+## Item C — Gate D on common support: the advantage is mostly survivorship
+
+Registered in [plugin-gate-registration-C.md](plugin-gate-registration-C.md) (`57d25aa`)
+before any number below existed. Δ = **evalbn − det_onnx**; negative = evalbn better.
+Baseline `det_onnx` = dropout off, **batch**-statistic BatchNorm (deployed). Candidate
+`evalbn` = dropout off, **running**-statistic BatchNorm.
+
+Both arms sit on the same 228×228 grid and transform, so KLT `(x0, y0)` are directly
+comparable. Points paired by **mutual nearest neighbour, one-to-one, ≤ 1.0 px** (registered
+primary), chips with fewer than 5 pairs excluded.
+
+### Primary result — the effect shrinks by ~79% on common support
+
+| arm | Δ on FULL sets | Δ on COMMON set | chips | n_common (median / total) |
+|---|---|---|---|---|
+| **C3** | −0.2824 ± 0.4240 px (SE 0.0999, t=−2.83) **material** | **−0.0594 ± 0.1500 px** (SE 0.0354, **t=−1.68**) *documented difference* | 18/30 | 14 / 625 |
+| **C2** | −0.1861 ± 0.4836 px (SE 0.1081, t=−1.72) **material** | **−0.0396 ± 0.1444 px** (SE 0.0323, **t=−1.23**) **indistinguishable** | 20/30 | 13 / 721 |
+
+**The registered primary prediction is confirmed.** `|Δ|` shrank on common support in both
+arms and at every tolerance — about **79% of the apparent advantage disappears** once both
+arms are scored on the same points. C2 falls inside the 0.05 px indistinguishable band;
+C3 lands at −0.059 px, outside 0.05 but far inside 0.15, and not significant (t = −1.68).
+
+**Sensitivity — the conclusion does not depend on the tolerance:**
+
+| tolerance | C3 Δ common | C2 Δ common |
+|---|---|---|
+| 0.5 px | −0.0641 (t=−1.86) | −0.0396 (t=−1.23) |
+| **1.0 px (registered)** | **−0.0594 (t=−1.68)** | **−0.0396 (t=−1.23)** |
+| 2.0 px | −0.0529 (t=−1.41) | −0.0313 (t=−0.96) |
+
+### Secondary result — the mechanism is measured directly, and it is large
+
+The registered secondary prediction: the points eval-mode **drops** should be the harder
+ones. Measured in the baseline arm only, so it needs no pairing:
+
+| arm | median error of DROPPED points | median error of SURVIVING points | paired difference |
+|---|---|---|---|
+| C3 | **1.4513 px** | 0.5576 px | **+1.0054 ± 0.7058 px** (SE 0.1664, **t=+6.04**, n=18) |
+| C2 | **1.6530 px** | 0.5067 px | **+0.9008 ± 0.7190 px** (SE 0.1608, **t=+5.60**, n=20) |
+
+The points that eval-mode's smoother images fail to produce are the ones carrying roughly
+**1 px more error**, at t > 5.6 in both arms. That is the survivorship mechanism, measured
+rather than inferred.
+
+### Decision
+
+**The advantage does not survive on common support, so the registered rule applies: the
+plugin keeps batch-statistic normalisation and eval-mode is not adopted.** That is what is
+already deployed, so nothing changes in the shipped model — but it is now decided on
+evidence rather than on the conservative default.
+
+### What this changes in what we reported before
+
+Gate D's headline — *"on C2 it is materially better by ~0.24–0.26 px"* — **does not
+survive**. It was reported with an explicit caveat that the comparison was not on common
+support; that caveat is now discharged, and it was the right one. The revised statement:
+
+> Eval-mode BatchNorm is **not worse** than the deployed path, and its apparent advantage
+> is **mostly survivorship**: about 79% of it disappears when both arms are scored on the
+> same points, and the points it drops carry ~1 px more error at t > 5.6.
+
+The other Gate D conclusion — that eval-mode is not *worse*, so determinism costs nothing —
+is unaffected.
+
+### Limitation, stated
+
+Matching at 1 px is strict, because each arm's keypoints are detected independently on
+different images: only about **14 of ~66** points per chip pair up, and 10–12 chips of 30
+fall below the 5-pair floor and are excluded. The common set is therefore itself a
+selected population — the stable, easy points, where both arms score ~0.50–0.56 px against
+~1.14 px on the full sets. So this test has **reduced power to detect a real difference on
+hard points**; it establishes that the *observed* advantage is largely survivorship, not
+that no real difference could exist anywhere. The secondary measurement is the more robust
+of the two, because it needs no pairing and its effect is an order of magnitude clearer.
+
+---
+
 ## Gate G — georeferencing contract: **PASS (12/12)**
 
 Reference layer `ank_0_30.tif`, EPSG:32636, extent
