@@ -179,7 +179,37 @@ otherwise z-score itself to the middle of the scale and report green.
   pixels carry an OSM-only class). That is the regime the layer is for, but it is one
   regime.
 
-## 6. Open items
+## 6. What shipped, and the decisions taken at integration
+
+Per the registration's outcome table, the primary test passed and beat the baseline, so
+the combined score ships with three bands and an auto-styled layer.
+
+| decision | why |
+|---|---|
+| The layer is offered **only** for `gencp_C2_fp32.onnx` | The bands are calibrated on C2. For any other model the dialog withholds the layer and says which model or which file is wrong, rather than drawing bands that mean nothing. |
+| Section 6 quotes **both** rho figures | -0.75 alone oversells it. The UI text carries -0.38, the point-count-adjusted figure, in the same sentence. |
+| The **run-level verdict** is the headline, the per-pixel map is context | The validation tested a chip-mean score against a chip-median error. That is the run-level quantity. The map shows *where* the input went silent; its per-pixel calibration is not separately validated, and `band_map`'s docstring says so. |
+| Both inference paths are stated on the raster | `GENCP_PROVENANCE` on the confidence layer records that the image came from the deterministic path and the confidence from 16 stochastic draws at a recorded seed. |
+| Band colours match band names | A first pass drew the green band blue on colour-blind grounds, producing a legend that read "Yeşil" beside a blue swatch - which moves the burden onto the reader. Red/amber/green are drawn as named, separated by lightness instead (measured relative luminance 0.13 / 0.48 / 0.22). |
+| Missing stochastic export **raises** rather than degrading | A one-term score is not the score the bands were calibrated on. `pipeline.generate` refuses it explicitly. |
+
+Cost, measured: 16 draws take **0.27 s per tile** through the deployed ONNX, against
+roughly 5 s to rasterise the same tile. The layer is opt-out in section 6 anyway.
+
+### A crash found while integrating, worth reading even if you skip the rest
+
+Building a **pyproj CRS on a QgsTask worker thread segfaults QGIS 4.2.1** - if and only if
+the main thread has already built one. Probed in isolation, both orders: worker-first is
+fine, main-thread-first then worker is an immediate SIGSEGV.
+
+This was not introduced by the confidence work. `vectors._margin_bbox` has called pyproj
+on the worker since the beginning and only escaped because the preview warms the render
+cache, so the worker usually hits the cache instead of re-rendering. A multi-tile run in
+which the preview covered tile 0 and the worker had to render the rest would have crashed
+in any earlier build. `gencp_core` now uses rasterio's PROJ binding throughout, with the
+four-corner arithmetic unchanged; Gate R still renders byte-identically.
+
+## 7. Open items
 
 1. **Drop the stochastic term?** `conf_D` alone scored better here, at a fraction of the
    cost and with no second model to ship. Needs its own registration on a different corpus.
@@ -187,4 +217,15 @@ otherwise z-score itself to the middle of the scale and report green.
    error measure that does not depend on how many points were matched.
 3. **Per-pixel calibration** against per-pixel error, if a source of that ever exists.
 4. **C3 and the pretrained arm** have no held-out EU KARIOS errors, so the layer cannot yet
-   be offered for them.
+   be offered for them. The plugin now pre-fills C2 rather than C3 for this reason, which
+   changes the default model a user gets.
+5. **The sparse-OSM warning and the confidence layer disagree, and the warning is the
+   weaker instrument.** The Ankara test tile carries 195 road pixels, 0.295% - just above
+   the dialog's 0.2% "very little OSM data" threshold, so no warning fires. The confidence
+   layer calls **33.6% of that same tile red**. The threshold is a hand-set prompt and the
+   score is a measured one; the obvious move is to derive the warning from the score
+   instead. Not done here, because the threshold was not registered and changing it now to
+   agree with a result I have already seen is the kind of tuning this project forbids.
+   It needs its own registration.
+6. **Per-pixel bands are chip-level boundaries applied at pixel granularity.** Stated
+   wherever they appear, but a per-pixel calibration would need a per-pixel error source.
