@@ -1,4 +1,47 @@
-# Oturum devri — 25 Ağustos 2026, ~21:40 +03
+# Oturum devri
+
+> ## DEPO AYRIMI — 26 Ağustos 2026
+>
+> **Araştırma işi bu depoda yapılmaz.** 26 Ağustos 2026 tarihinden itibaren:
+>
+> | Ne | Nerede |
+> |---|---|
+> | Ön kayıtlar, sonuçlar, denetimler, kanıt artefaktları, düzeltme kaydı | **gencp-validation** — https://github.com/mvy0502/gencp-validation (dal: `main`) |
+> | Makale (GRSL letter ve arXiv uzun sürümü) | **gencp-letter** — https://github.com/mvy0502/gencp-letter |
+> | pix2pix fork'u, QGIS eklenti iş paketi, OSM rasterizer ve korpus zinciri | **bu depo** (GenCP), dal `tubitak-tr` |
+>
+> **Bir kaydı (registration) bu depoya işlemeyin.** Tek istisna, eklenti iş paketinin
+> kendi kapıları: [plugin-gate-registrations.md](docs/plugin-gate-registrations.md)
+> burada kalır, çünkü `tests/gate_r.py` ve `gate_o.py` kayıt belgesi olarak onu
+> gösterir.
+>
+> Tarih yeniden yazılmadı ve yazılmayacak. İki depo 96503b7 birleşme tabanından
+> itibaren aynı tarihi paylaşır; araştırma kaydında anılan 49 commit SHA'sının hepsi
+> her iki depoda da çözülür. `filter-repo` hiç kullanılmadı.
+>
+> ### Borçlu olunan tamamlayıcı senkron (top-up sync)
+>
+> Senkron noktası **`844dbec`**. gencp-validation'a bu noktaya kadar her şey aktarıldı
+> (birleştirme commit'i `f9e0de6`, ardından kanıt rasterları `284571b`). Ondan sonra bu
+> dalda oluşan commit'ler:
+>
+> - `f95ad61`, `d393152`, `814f06c` — eklenti iş paketi (Gate R, O, D). Sınıra göre
+>   GenCP'de kalır; gencp-validation'a taşınması **gerekmez**.
+> - `b815b46` — silme commit'i.
+>
+> **UYARI, ve bu uyarı en önemli satırdır.** Tamamlayıcı senkron `tubitak-tr` dalının
+> birleştirilmesiyle **yapılamaz**. `b815b46` 263 dosyayı siler; bu dal olduğu gibi
+> birleştirilirse silme gencp-validation'a yayılır ve araştırma kaydını oradan da
+> siler. Aktarılması gereken bir şey çıkarsa **yalnız o commit'ler cherry-pick
+> edilmelidir**, dal birleştirilmemelidir.
+
+> **Aşağıdaki 25 Ağustos notundaki `../tubitak/docs/...` bağlantıları artık bu depoda
+> çözülmez** — hedefleri gencp-validation'a taşındı. Bağlantılar tarihsel kayıt olarak
+> bırakıldı; aynı yollar gencp-validation deposunda geçerlidir.
+
+---
+
+## Oturum devri — 25 Ağustos 2026, ~21:40 +03
 
 ## Uçuşta olan
 
