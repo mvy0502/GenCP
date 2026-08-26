@@ -54,6 +54,26 @@ can reproduce it.
 - **Environment:** one process, `gencp` conda env, so library versions cannot differ
   between the two sides.
 
+**Amendment 1 (2026-08-26, after a failed first run — disclosed, not silently fixed).**
+This registration originally named the stored originals as
+`tubitak/data/rasteriser/chips/<stem>.tif`, a path inherited verbatim from
+[tool-gate-registration-2.md](tool-gate-registration-2.md). **That path is wrong and the
+error is in the earlier registration's text as well.** `rasteriser/chips/` holds the
+**WorldCover-era** corpus (mtime 18 Aug 19:43), rendered *before* the CLC+ base layer was
+added in commit `e15f5a9` (19 Aug 11:48). The CLC+ renders — the ones the census scored and
+the ones this gate must compare against — are in **`tubitak/data/rasteriser/chips_clc/`**
+(55 files, mtime 19 Aug 11:46, matching the census's 55 rows exactly).
+
+The first run of this gate was therefore comparing a CLC+ render against a WorldCover
+render and failed 0/3 with a dominant `light_green -> forest_green` flow — the signature of
+a different base product, not of a broken lift. It is recorded here because the run
+happened. **This is a correction to which artifact the gate reads, not a change to the
+criterion, the tile selection rule, or the tolerance** — all three are unchanged, and the
+byte-identity bar was never relaxed. The correction is independently verifiable: the
+supporting measurement showed the *existing* script failed identically, and the
+core-vs-script comparison was byte-identical in both runs, so the lift was exonerated
+before the reference path was corrected.
+
 **Criterion:** for each of the three tiles, the GeoTIFF written by
 `gencp_core.rasterize.make_chip` must be **byte-identical** to the stored original
 `tubitak/data/rasteriser/chips/<stem>.tif` — compared as **raster payload** (all three
