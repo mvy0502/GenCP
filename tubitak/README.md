@@ -1,5 +1,25 @@
 # GenCP — TÜBİTAK UZAY workspace
 
+> **Repository split, 26 August 2026 — read this before following a link below.**
+>
+> The measurement and validation study moved to
+> **https://github.com/mvy0502/gencp-validation**, and the manuscript to
+> **https://github.com/mvy0502/gencp-letter**. This workspace keeps the fork, the QGIS
+> plugin work package (`gencp_core/`, `tests/`, `tool/`), the OSM rasteriser and the
+> corpus chain.
+>
+> Sections of this guide are therefore split by where their subject now lives:
+>
+> | Section | Still applies here |
+> |---|---|
+> | Repository layout, Environment setup, Known issues, Model weights, Running the pipeline | **yes** |
+> | Findings summary, Verification scripts, Geometry analysis tools, KARIOS validation, Visualisation | **no** — those scripts and every `docs/` link in them are in gencp-validation |
+>
+> The stale sections are left in place rather than deleted: they are accurate history,
+> and rewriting them is a separate task from the split. Nothing here is lost — the
+> repositories share history, so every commit SHA still resolves in both.
+
+
 Generating synthetic satellite imagery from OpenStreetMap vector data with **pix2pix**
 (a conditional GAN). This folder (`tubitak/`) holds the internship work and is kept
 separate so it never collides with upstream (`telespazio-tim/GenCP`) files.

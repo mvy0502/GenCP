@@ -12,35 +12,38 @@ We made two minor changes:
 * demonstration notebooks for high resolution (HR) and very high resolution (VHR) GenCP images
 
 
-## TÜBİTAK study on this branch (`tubitak-tr`)
+## TÜBİTAK work on this branch (`tubitak-tr`)
 
-This branch additionally carries an independent measurement and validation study of the released
-GenCP HR pipeline (TÜBİTAK UZAY internship, August 2026). It does not modify the upstream
-pipeline; everything lives under [`tubitak/`](tubitak/), with pre-registered experiments and a
-running [corrections log](tubitak/docs/corrections-log.md). Main threads:
+**The measurement and validation study has moved to its own repository.** Its record -
+pre-registrations, results, audits, evidence artifacts, the corrections log and the
+manuscript drafts - is no longer in this working tree, so that this fork stays what it is:
+the GenCP pipeline plus the tooling built on top of it.
 
-* **Georeferencing scale error** — a confirmed +1/256 scale error in `gencp_georeferencing.py`
-  (up to 14.1 m at the tile corner), with the corrected transform hard-wired into a deterministic
-  reference generator, [`tubitak/tool/gencp_ref.py`](tubitak/tool/gencp_ref.py) —
-  [geometry-finding.md](tubitak/docs/geometry-finding.md), [tool-results.md](tubitak/docs/tool-results.md)
-* **KARIOS validation** — a three-arm run against real ground truth, reconciling the statistics
-  reported upstream — [karios-validation.md](tubitak/docs/karios-validation.md)
-* **Hallucinated structure** — the generator emits ~2.1× the edge density of its OSM input,
-  informing GCP site selection — [hallucinated-structure.md](tubitak/docs/hallucinated-structure.md)
-* **Loss-function factorial** — a 2×2 (GAN × L1/LPIPS) retraining and evaluation, currently being
-  replicated at the seed level on Modal GPUs — [phase-c-results.md](tubitak/docs/phase-c-results.md),
-  [phase-c-lpips-results.md](tubitak/docs/phase-c-lpips-results.md),
-  [seed-replication-registration.md](tubitak/docs/seed-replication-registration.md)
-* **Positioning measurements (E1–E3)** — testing the premises behind a synthetic reference —
-  [positioning-results.md](tubitak/docs/positioning-results.md)
-* **Turkish generalisation pipeline** — Ankara data acquisition and an OSM rasteriser fitted to
-  the released palette — [ankara-acquisition.md](tubitak/docs/ankara-acquisition.md),
-  [osm-palette.md](tubitak/docs/osm-palette.md)
+* **Study repository (the research record):** https://github.com/mvy0502/gencp-validation
+* **Manuscript workspace:** https://github.com/mvy0502/gencp-letter
 
-See [`tubitak/README.md`](tubitak/README.md) for the workspace guide. Turkish progress/final
-reports are under [`tubitak/rapor2/`](tubitak/rapor2/) and [`tubitak/rapor3/`](tubitak/rapor3/)
-(source versioned; rendered PDFs are reproducible and stay out of git).
+Nothing was rewritten to make the move. gencp-validation shares this repository's history,
+so every commit SHA cited anywhere in the study record still resolves there, and the
+material removed from this working tree on 2026-08-26 stays reachable in this branch's
+history as well.
 
+What remains here, under [`tubitak/`](tubitak/):
+
+* **QGIS plugin work package** - the generation chain lifted into an importable, QGIS-free
+  core ([`tubitak/gencp_core/`](tubitak/gencp_core/)) with its gates
+  ([`tubitak/tests/`](tubitak/tests/)), each registered before it ran in
+  [plugin-gate-registrations.md](tubitak/docs/plugin-gate-registrations.md)
+* **Deterministic reference generator** -
+  [`tubitak/tool/gencp_ref.py`](tubitak/tool/gencp_ref.py), which hard-wires the correction
+  for the +1/256 georeferencing scale error the study found (up to 14.1 m at the tile corner)
+* **OSM rasteriser and corpus chain** -
+  [`osm_to_raster.py`](tubitak/scripts/osm_to_raster.py), which the raster gate compares
+  against byte for byte, plus the route from OSM to training pairs: `ankara_grid.py`,
+  `cut_chip_extracts.py`, `render_parallel.py`, `tile_pipeline.py`
+
+See [`tubitak/README.md`](tubitak/README.md) for the workspace guide; its environment,
+weights and pipeline sections still apply, while its findings and analysis-script sections
+describe material that now lives in gencp-validation.
 
 ## GenCP
 This project is a proof-of-concept prototype that produces Generated Control Point (GenCP) image chips with generative AI techniques. Ground Control Points (GCP) are reference measurements used in the geometric calibration and validation (Cal/Val) of remote sensing images.
