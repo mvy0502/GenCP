@@ -96,9 +96,27 @@ supporting citation for the "same lever" half of the claim.~~
 **SUPERSEDED 2026-08-26.** Struck, preserved verbatim above. The interaction reading failed
 at 5/6 across six confirmatory seeds and the pre-committed consequence withdrew the "same
 lever" half of the claim ([seed-block-results.md](seed-block-results.md) §4), so the
-factorial can no longer be positioned as supplying a measurement of substitutability, and
-**the Freirich, Michaeli, Meir citation loses the half of the claim it was recruited to
-support**. Do not cite it for that purpose.
+factorial can no longer be positioned as supplying a measurement of substitutability.
+
+**DECISION on Freirich, Michaeli, Meir (NeurIPS 2021, arXiv:2107.02555): it comes OUT of the
+letter's citation strategy.** Not weakened — removed. The reason, stated so the decision can
+be checked rather than taken on trust:
+
+- **It was recruited for one purpose only.** The struck text names that purpose exactly: it
+  is "the closest formal statement that the axis is a single traversable lever, and is the
+  right supporting citation for the **'same lever' half** of the claim". That half is the
+  half that was withdrawn.
+- **It does not support the main claim in its place.** The perception-distortion tradeoff
+  itself is established by Blau and Michaeli, which is the cited authority for it in both
+  this document and the letter. What Freirich et al. add on top is the *traversability* of
+  the axis — the single-lever property — and that is precisely the withdrawn claim, not a
+  separate contribution we can fall back on.
+- **Removing it costs the letter nothing**, which is worth checking rather than assuming: it
+  never appeared in the letter's own related-work list
+  ([letter-skeleton.md](letter-skeleton.md) §3, I.5), so no drafted sentence depends on it.
+
+A citation with no claim left to support is not a weakened citation, it is a decoration, and
+this letter has a hard reference budget. **Do not cite it.**
 
 **What the factorial adds, restated on what six seeds establish:** PD theory treats
 plausibility as one axis and does not identify which downstream consumers sit on the wrong

@@ -55,8 +55,8 @@ arXiv preprint first.
 | Title, authors, abstract, index terms | 0.5 | 200 |
 | I. Introduction (related work folded in) | 1.5 | 600 |
 | II. Materials and methods | 2.0 | 750 |
-| III. Results — includes Table I and Fig. 1 | 2.5 | 800 |
-| IV. Alternative explanations — includes Table II | 1.5 | 500 |
+| III. Results — includes Table I and Fig. 1 | 2.5 | ~~800~~ **980** |
+| IV. Alternative explanations — includes Table II | 1.5 | ~~500~~ **320** |
 | V. Discussion, limitations, design rule | 1.0 | 450 |
 | References (~30) | 1.0 | — |
 | **Total** | **10.0** | **~3,300** |
@@ -64,6 +64,16 @@ arXiv preprint first.
 Figures and tables consume roughly two of those ten columns. The budget has no slack. Any
 section that overruns takes the space from Section IV, which is the only one that degrades
 gracefully (a row can move to the arXiv version).
+
+**REVISED 2026-08-26 — 180 words moved III ← IV, and the column figures are unchanged.** The
+word counts for Sections III and IV are struck above and replaced; the column allocations are
+not, because 180 words is roughly a fifth of a column and the two sections are adjacent — the
+overrun is absorbed within their combined 4.0 columns. The 180 words pay for two new Results
+subsections that the six-seed block made mandatory: the out-of-range result (III.9, 80 words)
+and the sustained training trend (III.10, 100 words). **Taken from Section IV per the rule
+this section already states**, and the mediation row is the designated casualty if 320 words
+will not hold five rows. **Total word count rises from ~3,300 to ~3,300 — unchanged, because
+this is a transfer and not an expansion.**
 
 **Two figures, two tables. Not three of either.**
 
@@ -99,6 +109,30 @@ protocol, E3 in any form, and the E1/E2 tables. E1/E2 survive as two sentences i
 input-silent regions relative to the real image; 1.0 means the arm fills terrain it has no
 information about to exactly the busyness of reality.*
 
+> **TABLE I REQUIRES A REBUILD FROM THE SIX-SEED BLOCK — flagged 2026-08-26, not yet done.**
+> The table above is **single-seed** (seed 42) and seed 42 is the generating observation, not
+> a replicate. It is left standing because it is the layout decision this section exists to
+> record, and the layout survives; only the numbers in it do not.
+>
+> **Columns that change** — every one of these becomes a six-seed quantity (seeds 45–50), with
+> the seed count in the caption and seed 42 reported beside the table rather than inside it:
+> **mean (px)**, **median (px)**, **points (med.)**, and **edge ratio** for the four
+> fine-tuned arms C1, C2, C4, C5. The six-seed edge-ratio means are already computed
+> ([seed-block-results.md](seed-block-results.md) §1) and differ from the single-seed values in
+> the third decimal, not the first — C2 0.277 against 0.28, C5 1.152 against 1.16 — so **the
+> non-monotonicity this table exists to display survives the rebuild**, which is the one thing
+> worth knowing before the rebuild is done.
+>
+> **The column that does NOT change: the `pretrained` row.** Pretrained is
+> **training-independent** — it is the deposited generator, not a fine-tuning arm, so it has
+> no seed and its numbers are identical across every seed in the block (edge ratio 1.0208 in
+> all six, byte-identically). Its row is carried over unchanged and the caption must say why,
+> or a reader will ask which seed it came from.
+>
+> **What else the caption must gain:** the run label changes from "STOCH seed 42" to the
+> six-seed block with its n, and the sign convention and Δ definition are unaffected.
+> **Do not draft Table I until the rebuild is done** — it is the table the headline sits in.
+
 Two reasons, and the second matters more than the space saving.
 
 It saves half a column, which the budget needs.
@@ -119,10 +153,22 @@ not a complete explanation.**
 
 Abstract must contain, in this order: the setting (generated reference imagery for satellite
 georeferencing), the design (2×2 factorial crossing an adversarial term with L1 versus LPIPS
-reconstruction, everything else held fixed), the primary number (C5 − C4 = −0.487 ± 0.053 px,
-t = −9.2, better on 113/130 chips), the generalisation (the effect replicates under both
+reconstruction, everything else held fixed), the primary number ~~(C5 − C4 = −0.487 ± 0.053 px,
+t = −9.2, better on 113/130 chips)~~ **REVISED 2026-08-26 — the abstract's primary number is
+now the seed-level six-seed sign replication:** *adversarial-off beats adversarial-on under
+LPIPS in all six confirmatory seeds (P = 1/64, direction fixed in advance)*, the generalisation
+(the effect replicates under both
 reconstruction terms, and LPIPS alone invents more than either adversarial arm), the mechanism
-(edge density in input-silent regions), and the design rule. Index terms: image registration,
+(edge density in input-silent regions), and the design rule.
+
+*Two changes, and the second is a rule. **(i)** The struck number is chip-level and
+single-seed: ±0.053 measures how consistently one checkpoint beats another across 130 chips,
+not how consistently the treatment works, and that conflation is the correction the whole
+seed-replication package exists to make. **(ii) The abstract carries NO interval at all**, per
+the adversarial pass's instruction to strike the primary interval from the abstract — a sign
+replication with its P-value is the claim, and an interval in an abstract invites exactly the
+chip-level-as-treatment-level reading. Results III.2 may report the interval; the abstract may
+not. Six-seed values are in [seed-block-results.md](seed-block-results.md) §1 and §5(a).* Index terms: image registration,
 generative adversarial networks, ground control points, perceptual loss, georeferencing,
 Sentinel-2.
 
@@ -139,12 +185,23 @@ Sentinel-2.
    days since the last cloud-free scene, and a five-year-old real scene beat current-OSM
    synthetic even on the highest-change tile. Footnote to the arXiv version for both. **Do not
    argue this in the letter; state it and move on.** It sets scope, it is not the contribution.
-4. **The claim, 60 words.** Plausibility pressure degrades generated reference imagery for
+4. **The claim, 60 words.** ~~Plausibility pressure degrades generated reference imagery for
    geometric matching; the adversarial term and a perceptual reconstruction loss are both such
-   pressures and act on the same lever. Where the conditioning input carries no information, a
+   pressures and act on the same lever.~~ **REVISED 2026-08-26 — the claim now reads:**
+   *Plausibility pressure degrades generated reference imagery for geometric matching; the
+   adversarial term and a perceptual (LPIPS) reconstruction loss are each such a pressure,
+   established separately.* Where the conditioning input carries no information, a
    loss that rewards plausibility causes the generator to invent structure; an invented edge is
    a false control point, and a false control point is worse than no control point because it
    displaces the solution silently.
+
+   *"and act on the same lever" is dropped: the registered interaction reading failed at 5/6
+   across six confirmatory seeds on all three registered scales and the pre-committed
+   consequence fired ([seed-block-results.md](seed-block-results.md) §4). **This wording is
+   copied verbatim from [paper-context-addendum.md](paper-context-addendum.md) §1, which is
+   the live claim statement; the two must not drift, and a change to either requires the same
+   change to the other in the same commit.** "Separately" is load-bearing — it marks the
+   absence of a joint claim rather than leaving a reader to supply one.*
 5. **Related work, 220 words, compressed hard.** Blau and Michaeli give the theory; position as
    identifying the consumer, not contradicting it. Liu, Zhang and Xiong extend it to a
    downstream task, but a semantic one where an in-class hallucination costs nothing. Arar et
@@ -199,16 +256,77 @@ Sentinel-2.
 ### III. Results (800 words, Table I, Fig. 1)
 
 1. **The panel, 80 words.** Table I. Point at the ordering C2 < C5 < C4 < C1 < pretrained.
-2. **Primary result, 120 words.** C5 − C4 = −0.487 ± 0.053 px (t = −9.2, better on 113/130
+2. **Primary result, 120 words.** ~~C5 − C4 = −0.487 ± 0.053 px (t = −9.2, better on 113/130
    chips; registered band was ≥ 2 SE). Adversarial OFF beats ON under *both* reconstruction
-   terms. The main effect is replicated, not observed once.
-3. **Interaction, 120 words.** Adversarial penalty under L1 = +0.700 ± 0.059; under LPIPS =
+   terms. The main effect is replicated, not observed once.~~
+
+   **REVISED 2026-08-26 — the primary is now stated at seed level, where the treatment was
+   applied.** *C5 − C4 is negative in all six confirmatory seeds (45–50), P = 1/64 with the
+   direction fixed in advance by seed 42; per-seed values −0.6153, −0.6462, −0.6162, −0.5942,
+   −0.6054, −0.5775 px. Adversarial OFF beats ON under both reconstruction terms. The main
+   effect is replicated across seeds, not observed once.* The seed-level mean is −0.609 px
+   with a 95% interval of [−0.634, −0.585] (df = 5, t\* = 2.571) — **and that interval is
+   reported, not required: the registered reading is the sign replication and only that.**
+   Attach the phrase, not just the number.
+
+   *The struck version was the single-seed chip-level statement. It is preserved because it is
+   what the plan said before the block ran, and because the difference between the two is the
+   paper's own methodological point. Seed 42's −0.487 is now reported beside the block as the
+   generating observation, and it falls **outside** the six-seed range on this quantity
+   ([seed-block-results.md](seed-block-results.md) §5(c)) — do not present it as one of the
+   replicates.*
+3. ~~**Interaction, 120 words.** Adversarial penalty under L1 = +0.700 ± 0.059; under LPIPS =
    +0.487 ± 0.053; I = −0.212 ± 0.069 (t = −3.07): substitutes. LPIPS already supplies part of
    the plausibility pressure, so the discriminator adds less on top of it. Consistent with
    C4 − C1 = −0.110 (1.9 SE) — **write "not significant at the registered threshold", never
-   "null".**
-4. **Secondary, 60 words.** C5 − C2 = +0.103 ± 0.042 (t = 2.5): perceptual reconstruction
-   carries its own positional penalty with no discriminator present.
+   "null".**~~
+
+   **DEAD, SUPERSEDED 2026-08-26. This subsection is replaced in full, not amended.** The
+   registered seed-level interaction reading failed at 5/6 across the six confirmatory seeds —
+   seed 46 is positive on the raw scale and reverses on the log and rank scales too — and the
+   pre-committed consequence removed "substitutes", "the same lever" and the interaction claim
+   from the paper ([seed-block-results.md](seed-block-results.md) §4). **The 120 words do not
+   return to the budget: they are spent on the disclosure that replaces the claim**, which is
+   mandatory, not optional. What goes here is the letter-length version of the required text
+   installed at [paper-context-addendum.md](paper-context-addendum.md) §24:
+
+   > **Interaction: registered, tested, not sign-stable, not claimed.** Before any replication
+   > data existed we registered a seed-level interaction between the two reconstruction terms,
+   > I = (C4 − C5) − (C1 − C2), to be read as negative in every seed and to survive a monotone
+   > re-scaling, with both re-scalings — a log transform of the per-chip residual and a
+   > within-chip rank transform — specified in advance. Across six confirmatory seeds it was
+   > negative in five and positive in one, and the same seed reversed the sign on the log and
+   > rank scales as well: 5/6 on each of the three registered scales. The registered reading
+   > fails, and by a consequence committed in advance we make no interaction claim. An earlier
+   > two-seed block on different hardware returned a negative interaction in both seeds on all
+   > three scales; it is reported for completeness and carries no weight against the six-seed
+   > result, since the blocks cannot be pooled and two seeds do not override six.
+
+   *Three rules travel with this paragraph. **(i)** It may be shortened for the format but may
+   not lose any of five elements: registered in advance, all three scales, 5/6 with the same
+   seed breaking each, no claim made, the other block reported with its weight stated.
+   **(ii)** The log and rank interval do exclude zero and the raw one does not — **never write
+   any sentence of the form "the interval excludes zero, so the interaction is real"**, or
+   anything that functions as one. An interval is not a back door to a failed reading.
+   **(iii)** C4 − C1 keeps its own binding sentence (§4, item 3) and is unaffected by this
+   change.*
+4. **Secondary, 60 words.** ~~C5 − C2 = +0.103 ± 0.042 (t = 2.5): perceptual reconstruction
+   carries its own positional penalty with no discriminator present.~~
+
+   **REVISED 2026-08-26 — six-seed, seed-level:** *C5 − C2 is positive in all six confirmatory
+   seeds, P = 1/64; perceptual reconstruction carries its own positional penalty with no
+   discriminator present.* Seed-level mean +0.063 px, 95% interval [+0.027, +0.098]
+   (df = 5, t\* = 2.571), **reported, not required**. The smallest margin is +0.0068 px at
+   seed 46 — **state it; it is the thinnest of the registered readings and a reader who finds
+   it unaided will trust the rest less.**
+
+   *Why this subsection matters more than its 60 words suggest: **the secondary holding 6/6 is
+   what kept the title.** The registered consequence for C5 − C2 was that if it failed in any
+   seed, the LPIPS-alone penalty would drop from a result to a discussion-section hypothesis
+   and the claim would narrow from "plausibility pressure" to "the adversarial term", **taking
+   the title with it**. It held, so the working title survives — but on a 6/6 sign replication
+   whose narrowest seed clears zero by seven thousandths of a pixel, not on a comfortable
+   margin.*
 5. **Dose-response, 80 words + Fig. 2.** Penalty by epoch under LPIPS: 0.334 → 0.254 → 0.441 →
    0.496 → 0.487, all ≥ 6 SE, the same dip-then-grow-then-plateau shape as the L1 family.
    Training longer with a discriminator widens the gap under both reconstruction terms.
@@ -226,6 +344,56 @@ Sentinel-2.
    account it is: the discriminator produces texture that is largely unmatchable (high ratio,
    low point count); LPIPS produces structure that is matchable but misplaced (high ratio,
    highest point count). Both hurt, by different routes.
+9. **NEW, ADDED 2026-08-26 — the single-run estimate outside the replicate range, 80 words.**
+   The interaction we previously published from one run, I = −0.212, falls **outside the range
+   spanned by six replicates of the same treatment** on the raw scale ([−0.160, +0.059]) and on
+   the rank scale ([−0.262, +0.123]). The treatment was applied once per cell, so every error
+   bar on that number is chip-level: it measures consistency across 130 chips, not consistency
+   of the treatment. Six replicates do not contain it, and its sign flips in one of them.
+
+   *Write this as a **result**, not an apology. It is the paper's own methodological thesis
+   demonstrated on the paper's own data, against the paper's own earlier claim — which is what
+   makes it the strongest available version of the demonstration and not a weaker one, because
+   it is not borrowed from someone else's work and it is not free: it costs us the interaction
+   claim. **Scope sentence required in the same paragraph:** falling outside the range of six
+   replicates is not a significance test and no p-value attaches to it; what makes it
+   reportable is that it happens on the quantity a mechanistic claim was built on, in the
+   direction that favoured the claim, while the registered reading on that same quantity
+   independently fails at 5/6. Seed 42's code-path caveat stays attached. Full numbers at
+   [seed-block-results.md](seed-block-results.md) §5(c).*
+10. **NEW, ADDED 2026-08-26 — the sustained training trend, 100 words.** Registered before the
+    six-seed loss logs were downloaded
+    ([sustained-trend-registration.md](sustained-trend-registration.md)) and scored at n = 6.
+    **The arm-versus-gap distinction is the whole of it and must be written precisely:**
+
+    - **CAN say:** *in every seed, the adversarial arm reduces its reconstruction loss less
+      than its non-adversarial counterpart* — the gap reading, **6/6 in both families**.
+    - **CANNOT say:** *adversarial arms fail to reduce the reconstruction loss* — the arm
+      reading, which **fails for C1 at 5/6** (seed 45 is −0.99%, its loss fell; seed 48 is
+      +0.02%, indistinguishable from none).
+
+    **C4 alone fails to fall in all six seeds** (mean +1.45%, range +0.98 to +2.22). **C4 is
+    the arm the stop rule fired on**, so entry 26's operative defence — the sustained trend,
+    which it adopted precisely because the two-epoch window was confounded — is now replicated
+    at n = 6 for the arm the defence was needed for. The gap readings are entailed by the arm
+    readings and carry no independent weight; do not present them as a second confirmation.
+
+    *Warning on the controlled magnitudes, because the two families do not carry equal weight
+    and must not be written as if they did. The warm-up-matched gap is **6.33 in the LPIPS
+    family and 4.00 in the L1 family**. **The 4.00 figure is the weaker of the two twice
+    over**: it rests on C1, whose sign is not stable across seeds, and on a warm-up attenuation
+    of 2.18 points that fell **inside** the six-seed C2 seed spread of 3.05 and so is not
+    separable from seed variation. The LPIPS figure rests on an arm that replicates 6/6 and an
+    attenuation (2.67) that exceeds its seed spread (0.73) by 3.7×. **Quote 6.33 as the
+    controlled result; quote 4.00 only with both caveats in the same sentence.**
+    ([warmup-deconfound-results.md](warmup-deconfound-results.md) §4a.)*
+
+**Budget for items 9 and 10, taken as §1 requires.** 180 words (80 + 100) move **from Section
+IV to Section III**: Section III 800 → 980, Section IV 500 → 320. §1 names Section IV as the
+only section that degrades gracefully, and the mediation row is the one to move to the arXiv
+version if the remaining 320 will not hold five rows — it is the row already marked "narrowed"
+rather than "refuted", and its footnote is the longest prose item in the section. **This is a
+budget decision recorded before drafting, not a discovery made while writing.**
 
 ### IV. Alternative explanations (500 words, Table II)
 
@@ -314,17 +482,71 @@ wrong place; a broad peak in the right place localises better than a sharp peak 
 13. The 1/256 scale error carries the 3.9%-of-variance qualifier in the same paragraph, and is
     described as a text-versus-data inconsistency, not a code bug.
 14. **Invention is a necessary condition, not a complete explanation.**
+15. **ADDED 2026-08-26. The interaction consequence removes claims, not the disclosure.** The
+    pre-committed consequence struck "the same lever", "substitutes" and the interaction claim
+    from the paper. It does **not** license removing the record that the test was registered,
+    run and failed. The disclosure at III.3 is mandatory text
+    ([paper-context-addendum.md](paper-context-addendum.md) §24). **A submitted draft that
+    contains no interaction claim and no interaction disclosure has silently dropped a
+    pre-registered failed test — the exact failure this paper attributes to the upstream work,
+    and the one error that would discredit every other claim in it.** Check for the presence of
+    the disclosure, not merely for the absence of the claim.
+16. **ADDED 2026-08-26. The cross-platform attenuation figure disagrees with the
+    within-platform one in both directions, and this is reported rather than quietly
+    corrected.** Measuring the warm-up attenuation against Kaggle seed-42 comparators gives
+    **54% in the L1 family and 22% in LPIPS**; measuring it within platform and within seed
+    (Modal seed 43, the only comparison that isolates the warm-up) gives **35% and 30%**. The
+    cross-platform version **overstates** one and **understates** the other. **Report this as a
+    concrete demonstration of what the NOT POOLED verdict protected against** — a hardware
+    gate that returned "do not pool" is otherwise an abstract piece of housekeeping, and here
+    is the number that shows what pooling would have cost. The within-platform figures are the
+    ones quoted; the cross-platform ones appear only as this demonstration
+    ([warmup-deconfound-results.md](warmup-deconfound-results.md) §4a).
 
 ---
 
 ## 5. Blocking items before drafting begins
 
-- **`phase-c-lpips-registration.md` is not audited.** It is the registration behind the primary
-  result. Table I cannot be drafted before it clears. This is the top of the work list.
-- **`phase-c-registration.md` is not audited** either, and it governs the C1/C2 arms that supply
-  half of Table I.
+- ~~**`phase-c-lpips-registration.md` is not audited.** It is the registration behind the primary
+  result. Table I cannot be drafted before it clears. This is the top of the work list.~~
+- ~~**`phase-c-registration.md` is not audited** either, and it governs the C1/C2 arms that supply
+  half of Table I.~~
 - The Scopus/Web of Science query, which gates the novelty language in Section I.
 - Author list and institutional approval, which gate submission but not drafting.
+
+**REVISED 2026-08-26 — the first two are cleared and are struck above; the second two stand
+unchanged.** Both phase-C registrations have since been audited in
+[phase-c-audit.md](phase-c-audit.md): leg B passes on every cell backed by an artifact —
+1,300 per-chip cells, 25 per-arm summary cells, 30 paired cells, 25 sweep cells and 20
+edge-ratio cells all reproduce from raw — with the stop-rule caveat (corrections-log entries
+26 and 27) attached. **Neither is a blocker any longer.** Note that the audit's "Quotable as"
+line was itself amended on 2026-08-26: the interaction is no longer quotable, though
+everything else on that line remains so.
+
+**What actually blocks now:**
+
+- **`packageA` is not audited.** Section V's design rule quotes its production-path figure
+  (C2 = 0.593 ± 0.041 px, K = 8, n = 20, better than pretrained on 20/20 chips), which is the
+  single operational number the letter offers a practitioner. **The design rule cannot be
+  drafted on an unaudited number.**
+- **`phase-d` is not audited.** It supplies the ratio material behind the mechanism section's
+  supporting claims.
+- The Scopus/Web of Science query, which gates the novelty language in Section I. **Stands
+  unchanged** — binding sentence 2 keeps every novelty claim at "to our knowledge" until it is
+  done.
+- Author list and institutional approval, which gate submission but not drafting. **Stands
+  unchanged.**
+
+**A new blocker the six-seed block created, which did not exist when this list was written:**
+**Table I must be rebuilt from the six-seed block** before Section III can be drafted (see the
+flag in §2). That is not an audit item — the numbers exist and are committed — but it is
+drafting-blocking in exactly the way the two struck audit items were.
+
+**Note on drafting order (§6), which is unaffected.** Section II remains the right place to
+start, and its reasoning now holds more strongly than when it was written: it was chosen
+because it does not depend on the outstanding audits, and the outstanding audits have changed
+identity (packageA and phase-d rather than the phase-C pair) without touching Section II's
+independence from them.
 
 ## 6. Order of drafting
 
