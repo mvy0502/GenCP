@@ -412,8 +412,45 @@ Table II, four columns. Rows and the prose each row gets:
 | It is blur, not restraint | low-pass the adversarial arm to match the L1-only spectral profile (fitted σ = 0.45) | recovers −6.1% (Europe) / +1.7% (Cappadocia) of the gain; support band was ≤ 25% | refuted |
 | Corrected georeferencing in the fine-tuning pairs | decompose the European gain | ~86% is scatter reduction; the systematic component slightly worsened | refuted |
 | Cold-started discriminator damage | checkpoint sweep at epochs 1, 2, 5, 10, 20 | C1 at epoch 1 already better than pretrained (−0.399 ± 0.064, 6.3 SE), wrong sign for damage; deficit exists from epoch 1 and grows (+0.55 → +0.70) | refuted, post hoc |
-| Optimising the evaluation metric | matchers from three families | ORB −0.613 ± 0.135 (n = 29 intersection), AKAZE, MI −1.260 ± 0.261 (lower bound); ordering preserved in 48 of 49 cells | refuted |
-| The gain is mediated by output similarity | condition the gap on photometric and gradient similarity | see footnote | narrowed |
+| Optimising the evaluation metric | **two independent registrations**: descriptor families (ORB, AKAZE, MI) and matcher families (KLT, NCC, phase correlation) | **B3:** ORB −0.613 ± 0.135 (paired n = 29 intersection; AKAZE n = 11), AKAZE −0.148 ± 0.048, MI −1.260 ± 0.261 (**lower bound**). **Package A:** C2 ranks first, or ties C3 within noise, in every condition cell except two — both EU-150 urban, phase correlation, one per band — far below 2 SE | refuted |
+| ~~The gain is mediated by output similarity | condition the gap on photometric and gradient similarity | see footnote | narrowed~~ | | | |
+
+> **TABLE II REVISED 2026-08-26 — it is FOUR rows, not five, and the matcher row is
+> re-attributed.**
+>
+> **Matcher row (row 4) — re-attributed across two registrations.** It previously read
+> "matchers from three families … ordering preserved in 48 of 49 cells", which fused two
+> separate packages into one apparent test. **Package A ran KLT, NCC template grid and phase
+> correlation; it never ran ORB, AKAZE or mutual information** — those are B3's
+> descriptor-family results. **Saying so makes the row stronger, not weaker: the candidate is
+> refuted by two independent registrations rather than one**, and the letter should claim
+> that. Each half carries its own n and its own caveats: B3's ORB Δ rests on a **29-chip
+> paired intersection** (AKAZE on 11) and must never be quoted beside the 53/130 match count
+> as if that were its support (binding sentence 12); B3's MI figure is a **lower bound**,
+> because the registered parabola subpixel refinement never ran and the ±8 px grid censors
+> 15.8% at the bound, censoring the worse arms harder and so compressing the margin toward
+> zero (corrections-log entry 21).
+>
+> **"48 of 49" is STRUCK and must not be quoted.** It is not reproducible from the artifact
+> under any counting scheme, and the only scheme that yields a denominator of 49 yields a
+> numerator of 47. **A second exception was also unreported**: EU-150 urban under phase
+> correlation flips in *both* band conversions, C1 ahead by 0.0246 ± 0.2080 and
+> 0.0092 ± 0.2168, both far below the registered 2 SE threshold so no ordering change is
+> claimed either way ([packageA-audit.md](packageA-audit.md) §C-2, §C-3).
+>
+> **Mediation row (row 5) — STRUCK.** [paper-roadmap.md](paper-roadmap.md) already rules that
+> "**B3 part 2 (mediation) does not appear at all — it is void as stated**"
+> (corrections-log entry 20: the registered test reported the conditional gap as the fitted
+> value at the covariate means, which is algebraically identical to the raw mean and so could
+> not have detected mediation of any size). **The skeleton was the document that was wrong**:
+> it was drafted 2026-08-24 carrying the row, and the roadmap's ruling predates it. Recorded
+> that way round rather than presented as a new decision.
+>
+> **Table II is therefore four rows, and after the matcher re-attribution it is four rows on
+> firmer ground than five was** — every surviving row is either refuted by two registrations
+> or refuted outright, with no row carrying a "narrowed" verdict that a reviewer can push on.
+> **The freed word budget is NOT reclaimed here**; Section IV's allocation stands as revised
+> and the slack absorbs the blur and georeferencing rows' provenance disclosure (§5 blockers).
 
 Prose, roughly 90 words each for blur and cold-D, 60 for georeferencing, 120 for the
 matcher-family row, and the mediation footnote below.

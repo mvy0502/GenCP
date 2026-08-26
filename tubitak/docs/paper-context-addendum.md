@@ -241,8 +241,13 @@ statistical matchers, trained on nothing resembling pixel L1, still rank C2 firs
 alternative-explanation row should rest on that leg alone.
 
 **Matcher independence, quantified.** 6,510 scored comparisons across three matcher families,
-two band conversions and an urban subset: **the arm ordering is preserved in 48 of 49 cells**
-(the exception, EU urban under phase correlation at −0.03 ± 0.21, was pre-classified as noise).
+two band conversions and an urban subset: ~~**the arm ordering is preserved in 48 of 49 cells**
+(the exception, EU urban under phase correlation at −0.03 ± 0.21, was pre-classified as noise).~~
+**CORRECTED 2026-08-26** — the count is not reproducible and there are **two** exceptions, not
+one ([packageA-audit.md](packageA-audit.md) §C-2/§C-3). Read instead: **the arm ordering is
+preserved in every condition cell except two, both at EU-150 urban under phase correlation,
+one per band conversion (C1 ahead by 0.0246 ± 0.2080 and 0.0092 ± 0.2168), both far below the
+registered 2 SE threshold and pre-classified as noise.**
 NCC *grows* C2's margin over C1 rather than shrinking it (Ankara −0.70 → −1.01; Europe −0.47 →
 −1.15) — the opposite of the registered prediction, which had expected blur to be punished.
 

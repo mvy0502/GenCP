@@ -7,9 +7,27 @@
 > urban chip lists before any number existed.
 
 **Question registered:** does the arm ordering survive a change of matcher, band, and
-subset? **Answer: yes — one answer fills the decision table.** 48 of 49 condition cells rank
+subset? **Answer: yes — one answer fills the decision table.** ~~48 of 49 condition cells rank
 C2 first or tie it with C3 within noise; no flip anywhere reaches the registered 2 SE
-threshold for a claimed ordering change.
+threshold for a claimed ordering change.~~
+
+**CORRECTED 2026-08-26.** Struck, not deleted. The count "48 of 49" **is not reproducible
+from the artifact under any counting scheme** — the harness emits no cell total, and
+enumeration gives 56, 42 or 24 depending on the convention; the only scheme yielding a
+denominator of 49 gives a numerator of **47**. Separately, the artifact contains **two** cells
+in which C1 ranks ahead of C2, not one: **EU-150 urban `bt601|phase`** (C1 by 0.0246 ± 0.2080,
+reported at the time as "−0.03 ± 0.21") and **EU-150 urban `mean|phase`** (C1 by
+0.0092 ± 0.2168, **not reported at the time**). Both sit far below the registered 2 SE
+threshold. **The corrected statement, which needs no denominator:**
+
+> **C2 ranks first, or ties C3 within noise, in every condition cell except two — both at
+> EU-150 urban under phase correlation, one in each band conversion, and both far below the
+> registered 2 SE threshold. No flip anywhere reaches that threshold, so no ordering change is
+> claimed.**
+
+Full derivation in [packageA-audit.md](packageA-audit.md) §C-2 and §C-3; corrections-log
+entry **30** is drafted for this. Every other number in this document reproduces from raw to
+within 0.0008 px.
 
 ## Cache verification before any reuse
 
@@ -61,8 +79,10 @@ are the numbers the institution should be shown — not −1.167).
 
 | condition (matcher × band × subset) | arm |
 |---|---|
-| every cell with a permitted verdict (48/49) | **C2** (or C2≈C3 within noise at n = 30) |
-| the single exception (EU-150 urban, phase corr.) | C1 by −0.03 ± 0.21 — noise, no verdict |
+| every cell with a permitted verdict ~~(48/49)~~ **except the two below** | **C2** (or C2≈C3 within noise at n = 30) |
+| ~~the single exception (EU-150 urban, phase corr.) | C1 by −0.03 ± 0.21 — noise, no verdict~~ | |
+| **exception 1 — EU-150 urban, BT.601, phase corr.** | C1 by 0.0246 ± 0.2080 — noise, no verdict |
+| **exception 2 — EU-150 urban, unweighted mean, phase corr.** | C1 by 0.0092 ± 0.2168 — noise, no verdict. **Added 2026-08-26; not reported in the original document** |
 
 **One answer fills the table: recommend C2; supply C1 as the second arm.** C3 — available
 only at n = 30 — is statistically indistinguishable from C2 wherever both exist and never
