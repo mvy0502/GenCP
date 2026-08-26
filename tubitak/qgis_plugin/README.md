@@ -30,6 +30,15 @@ file under `gencp_core/` and fails if any imports `qgis`, `PyQt5`, `PyQt6` or `p
 The point is not tidiness — the same core is what would run in an embedded or offline
 context later, and it is what makes the chain testable without QGIS running.
 
+## Quick start
+
+For someone who just wants to produce one output: **`QUICKSTART.md`** (Turkish, numbered
+clicks only). Installable archive and what is and is not in it:
+https://github.com/mvy0502/gencp-validation/releases/tag/plugin-v0.2.0
+
+What installing it and using it in anger actually found — six defects, four of them silent
+wrong output, plus timings and screenshots: **`tubitak/docs/plugin-field-test.md`**.
+
 ## Installing
 
 1. **Dependencies into QGIS's own Python.** Everything else the plugin needs (numpy, GDAL,
