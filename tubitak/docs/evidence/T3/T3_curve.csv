@@ -1,0 +1,9 @@
+site,budget,n_kept,coverage_given_up_pct,mean,median,delta_median,provenance
+ankara,100,130,0,1.3758,0.9744,0.0,"STOCH single-draw, OVP inputs"
+ankara,90,117,10,1.2848,0.9126,-0.0618,"STOCH single-draw, OVP inputs"
+ankara,75,98,25,0.9868,0.7616,-0.2128,"STOCH single-draw, OVP inputs"
+ankara,50,65,50,0.7191,0.5906,-0.3838,"STOCH single-draw, OVP inputs"
+cappadocia,100,NA,0,NA,NA,NA,"STOCH single-draw, PRE inputs — NOT SCOREABLE: per-chip C2 residuals absent from archive"
+cappadocia,90,NA,10,NA,NA,NA,"STOCH single-draw, PRE inputs — NOT SCOREABLE: per-chip C2 residuals absent from archive"
+cappadocia,75,NA,25,NA,NA,NA,"STOCH single-draw, PRE inputs — NOT SCOREABLE: per-chip C2 residuals absent from archive"
+cappadocia,50,NA,50,NA,NA,NA,"STOCH single-draw, PRE inputs — NOT SCOREABLE: per-chip C2 residuals absent from archive"

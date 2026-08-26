@@ -1,0 +1,223 @@
+{
+  "label": "[STOCH seed42, OVP inputs] n=130, single draw (standing practice 2)",
+  "n_chips": 130,
+  "seed": 42,
+  "input_provenance": "OVP (run/inputs, the exact files the C-phase numbers used)",
+  "baseline": "pretrained per-chip medians, turkey_karios.csv (2.588 px published)",
+  "convention": "delta = arm(E) - baseline; negative = arm better",
+  "pretrained": {
+    "mean_of_medians": 2.5627,
+    "median_of_medians": 2.5877,
+    "points_median": 51.0
+  },
+  "cells": {
+    "C1_e1": {
+      "mean_of_medians": 2.1637,
+      "se_of_mean": 0.0921,
+      "median_of_medians": 2.0348,
+      "points_median": 55.0,
+      "zero_point_chips": 0
+    },
+    "C1_e2": {
+      "mean_of_medians": 1.9119,
+      "se_of_mean": 0.0894,
+      "median_of_medians": 1.7023,
+      "points_median": 57.0,
+      "zero_point_chips": 0
+    },
+    "C1_e5": {
+      "mean_of_medians": 1.8056,
+      "se_of_mean": 0.094,
+      "median_of_medians": 1.5819,
+      "points_median": 63.0,
+      "zero_point_chips": 0
+    },
+    "C1_e10": {
+      "mean_of_medians": 1.9529,
+      "se_of_mean": 0.1036,
+      "median_of_medians": 1.5749,
+      "points_median": 62.5,
+      "zero_point_chips": 0
+    },
+    "C1_e20": {
+      "mean_of_medians": 2.0753,
+      "se_of_mean": 0.1029,
+      "median_of_medians": 1.7939,
+      "points_median": 59.0,
+      "zero_point_chips": 0
+    },
+    "C2_e1": {
+      "mean_of_medians": 1.618,
+      "se_of_mean": 0.089,
+      "median_of_medians": 1.3525,
+      "points_median": 70.0,
+      "zero_point_chips": 0
+    },
+    "C2_e2": {
+      "mean_of_medians": 1.5104,
+      "se_of_mean": 0.0864,
+      "median_of_medians": 1.1689,
+      "points_median": 73.0,
+      "zero_point_chips": 0
+    },
+    "C2_e5": {
+      "mean_of_medians": 1.4214,
+      "se_of_mean": 0.0885,
+      "median_of_medians": 0.9764,
+      "points_median": 74.0,
+      "zero_point_chips": 0
+    },
+    "C2_e10": {
+      "mean_of_medians": 1.4009,
+      "se_of_mean": 0.0842,
+      "median_of_medians": 1.0226,
+      "points_median": 72.5,
+      "zero_point_chips": 0
+    },
+    "C2_e20": {
+      "mean_of_medians": 1.3758,
+      "se_of_mean": 0.0868,
+      "median_of_medians": 0.9744,
+      "points_median": 72.0,
+      "zero_point_chips": 0
+    }
+  },
+  "paired_vs_pretrained": {
+    "C1_e1": {
+      "mean": -0.399,
+      "se": 0.0635,
+      "t": -6.29,
+      "n": 130,
+      "chips_arm_better": 103
+    },
+    "C1_e2": {
+      "mean": -0.6508,
+      "se": 0.0636,
+      "t": -10.22,
+      "n": 130,
+      "chips_arm_better": 111
+    },
+    "C1_e5": {
+      "mean": -0.7571,
+      "se": 0.0644,
+      "t": -11.76,
+      "n": 130,
+      "chips_arm_better": 113
+    },
+    "C1_e10": {
+      "mean": -0.6097,
+      "se": 0.072,
+      "t": -8.47,
+      "n": 130,
+      "chips_arm_better": 105
+    },
+    "C1_e20": {
+      "mean": -0.4874,
+      "se": 0.0753,
+      "t": -6.47,
+      "n": 130,
+      "chips_arm_better": 95
+    },
+    "C2_e1": {
+      "mean": -0.9447,
+      "se": 0.0684,
+      "t": -13.82,
+      "n": 130,
+      "chips_arm_better": 121
+    },
+    "C2_e2": {
+      "mean": -1.0522,
+      "se": 0.0669,
+      "t": -15.73,
+      "n": 130,
+      "chips_arm_better": 122
+    },
+    "C2_e5": {
+      "mean": -1.1413,
+      "se": 0.072,
+      "t": -15.86,
+      "n": 130,
+      "chips_arm_better": 120
+    },
+    "C2_e10": {
+      "mean": -1.1618,
+      "se": 0.0628,
+      "t": -18.51,
+      "n": 130,
+      "chips_arm_better": 124
+    },
+    "C2_e20": {
+      "mean": -1.1869,
+      "se": 0.0654,
+      "t": -18.15,
+      "n": 130,
+      "chips_arm_better": 126
+    }
+  },
+  "paired_C1_minus_C2": {
+    "e1": {
+      "mean": 0.5458,
+      "se": 0.0477,
+      "t": 11.43,
+      "n": 130,
+      "chips_C1_better": 18
+    },
+    "e2": {
+      "mean": 0.4015,
+      "se": 0.0393,
+      "t": 10.21,
+      "n": 130,
+      "chips_C1_better": 18
+    },
+    "e5": {
+      "mean": 0.3842,
+      "se": 0.0517,
+      "t": 7.43,
+      "n": 130,
+      "chips_C1_better": 22
+    },
+    "e10": {
+      "mean": 0.552,
+      "se": 0.0549,
+      "t": 10.06,
+      "n": 130,
+      "chips_C1_better": 16
+    },
+    "e20": {
+      "mean": 0.6995,
+      "se": 0.0592,
+      "t": 11.82,
+      "n": 130,
+      "chips_C1_better": 14
+    }
+  },
+  "registered_reading": {
+    "early_worse_at_2SE": {
+      "e1": false,
+      "e2": false
+    },
+    "recovers_by_e20": false,
+    "C1_monotonic": false,
+    "C1_above_C2_late": {
+      "e5": true,
+      "e10": true,
+      "e20": true
+    },
+    "C1_trajectory_mean": [
+      2.1637,
+      1.9119,
+      1.8056,
+      1.9529,
+      2.0753
+    ],
+    "C2_trajectory_mean": [
+      1.618,
+      1.5104,
+      1.4214,
+      1.4009,
+      1.3758
+    ],
+    "verdict": "C: between \u2014 shape reported with which reading it supports and how strongly",
+    "shape_interpretation": "Formally reading C (neither registered signature exactly matches), but the shape supports the loss-function reading strongly and rules out the cold-D signature: C1 at epoch 1 is already BETTER than pretrained (-0.399 +/- 0.064 px, t=-6.3), i.e. no dip below pretrained at any epoch, so cold-D damage in the registered sense is absent. C1's failure to match reading B is not an early-epoch artefact but late-epoch degradation: C1 improves to e5 (1.806 px) then worsens to e20 (2.075 px) while C2 improves monotonically to 1.376 px. The paired C1-C2 deficit exists from epoch 1 (+0.546 px, t=11.4), never falls below +0.384 px (e5, t=7.4), and WIDENS with continued adversarial training (+0.700 px at e20, t=11.8) - the opposite of a cold-D transient, which would shrink as D warms up. A small early narrowing of the gap (e1 +0.546 -> e5 +0.384, ~0.16 px) is the most that could be attributed to a cold-D component; the dominant and growing deficit is attributable to the adversarial term itself."
+  }
+}
