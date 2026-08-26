@@ -17,13 +17,21 @@ allocated from their own spec prose (I.3 "two sentences only" → 50; V.3 "one s
 |---|---|---|---|---|
 | Title block + abstract | 200 | 200 | **0** | spec, unchanged |
 | I. Introduction | 600 | 500 | **−100** | related work 220 → 150 (decision 2) |
-| **II. Materials and methods** | **750** | **926** | **+176** | **DRAFTED, measured;** after decision 1 removed the 1/256 finding |
-| III. Results | 980 | 980 | **0** | revised allocation; the interaction's 120 words are spent on the mandatory disclosure, not returned |
+| **II. Materials and methods** | **750** | **901** | **+151** | **DRAFTED, measured;** after decision 1 and after the point-count result moved to III |
+| III. Results | 980 | 1,040 | **+60** | item 7 extended 100 → 160 to carry the common-support answer, per the Methods/Results split |
 | IV. Alternative explanations | 320 | 400 | **+80** | revised allocation; mediation row **and** its 176-word footnote struck |
 | V. Discussion | 450 | 435 | **−15** | spec, unchanged |
-| **TOTAL** | **3,300** | **3,441** | **+141** | |
+| **TOTAL** | **3,300** | **3,476** | **+176** | |
 
-**The letter is 141 words over budget.**
+**The letter is 176 words over budget.**
+
+> **UPDATED 2026-08-26 after the Methods/Results split was applied.** The split was projected
+> at II −40 / III +60, net +20, giving +161. **Measured, it is II −25 / III +60, net +35,
+> giving +176.** The method sentences that had to stay in II-D — the ranking rule, the
+> non-constructibility of point-level common support, and the post-treatment caveat on score —
+> are longer than the estimate allowed. **The projection is recorded beside the measurement
+> rather than replaced by it**, because the gap between them is the same class of error the
+> transfer rule below exists to catch: a number agreed in advance and not checked afterwards.
 
 ## Do decisions 1 and 2 close the gap? No.
 
@@ -214,3 +222,42 @@ and the +60/−40 is not yet in the table above.**
 **If option 2 is taken, Section III's committed figure becomes 1,040 against 980 (+60)** and
 Section II falls to 886 against 750 (+136); the letter total is unchanged at +141 plus the net
 +20, i.e. **+161** before item 4 reports.
+
+---
+
+## STANDING RESERVE CUT — decided 2026-08-26 on merit. NOT APPLIED.
+
+**Fig. 2, the epoch-wise dose-response, together with the ~80 words of Section III item 5
+that feed it. Half a column and 80 words.**
+
+**Decided now, deliberately, so that it is not decided later under budget pressure.** If item 4
+reproduces, Section IV grows and the three named candidates (−140) will not cover it; this is
+the fourth, and it is recorded with its reasoning **before** the pressure exists, so that
+taking it can never be an act of convenience dressed as editorial judgement.
+
+**The justification is on merit, not on space. Each of these three would be a reason to cut it
+even in a letter with room to spare:**
+
+1. **"Dose-response" is an overreach for a training-time curve**, which is confounded with
+   convergence — the arms are not being dosed with anything, they are being trained for longer.
+   **This was accepted without dispute in the hostile review pass**, and a claim we have already
+   conceded is not one to spend half a column illustrating.
+2. **Its terminal point is out of range in our own data.** The curve ends at 0.487, which is
+   seed 42's C4 − C5, and the six-seed block places that value **outside** the range spanned by
+   the six replicates ([seed-block-results.md](seed-block-results.md) §5(c)). **Printing an
+   out-of-range terminal point as a figure, in the paper whose own result is that single-run
+   estimates land outside replicate ranges, is indefensible.** A reviewer who notices it has
+   found us doing the thing we are reporting.
+3. **It supports the weaker leg of the cold-discriminator row.** That row's actual evidence is
+   the checkpoint sweep — C1 at epoch 1 already better than pretrained, −0.399 ± 0.064 at
+   6.3 SE, the wrong sign for damage — which is **table-reportable and needs no figure**. The
+   figure is illustrative rather than load-bearing, and the six-seed sustained-trend material
+   now covers the same ground more rigorously and at seed level.
+
+**Condition for applying it: only if the budget requires it after item 4 reports.** If item 4's
+rows leave Table II, the letter is under budget and **this cut is not taken** — the figure
+stays, weak but harmless, and the three reasons above are then arguments for the arXiv version
+to carry it with its caveats rather than for deleting it.
+
+**What the letter loses if it is taken:** one illustrative figure and the epoch-by-epoch shape.
+**What it keeps:** the cold-discriminator refutation entire, in the table, on its stronger leg.

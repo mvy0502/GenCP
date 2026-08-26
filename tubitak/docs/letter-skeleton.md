@@ -396,6 +396,22 @@ Sentinel-2.
    panel is named in the sentence**: C5 produces more surviving matches than C2 (median 88 vs 72)
    and still scores worse. The harm is not about feature count; it is about features with no
    grounding in the input. **Do not cite the production-path point counts here — they reverse.**
+
+   **EXTENDED 2026-08-26 — item 7 becomes 160 words (100 + 60).** The original argument above
+   is unchanged and still leads. It is now followed by the common-support answer, moved here
+   from Methods by decision: **counts equalised per chip, the primary grows 1.8% and the
+   LPIPS-only penalty shrinks 11%, both holding in all six seeds; and the minimum-match-count
+   sweep moves the penalty UPWARD, every seed at or above +0.0373 px at K ≥ 30 — the opposite
+   of what a selection artefact predicts.**
+
+   **Why this is in Results and not Methods, recorded so it is not moved back:** a reviewer
+   attacking the point-count objection reads Results. **If the answer sits in Methods they
+   conclude there is no answer and write that in their report, and we only get to correct it
+   in a rebuttal** — a worse position than the twenty words this costs. Methods keeps the
+   procedure only: that equal-count truncation exists, that it ranks by the KLT score column
+   and never by radial error which would be circular, that point-level common support is not
+   constructible with the counts that rule it out, and that score is itself post-treatment.
+
 8. **The honest limit, 100 words.** The edge ratio separates the restrained arm from the
    unrestrained ones; it does not order the errors within the unrestrained group. Invention is a
    necessary condition, not a complete explanation. Offer the route difference as the partial

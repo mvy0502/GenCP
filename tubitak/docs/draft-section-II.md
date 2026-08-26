@@ -76,10 +76,8 @@ LPIPS alone. **This is selection on a post-treatment variable and we name it as 
 We test it by equalising counts. On each chip every arm is truncated to the best *K* of its
 own matches, ranked by match score, where *K* is the smallest count any arm achieved on that
 chip; the LPIPS-only arm surrenders 38% of its points and the adversarial-plus-LPIPS arm 7%.
-**Under equalised counts the primary contrast grows by 1.8% and the LPIPS-only penalty shrinks
-by 11%; both hold in all six replication seeds.** A minimum-match-count sweep moves the
-penalty **upward** rather than downward, which is the opposite of what a selection artefact
-predicts.
+A minimum-match-count sweep over all four arms jointly is reported alongside it. **Both are
+reported in Section III.**
 
 **Point-level common support is not constructible here, and we report that rather than
 approximating it.** KLT keypoints are detected independently per arm on that arm's own
