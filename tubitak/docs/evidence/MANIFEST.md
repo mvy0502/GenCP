@@ -166,4 +166,6 @@ sha256, size in bytes, path relative to this directory.
 | `C45_s43_modalwarmup/C45_per_chip.csv` | `736bb74648d9bc01650aadc01a403d8642b1aa31613a0d8983828844d310c970` | 9,834 |
 | `C45_s43_modalwarmup/C45_edge_ratio.csv` | `f124f9c800cbe2238594472d56f563c7062fd795ab8f1ebe3ebeea50599ec62a` | 13,598 |
 
-**82 files, 1.4 MB.** (2 added 2026-08-26 by the LR-confound probe.) Regenerate this table with `shasum -a 256` over the directory.
+| `common_support/common_support.json` | `4998dcc9de15a6e03d26836e7c39e615bd921774c363c7c35fcd6e02c0aecbce` | 16,427 |
+
+**83 files, 1.4 MB.** (2 added by the LR-confound probe, 1 by the common-support re-scoring, 2026-08-26.) (2 added 2026-08-26 by the LR-confound probe.) Regenerate this table with `shasum -a 256` over the directory.
