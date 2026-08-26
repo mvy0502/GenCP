@@ -7,15 +7,14 @@ skipped. A zero exit code from that tool does not mean the upload was complete, 
 single page of `kaggle datasets files` does not either - one large archive's entries can
 fill the whole page and hide the absence of the others.
 
-So: poll until the dataset reports a non-zero size (Kaggle extracts tars server-side and
-reports 0 until it has finished), then page through the ENTIRE file list and count
-entries per expected archive prefix.
-"""
-NOTE_INTERPRETER = """
 Run with the interpreter that HAS the kaggle module. On this machine the CLI's shebang
 points at the miniforge base python, not the `gencp` env:
 
     /opt/homebrew/Caskroom/miniforge/base/bin/python tubitak/tests/verify_kaggle_backup.py
+
+So: poll until the dataset reports a non-zero size (Kaggle extracts tars server-side and
+reports 0 until it has finished), then page through the ENTIRE file list and count
+entries per expected archive prefix.
 """
 from __future__ import annotations
 import sys, time
@@ -35,9 +34,23 @@ def api():
 
 
 def dataset_size(a):
+    """Bytes Kaggle reports for the dataset, or -1 if it is not listed.
+
+    The attribute is `total_bytes` on this client (2.2.4). An earlier version of this
+    script read `totalBytes`, which silently returns the default 0 forever and made the
+    poll loop unfalsifiable - the same class of bug as the silent partial upload it was
+    written to catch. Both spellings are accepted now, and an unknown-attribute case is
+    reported rather than defaulted.
+    """
     for d in a.dataset_list(mine=True, search="gencp-evidence-backup-2"):
-        if str(d.ref) == DATASET:
-            return int(getattr(d, "totalBytes", 0) or 0)
+        if str(d.ref) != DATASET:
+            continue
+        for attr in ("total_bytes", "totalBytes", "size"):
+            if hasattr(d, attr):
+                return int(getattr(d, attr) or 0)
+        print("  WARNING: no size attribute found on the dataset object; "
+              f"available: {[x for x in dir(d) if not x.startswith('_')][:12]}")
+        return 0
     return -1
 
 
@@ -63,7 +76,7 @@ def main():
     t0 = time.time()
     size = dataset_size(a)
     while size <= 0 and time.time() - t0 < MAX_WAIT:
-        print(f"  size still 0 after {int(time.time()-t0)}s — Kaggle still extracting",
+        print(f"  size still 0 after {int(time.time()-t0)}s - Kaggle still extracting",
               flush=True)
         time.sleep(POLL_SECONDS)
         size = dataset_size(a)
