@@ -253,9 +253,12 @@ def phase_b(plugin):
     # the test asserts that rather than asserting the dash it replaced.
     import importlib as _il
     _STR = _il.import_module(f"{PLUGIN_ID}.strings").S
+    # The placeholder must read as WAITING rather than as a failure. It is no longer a
+    # dash at all - it says, in grey, what it is waiting for.
+    _wait = _STR["waiting"]
     check("the empty extent field explains itself rather than showing a bare dash",
-          dlg.lbl_extent.text() == _STR["waiting"] and "—" in dlg.lbl_extent.text()
-          and len(dlg.lbl_extent.text()) > len("—"),
+          dlg.lbl_extent.text() == _wait and any(c.isalpha() for c in _wait)
+          and _wait != _STR["unset"],
           dlg.lbl_extent.text())
     check("Generate is disabled on open", not dlg.btn_run.isEnabled())
 
@@ -265,10 +268,10 @@ def phase_b(plugin):
     dlg.layer_box.setLayer(layer)
     QApplication.processEvents()
 
-    dlg.clc_edit.setText(str(CLC))
+    dlg.clc_w.setFilePath(str(CLC))
     dlg.rb_local.setChecked(True)
-    dlg.pbf_edit.setText(str(PBF))
-    dlg.model_edit.setText(str(MODEL))
+    dlg.pbf_w.setFilePath(str(PBF))
+    dlg.model_w.setFilePath(str(MODEL))
     dlg._describe_model()
     dlg.overlap_box.setCurrentIndex(0)          # 0 m overlap -> single tile, small run
     QApplication.processEvents()
@@ -289,16 +292,19 @@ def phase_b(plugin):
     # literals, so translating the UI does not silently turn this test green-on-nothing.
     import importlib
     STR = importlib.import_module(f"{PLUGIN_ID}.strings").S
-    tiles_lead = STR["tiles_value"].split("{")[0].strip()          # e.g. "<b>"
-    note_lead = STR["tiles_estimate_note"].split("{")[0].strip()
+    # The estimate moved INTO tiles_value (one compact line, Deepness style) instead of a
+    # second explanatory line, so the assertion follows it there.
+    tail = STR["tiles_value"].split("}")[-1].strip()               # e.g. "dk"
     check("section 1 displays tile count and an estimate",
-          note_lead and note_lead in dlg.lbl_tiles.text(),
-          f"looked for {note_lead!r} from strings.tiles_estimate_note")
+          bool(tail) and tail in dlg.lbl_tiles.text(),
+          f"looked for {tail!r} from strings.tiles_value")
 
     # the displayed estimate, parsed back out for the honesty comparison
     import re
-    est_pat = re.escape(STR["tiles_estimate_note"]).replace(
-        re.escape("{mins:.1f}"), r"([\d.]+)")
+    est_pat = re.escape(STR["tiles_value"])
+    for ph, rx in (("{n}", r"\\d+"), ("{w}", r"\\d+"), ("{h}", r"\\d+"),
+                   ("{mins:.1f}", r"([\\d.]+)")):
+        est_pat = est_pat.replace(re.escape(ph), rx)
     m = re.search(est_pat, dlg.lbl_tiles.text())
     est_min = float(m.group(1)) if m else None
     n_tiles = int(re.search(r"<b>(\d+)", dlg.lbl_tiles.text()).group(1))
@@ -326,12 +332,10 @@ def phase_b(plugin):
     out.parent.mkdir(parents=True, exist_ok=True)
     if out.exists():
         out.unlink()
-    dlg.out_edit.setText(str(out))
-    dlg.cb_write.setChecked(True)
+    dlg.out_w.setFilePath(str(out))
     dlg.cb_add_layer.setChecked(True)
-    dlg.cb_confirm.setChecked(True)
     QApplication.processEvents()
-    check("Generate enabled once the preview is confirmed", dlg.btn_run.isEnabled())
+    check("Generate is enabled without the preview", dlg.btn_run.isEnabled())
 
     say("\n  --- run ---")
     import importlib
@@ -459,28 +463,31 @@ def phase_c(plugin, layer):
     C3 = ROOT / "tubitak/data/plugin_models/gencp_C3_fp32.onnx"
 
     # 1. an uncalibrated model must REFUSE the layer and say why
-    dlg.model_edit.setText(str(C3))
+    dlg.model_w.setFilePath(str(C3))
     dlg._describe_model()
-    dlg.cb_confidence.setChecked(True)
+    dlg.cb_alpha.setChecked(True)
     QApplication.processEvents()
     check("an uncalibrated model refuses the confidence layer, with a reason",
-          dlg.lbl_conf_note.isVisible() and bool(dlg.lbl_conf_note.text()),
-          dlg.lbl_conf_note.text()[:90].replace("<b>", "").replace("</b>", ""))
+          dlg.lbl_model_calib.isVisible() and bool(dlg.lbl_model_calib.text()),
+          dlg.lbl_model_calib.text()[:90].replace("<b>", "").replace("</b>", ""))
     check("shot 9: the refusal, shown in section 6",
           full_shot(dlg, "09_confidence_refused_wrong_model.png"))
 
     # 2. the calibrated model produces it
-    dlg.model_edit.setText(str(C2))
+    dlg.model_w.setFilePath(str(C2))
     dlg._describe_model()
     QApplication.processEvents()
-    check("the calibrated model is accepted", not dlg.lbl_conf_note.isVisible(),
-          dlg.lbl_conf_note.text()[:60])
+    import importlib as _il3
+    _S3 = _il3.import_module(f"{PLUGIN_ID}.strings").S
+    check("the calibrated model is accepted",
+          dlg.lbl_model_calib.text() == _S3["model_calibrated_ok"],
+          dlg.lbl_model_calib.text()[:70])
 
     out = GATES / "plugin_e2e_conf.tif"
     for f in (out, out.with_name(out.stem + "_confidence.tif")):
         if f.exists():
             f.unlink()
-    dlg.out_edit.setText(str(out))
+    dlg.out_w.setFilePath(str(out))
     dlg._render_preview()
     QApplication.processEvents()
     check("shot 10: preview with the OSM content breakdown beside it",
@@ -507,10 +514,12 @@ def phase_c(plugin, layer):
     check("the preview judgement is driven by the registered score, not a hand-set threshold",
           not hasattr(dmod, "SPARSE_OSM_FRACTION"),
           "dialog exposes no SPARSE_OSM_FRACTION constant")
-    check("a non-green tile shows its band in the confirmation frame",
-          (_v["mean_band"] == "green") or dlg.lbl_warn.isVisible(),
-          f"band={_v['mean_band']}, warning shown={dlg.lbl_warn.isVisible()}")
-    dlg.cb_confirm.setChecked(True)
+    # Part 5 removed the tile verdict prose. What the open preview says now is the OSM
+    # breakdown and nothing else; the judgement reaches the user through the confidence
+    # layer and the run verdict.
+    check("an open preview shows the OSM breakdown and no prose",
+          bool(dlg.lbl_osm.text()) and not dlg.lbl_verdict.isVisible(),
+          dlg.lbl_osm.text()[:70])
     QApplication.processEvents()
 
     t0 = time.time()
@@ -532,9 +541,20 @@ def phase_c(plugin, layer):
     check("generation with confidence completed",
           dlg._task is None and task.exception is None,
           str(task.exception) if task.exception else "")
-    conf_tif = out.with_name(out.stem + "_confidence.tif")
-    check("confidence GeoTIFF written", conf_tif.is_file(),
-          f"{conf_tif.stat().st_size/1e3:.0f} kB" if conf_tif.is_file() else "missing")
+    # Confidence is delivered in the OUTPUT's alpha channel by default (request 2.4); the
+    # separate coloured layer is opt-in and is exercised further down.
+    import rasterio as _rio
+    with _rio.open(out) as _s:
+        _bands, _ci = _s.count, _s.colorinterp
+        _alpha_vals = len(_np.unique(_s.read(4))) if _s.count == 4 else 0
+    from rasterio.enums import ColorInterp as _CI
+    check("confidence is written into the output's ALPHA band, not a side file",
+          _bands == 4 and _ci[3] == _CI.alpha, f"{_bands} bands, {_ci[3].name}")
+    check("the alpha band is continuous, not the 3-band rounding",
+          _alpha_vals > 32, f"{_alpha_vals} distinct alpha values")
+    osm_tif = out.with_name(out.stem + "_osm.tif")
+    check("the rasterised OSM input is written beside the output",
+          osm_tif.is_file(), osm_tif.name if osm_tif.is_file() else "missing")
     res = task.result or {}
     v = (res.get("confidence") or {}).get("verdict") or {}
     if v:
@@ -579,6 +599,28 @@ def phase_c(plugin, layer):
 
 
     names = {l.name(): l for l in QgsProject.instance().mapLayers().values()}
+    check("the OSM input was added as a layer named <output>_osm",
+          osm_tif.stem in names, ", ".join(names))
+
+    # now the OPT-IN coloured band layer
+    say("\n  --- opt-in coloured band layer ---")
+    dlg.cb_band_layer.setChecked(True)
+    out2 = GATES / "plugin_e2e_conf_band.tif"
+    for f in (out2, out2.with_name(out2.stem + "_confidence.tif"),
+              out2.with_name(out2.stem + "_osm.tif")):
+        if f.exists():
+            f.unlink()
+    dlg.out_w.setFilePath(str(out2))
+    QApplication.processEvents()
+    dlg.btn_run.click()
+    deadline = time.time() + 900
+    while dlg._task is not None and time.time() < deadline:
+        QApplication.processEvents()
+        time.sleep(0.05)
+    conf_tif = out2.with_name(out2.stem + "_confidence.tif")
+    check("ticking the option also writes the coloured band layer", conf_tif.is_file(),
+          f"{conf_tif.stat().st_size/1e3:.0f} kB" if conf_tif.is_file() else "missing")
+    names = {l.name(): l for l in QgsProject.instance().mapLayers().values()}
     clayer = names.get(conf_tif.stem)
     check("confidence layer added to the project", clayer is not None, ", ".join(names))
     if clayer is not None:
@@ -619,14 +661,13 @@ def phase_c(plugin, layer):
     QApplication.processEvents()
     dlg._render_preview()
     QApplication.processEvents()
-    check("an extent with zero OSM features raises the warning",
-          dlg.lbl_warn.isVisible(), dlg.lbl_warn.text()[:90].replace("<b>", ""))
-    # Assert against the dialog's own constant, not a colour literal the theme work moved.
-    check("the confirmation checkbox is inside the alerted frame",
-          dlg.confirm_box.styleSheet() == dmod.ALERT_BOX,
-          dlg.confirm_box.styleSheet()[:70])
-    check("shot 15: the warning, framed together with the checkbox it qualifies",
-          full_shot(dlg, "15_sparse_osm_warning.png"))
+    # Warnings are QgsMessageBar items now - one line, QGIS's own idiom - rather than a
+    # coloured paragraph block, so the assertion is on the bar.
+    items = dlg.msgbar.items() if hasattr(dlg.msgbar, "items") else []
+    check("an extent with zero OSM features raises a message-bar warning",
+          len(items) > 0, f"{len(items)} message-bar item(s)")
+    check("shot 15: the zero-OSM warning as the user sees it",
+          full_shot(dlg, "15_zero_osm_warning.png"))
     QgsProject.instance().removeMapLayer(vl.id())
     return dlg
 
@@ -699,12 +740,14 @@ def phase_d(plugin):
 
     check("with an empty project the layer combo is empty", dlg.layer_box.count() == 0,
           f"{dlg.layer_box.count()} entries")
-    check("and the dialog SAYS so, where the combo is",
-          dlg.lbl_layer_hint.isVisible() and bool(dlg.lbl_layer_hint.text()),
-          dlg.lbl_layer_hint.text()[:100].replace("<b>", "").replace("</b>", ""))
-    check("the preview area is collapsed to a slim placeholder",
-          dlg.preview_slim.isVisible() and not dlg.preview_body.isVisible(),
-          f"slim={dlg.preview_slim.isVisible()} body={dlg.preview_body.isVisible()}")
+    import importlib as _il2
+    _S = _il2.import_module(f"{PLUGIN_ID}.strings").S
+    check("and the dialog SAYS what is missing, in the status line",
+          dlg.lbl_status.text() == _S["err_no_layer"], dlg.lbl_status.text())
+    check("the preview starts CLOSED (Part 5: off by default)",
+          not dlg.preview_label.isVisible(), "section 3 is one button until asked")
+    check("the parameter fields read as waiting, not failed",
+          dlg.lbl_extent.text() == _S["waiting"], dlg.lbl_extent.text())
 
     themes = list(QgsApplication.uiThemes().keys())
     say(f"    UI themes available: {themes}")
@@ -761,10 +804,10 @@ def phase_d(plugin):
         layer = QgsRasterLayer(str(REF), "reference (ank_0_30)")
         QgsProject.instance().addMapLayer(layer)
         dlg.layer_box.setLayer(layer)
-        dlg.clc_edit.setText(str(CLC))
+        dlg.clc_w.setFilePath(str(CLC))
         dlg.rb_local.setChecked(True)
-        dlg.pbf_edit.setText(str(PBF))
-        dlg.model_edit.setText(str(ROOT / "tubitak/data/plugin_models/gencp_C2_fp32.onnx"))
+        dlg.pbf_w.setFilePath(str(PBF))
+        dlg.model_w.setFilePath(str(ROOT / "tubitak/data/plugin_models/gencp_C2_fp32.onnx"))
         dlg._describe_model()
         dlg.overlap_box.setCurrentIndex(0)
         QApplication.processEvents()

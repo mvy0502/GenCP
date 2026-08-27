@@ -94,10 +94,10 @@ def fresh_dialog(plugin):
 
 def fill(dlg, layer, clc=str(CLC), pbf=str(PBF), model=str(MODEL), overlap_index=0):
     dlg.layer_box.setLayer(layer)
-    dlg.clc_edit.setText(clc)
+    dlg.clc_w.setFilePath(clc)
     dlg.rb_local.setChecked(True)
-    dlg.pbf_edit.setText(pbf)
-    dlg.model_edit.setText(model)
+    dlg.pbf_w.setFilePath(pbf)
+    dlg.model_w.setFilePath(model)
     dlg._describe_model()
     dlg.overlap_box.setCurrentIndex(overlap_index)
     QApplication.processEvents()
@@ -136,7 +136,7 @@ def case_clc_missing(plugin, layer):
     bad = "/no/such/place/clcplus.tif"
     fill(dlg, layer, clc=bad)
     blocked = not dlg.btn_preview.isEnabled()
-    msg = dlg.lbl_src.text()
+    msg = dlg.lbl_status.text()
     # The message must NAME THE FILE, which is language-independent and is the part that
     # makes it actionable. Asserting an English phrase would test the locale instead.
     record("CLC+ path points at a file that does not exist",
@@ -150,7 +150,7 @@ def case_clc_empty(plugin, layer):
     fill(dlg, layer, clc="")
     record("CLC+ path left empty",
            "BLOCKED" if not dlg.btn_preview.isEnabled() else "SEE EVIDENCE",
-           f"preview enabled={dlg.btn_preview.isEnabled()}; message={dlg.lbl_src.text()!r}")
+           f"preview enabled={dlg.btn_preview.isEnabled()}; status={dlg.lbl_status.text()!r}")
 
 
 def case_clc_not_a_raster(plugin, layer):
@@ -194,7 +194,7 @@ def case_pbf_missing(plugin, layer):
     fill(dlg, layer, pbf="/no/such/extract.osm.pbf")
     record("OSM extract path points at a file that does not exist",
            "BLOCKED" if not dlg.btn_preview.isEnabled() else "SEE EVIDENCE",
-           f"preview enabled={dlg.btn_preview.isEnabled()}; message={dlg.lbl_src.text()!r}")
+           f"preview enabled={dlg.btn_preview.isEnabled()}; status={dlg.lbl_status.text()!r}")
 
 
 def case_model_missing(plugin, layer):
@@ -202,8 +202,7 @@ def case_model_missing(plugin, layer):
     fill(dlg, layer, model="/no/such/model.onnx")
     dlg._render_preview()
     QApplication.processEvents()
-    dlg.cb_confirm.setChecked(True)
-    dlg.out_edit.setText(str(GATES / "never.tif"))
+    dlg.out_w.setFilePath(str(GATES / "never.tif"))
     QApplication.processEvents()
     record("ONNX model path points at a file that does not exist",
            "BLOCKED" if not dlg.btn_run.isEnabled() else "SEE EVIDENCE",
@@ -302,8 +301,7 @@ def case_cancel_midrun(plugin, layer):
     out = GATES / "cancelled.tif"
     if out.exists():
         out.unlink()
-    dlg.out_edit.setText(str(out))
-    dlg.cb_confirm.setChecked(True)
+    dlg.out_w.setFilePath(str(out))
     QApplication.processEvents()
     if not dlg.btn_run.isEnabled():
         record("cancel mid-run", "NOT TESTED", "Generate never became enabled")

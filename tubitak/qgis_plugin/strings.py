@@ -1,239 +1,186 @@
 """Every user-visible string in the plugin, in one place.
 
-The users are Turkish, so the interface is Turkish. Code, comments, commit messages and
-documentation stay English - that split is deliberate and is the project's convention.
+The interface is Turkish. Code, comments, commit messages and documentation stay English.
+Nothing in dialog.py may contain a Turkish literal; a missing string here is the bug.
 
-Everything the user can read lives here so that switching language, or adding real Qt
-translations later, is a one-file change rather than a hunt through dialog.py. Nothing in
-dialog.py may contain a Turkish literal; if a string is missing from this module, that is
-the bug.
+`S` holds LABELS - what a widget is called, a couple of words. `TIP` holds TOOLTIPS - the
+explanation that used to sit in the dialog as prose. The convention follows Deepness
+(PUTvision/qgis-plugin-deepness), whose UI documentation states it plainly: "Almost every
+element in UI has its own 'tooltip'". Long-form explanation lives in QUICKSTART.md.
 
-Placeholders are `str.format` style and named, so a translator can reorder them.
-
-House rule from the project: no emoji anywhere in user-facing text. Status is carried by
-words and colour, not by symbols.
+The Turkish here is WRITTEN in Turkish, not translated from English drafts. Terminology is
+fixed by tubitak/docs/terimler.md, which takes QGIS's own Turkish localisation as the
+authority so the words match the menus the user is already looking at. Conventions from
+that file that bite in code: decimal comma, "%34" with the sign in front and no suffix
+attached to a numeral (Turkish suffixes follow how a number is READ and cannot be produced
+by string formatting).
 """
 from __future__ import annotations
 
 LANG = "tr"
 
 S = {
-    # ---------------------------------------------------------------- window ----
-    "window_title": "GenCP - Sentetik Referans Üretimi",
+    # ------------------------------------------------------------------ window ----
+    "window_title": "GenCP Sentetik Referans",
     "close": "Kapat",
 
-    # ---------------------------------------------------------------- 1 input ---
-    "sec1": "1 · Girdi",
-    "reference_layer": "Referans katman:",
-    "extent": "Kapsam:",
-    "crs": "KRS:",
-    "tiles_estimate": "Karo / süre tahmini:",
-    "tile_overlap": "Karo bindirmesi:",
-    "overlap_default": "{m} m (varsayılan, ölçülmüş)",
-    "overlap_economy": "{m} m (ekonomik)",
-    "overlap_plain": "{m} m",
+    # ------------------------------------------------------------------- girdi ----
+    "sec_input": "Girdi",
+    "reference_layer": "Referans katman",
+    "extent": "Kapsam",
+    "crs": "KRS",
+    "tiles_estimate": "Karo / süre",
     "unset": "—",
-    # A bare dash reads as "failed". These say "waiting for you", which is what they mean.
-    "waiting": "<span style='color:gray'>— katman seçilince dolar</span>",
-    "no_raster_layer": "<b>Projede uygun katman yok.</b>",
-    # Kept to two lines: this sits in the empty state, and an empty form that is taller
-    # than a filled one pushes the Generate button off the screen.
-    "no_raster_layer_hint": (
-        "Önce bir raster katman yükleyin: <b>Katman > Katman Ekle > Raster Katman "
-        "Ekle…</b> — bu pencere açıkken de olur, liste kendini günceller."),
-    "no_raster_layer_tooltip": (
-        "Üretilecek alan ve koordinat referans sistemi seçtiğiniz katmandan okunur. "
-        "Katman georeferanslı ve metrik bir KRS'de olmalıdır."),
-    "extent_value": "{xmin:.2f}, {ymin:.2f} → {xmax:.2f}, {ymax:.2f}  ({w:.0f} × {h:.0f} harita birimi)",
-    "tiles_value": "<b>{n} karo</b> → çıktı {w} × {h} piksel ({mp:.1f} Mpiksel), {crs}",
-    "tiles_estimate_note": "kaba tahmin {mins:.1f} dakika (CPU) — garanti değil, tahmindir",
+    "waiting": "<span style='color:gray'>katman seçilmedi</span>",
+    "extent_value": "{xmin:.0f}, {ymin:.0f} → {xmax:.0f}, {ymax:.0f}  ({w:.0f} × {h:.0f} m)",
+    "tiles_value": "<b>{n} karo</b> · {w} × {h} piksel · yaklaşık {mins:.1f} dk",
 
-    # ---------------------------------------------------------------- 2 source --
-    "sec2": "2 · Veri kaynağı",
-    "source_online": "Çevrimiçi (Overpass)",
-    "source_local": "Yerel vektör dosyası (.osm.pbf)",
-    "advanced": "Gelişmiş - dosya yolları",
-    "pbf_label": "OSM çıkarımı (.osm.pbf):",
-    "clc_label": "CLC+ Backbone rasterı:",
-    "browse": "Gözat…",
-    "source_summary_ok": "Kaynak hazır: {pbf} + CLC+ {clc}",
-    "source_summary_overpass": "Kaynak hazır: Overpass (çevrimiçi) + CLC+ {clc}",
-    "remembered": "En son kullanılan yollar hatırlandı. Değiştirmek için “Gelişmiş” bölümünü açın.",
+    # ------------------------------------------------------------------- model ----
+    "sec_model": "Model",
+    "model_file": "Model dosyası",
+    "model_none": "—",
+    "model_desc": "{name} · {mb:.0f} MB · {mtime}",
+    "model_calibrated_ok": "<span style='color:gray'>Güven bantları bu dosyada ölçüldü.</span>",
+    "model_not_calibrated": ("<b>Güven bantları bu modelde ölçülmedi</b> — ölçüm yalnızca "
+                            "{calib} dosyasında yapıldı. Güven katmanı üretilmeyecek."),
 
-    # ---------------------------------------------------------------- 3 preview -
-    "sec3": "3 · Önizleme - modelin göreceği rasterleştirilmiş girdi",
-    "preview_hint": ("Üretmeden önce bu görüntüye bakın. Arazi örtüsü, su veya yollar "
-                     "burada yanlışsa üretilen görüntü de aynı şekilde ve kendinden emin "
-                     "biçimde yanlış olur."),
-    "preview_none": "Henüz önizleme yok.",
-    "preview_needs_layer": (
-        "Önizleme, 1. bölümde bir referans katman seçildikten sonra burada görünür."),
-    "preview_press": (
-        "Katman hazır. <b>Önizleme karosunu oluştur</b> düğmesine basın."),
-    "osm_placeholder": "<span style='color:gray'>Önizleme oluşturulunca dolar.</span>",
-    "preview_button": "Önizleme karosunu oluştur",
-    "preview_prev": "◀ Önceki karo",
-    "preview_next": "Sonraki karo ▶",
-    "preview_rendering": "Önizleme karosu oluşturuluyor…",
-    "preview_done": "Önizleme hazır.",
-    "preview_done_counts": "Önizleme hazır - bu karoda {total} OSM nesne pikseli.",
-    "preview_failed_title": "Önizleme başarısız",
-    "preview_failed": "Önizleme başarısız: {err}",
-    "confirm_generic": "Yukarıdaki rasterleştirilmiş girdiye baktım, doğru",
-    "confirm_tile": "({i},{j}) numaralı karoya baktım ({n} karodan biri), görüntü doğru",
+    # --------------------------------------------------------------- önizleme ----
+    "sec_preview": "Önizleme",
+    "preview_button": "Önizlemeyi göster",
+    "preview_prev": "◀",
+    "preview_next": "▶",
+    "preview_rendering": "Önizleme hazırlanıyor…",
+    "preview_failed_title": "Önizleme alınamadı",
+    "preview_failed": "Önizleme alınamadı: {err}",
+    "osm_counts": "Karodaki OSM: {roads} yol · {buildings} bina · {water} su · {landuse} arazi (piksel)",
 
-    # OSM content breakdown - "4 OSM nesnesi" is not a number anyone can judge
-    "osm_breakdown_title": "Bu karodaki OSM içeriği",
-    "osm_roads": "yollar",
-    "osm_buildings": "binalar",
-    "osm_water": "su",
-    "osm_landuse": "arazi kullanımı",
-    "osm_px": "{n} piksel",
-    "osm_none": "yok",
-    # Driven by the SAME registered score and the SAME band boundaries as the output
-    # layer, so the two cannot disagree. The old version used a hand-set 0.2% pixel
-    # threshold that contradicted the layer on the very first tile it was tested on.
-    # Every per-band figure NAMES ITS CORPUS. Registration 3 measured that the European
-    # numbers do not transfer to Ankara for amber (-47%) and green (-56%) - only red does
-    # (-6.7%). An unqualified "3,3 piksel" was therefore a European number presented as if
-    # it were universal. See confidence-transfer-results.md.
-    "preview_band_red": (
-        "<b>Bu karo kırmızı bantta: üretilen görüntü burada büyük ölçüde uydurma "
-        "olacak.</b> Girdi bu alan hakkında neredeyse hiçbir şey söylemiyor, dolayısıyla "
-        "modelin ürettiği doku ölçülmüş bir şeye dayanmıyor. Bu bandın eşleştirme hatası "
-        "ortancası <b>Avrupa ayrık ölçümünde {px} piksel</b>di. Eşleştirme için "
-        "kullanmayın."),
-    "preview_band_amber": (
-        "<b>Bu karo turuncu bantta: girdi zayıf.</b> Çıktı büyük ölçüde arazi "
-        "örtüsünden türetilecek. Bu bandın eşleştirme hatası ortancası <b>Avrupa ayrık "
-        "ölçümünde {px} piksel</b>di. Başka bir kaynakla karşılaştırmadan kullanmayın."),
-    "preview_band_green": (
-        "Bu karo yeşil bantta: çıktı burada girdi bilgisine dayanıyor (bu bandın hata "
-        "ortancası Avrupa ayrık ölçümünde {px} piksel)."),
-    # Turkish renderings of gencp_core.pipeline.coverage_warnings' STRUCTURED output. That
-    # function used to return English sentences, which appeared under a Turkish heading in
-    # a half-translated warning box.
-    "warn_zero_osm_tiles": (
-        "<b>{n} / {total} karoda hiç OSM nesnesi yok</b> ({tiles}{more}). Seçtiğiniz "
-        "kaynak ({source}) bu alan için hiçbir şey döndürmedi; o karolar yalnızca CLC+ "
-        "arazi örtüsünden oluşuyor: yol, bina ve su sınırı yok. Sonuç makul bir kırsal "
-        "alan gibi görünür, hata gibi görünmez. Kaynağın bu kapsamı içerdiğini denetleyin."),
-    "warn_zero_osm_source_overpass": "Overpass",
-    "warn_more_tiles": " ve {n} karo daha",
-    "warn_count_unavailable": "<b>{n} / {total} karo için nesne sayısı okunamadı.</b>",
-    "osm_zero_warning": (
-        "<b>Bu karoda hiç OSM nesnesi yok.</b> Seçtiğiniz kaynak bu alanı kapsamıyor "
-        "olabilir. Sonuç yine de üretilir ve makul bir kırsal alan gibi görünür - hata "
-        "gibi görünmez."),
+    "band_red": "Kırmızı — kullanmayın",
+    "band_amber": "Turuncu — dikkatli kullanın",
+    "band_green": "Yeşil — kullanılabilir",
+    "warn_zero_osm": "Bu karoda OSM nesnesi yok. Çıktı yalnızca arazi örtüsünden gelir.",
+    "warn_zero_osm_tiles": "{total} karonun {n} tanesinde OSM nesnesi yok. Kaynak: {source}",
+    "warn_count_unavailable": "{total} karonun {n} tanesinde nesne sayısı okunamadı.",
 
-    # ---------------------------------------------------------------- 4 model ---
-    "sec4": "4 · Model",
-    "model_none": "Model seçilmedi.",
-    "model_desc": "<b>{name}</b><br>değiştirilme {mtime} · {mb:.1f} MB",
-    "model_pick": "ONNX üretici model",
-    # 1.1 - which model SHIPS and which model the bands were CALIBRATED ON are two
-    # different decisions, and the dialog now says so out loud instead of letting one
-    # imply the other.
-    "model_calibrated_ok": (
-        "<span style='color:gray'>Güven bantları bu model dosyası için ölçüldü "
-        "(SHA-256 doğrulandı).</span>"),
-    "model_not_calibrated": (
-        "<b>Güven bantları bu model için ölçülmedi</b> — yalnızca <code>{calib}</code> "
-        "için. Görüntü üretilir, güven katmanı üretilmez."),
-    "model_not_calibrated_tooltip": (
-        "Bantlar 150 ayrık Avrupa karosunda C2 kolu için ölçüldü. Başka bir modele "
-        "taşındıklarında geçerli olmayabilirler, bu yüzden bu model seçiliyken güven "
-        "katmanı üretilmez."),
+    # -------------------------------------------------------------------- çıktı ---
+    "sec_output": "Çıktı",
+    "out_file": "Çıktı dosyası",
+    "out_crs": "Çıktı KRS",
+    "out_crs_same": "Referans katmanla aynı",
+    "add_layers": "Katmanları haritaya ekle",
+    "out_crs_geographic": ("Coğrafi KRS seçtiniz. Üretim yine metrik KRS'de, 10 m'de "
+                           "yapılır; yanına yeniden örneklenmiş bir kopya yazılır."),
 
-    # ---------------------------------------------------------------- 5 run -----
-    "sec5": "6 · Çalıştırma",
-    "idle": "Hazır.",
+    # ---------------------------------------------------------------- gelişmiş ---
+    "sec_advanced": "Gelişmiş",
+    "source_online": "Overpass",
+    "source_local": "Yerel .osm.pbf",
+    "source": "Veri kaynağı",
+    "pbf_file": "OSM çıkarımı",
+    "clc_file": "CLC+ rasterı",
+    "tile_overlap": "Karo bindirmesi",
+    "overlap_item": "{m} m",
+    "overlap_default_item": "{m} m (varsayılan)",
+    "confidence_alpha": "Güveni alfa kanalına yaz",
+    "confidence_band_layer": "Renkli güven katmanı da üret",
+    "add_osm_layer": "OSM girdisini katman olarak ekle",
+
+    # ------------------------------------------------------------- çalıştırma ----
+    "sec_run": "Çalıştırma",
+    "idle": "Hazır",
     "generate": "Üret",
     "cancel": "Vazgeç",
-    "running_note": "Arka planda çalışıyor - QGIS donmaz, harita gezinilebilir kalır.",
-    "cancelling": "Vazgeçiliyor…",
-    "cancelled": "Vazgeçildi. Diske yarım dosya yazılmadı.",
+    "running": "Çalışıyor…",
+    "cancelling": "Durduruluyor…",
+    "cancelled": "Durduruldu. Diske eksik dosya yazılmadı.",
     "stage_render": "Rasterleştiriliyor ({done}/{total})",
     "stage_infer": "Üretiliyor ({done}/{total})",
-    "stage_confidence": "Güven haritası hesaplanıyor ({done}/{total})",
+    "stage_confidence": "Güven hesaplanıyor ({done}/{total})",
     "stage_mosaic": "Birleştiriliyor",
     "stage_unknown": "Çalışıyor ({done}/{total})",
-    "failed_title": "Üretim başarısız",
-    "failed": "Başarısız: {err}",
+    "failed_title": "Üretim tamamlanamadı",
+    "failed": "Üretim tamamlanamadı: {err}",
+    "done_wrote": "{name} yazıldı",
+    "verdict_line": "Güven — yeşil %{green:.0f}, turuncu %{amber:.0f}, kırmızı %{red:.0f}",
+    "verdict_red_warning": ("Çıktının %{red:.0f} kadarı kırmızı bantta. O bölgeleri "
+                            "eşleştirmede kullanmayın."),
 
-    # ---------------------------------------------------------------- 6 output --
-    "sec6": "5 · Çıktı",
-    "add_layer": "Sonucu haritaya katman olarak ekle",
-    "write_tif": "Diske GeoTIFF yaz",
-    "save_as": "Farklı kaydet…",
-    "out_pick": "GeoTIFF yaz",
-    "make_confidence": "Güven katmanı da üret (piksel başına güvenilirlik)",
-    "confidence_cost": "Girdiden hesaplanır; ek model çalıştırmaz.",
-    "wrote": "yazıldı: {path}",
-    "added_layer": "katman olarak eklendi",
-    "no_file_to_add": ("diske hiçbir şey yazılmadı, dolayısıyla eklenecek dosya yok; "
-                       "sonucu haritaya eklemek için “Diske GeoTIFF yaz” kutusunu "
-                       "işaretleyin"),
-    "layer_failed": "katman yüklenemedi",
-    "seam": "dikiş enerjisi oranı {ratio:.3f}",
-    "done": "Bitti.",
+    # ------------------------------------------------------------------ hatalar ---
+    # Her biri ne yapılacağını söyler, neyin bozuk olduğunu değil.
+    "err_no_layer": "Referans katman seçin.",
+    "err_pbf_empty": "Gelişmiş bölümünden .osm.pbf dosyası seçin ya da Overpass'a geçin.",
+    "err_pbf_missing": "OSM çıkarımı yerinde değil: {path}",
+    "err_clc_empty": "Gelişmiş bölümünden CLC+ rasterını seçin.",
+    "err_clc_missing": "CLC+ rasterı yerinde değil: {path}",
+    "err_model_missing": "Gözat düğmesiyle bir .onnx model dosyası seçin.",
+    "err_out_missing": "Çıktı dosyası için yol belirtin.",
+}
 
-    # ---------------------------------------------------------------- bands -----
-    "band_red": "Kırmızı - kullanmayın",
-    "band_amber": "Turuncu - dikkatli kullanın",
-    "band_green": "Yeşil - kullanılabilir",
-    "band_red_desc": "Çıktı burada büyük ölçüde uydurma",
-    "band_amber_desc": "Girdi zayıf; başka bir kaynakla karşılaştırın",
-    "band_green_desc": "Çıktı burada girdi bilgisine dayanıyor",
-    "verdict_title": "Güven değerlendirmesi",
-    "verdict_line": ("Yeşil %{green:.0f} · Turuncu %{amber:.0f} · Kırmızı %{red:.0f}. "
-                     "Bütün çalışmanın ortalama bandı: <b>{band}</b>."),
-    "verdict_red_warning": (
-        "<b>Uyarı: kırmızı bant çıktının yaklaşık %{red:.0f} kadarını kaplıyor</b> "
-        "(eşik %{thr:.0f}). Bu bölgelerde görüntü büyük ölçüde uydurmadır ve "
-        "eşleştirme için kullanılmamalıdır."),
-    "details": "Detaylar - ölçüm ve kapsam",
-    "verdict_scope": (
-        "Bant sınırları <b>150 ayrık Avrupa karosunda</b>, C2 kolu için ölçüldü "
-        "(Spearman rho -0,76; eşleşen nokta sayısı sabit tutulduğunda -0,38). Aynı "
-        "sınırlar 130 Ankara karosuna değiştirilmeden uygulandığında sıralama korunuyor "
-        "ve ayrışma artıyor (kırmızı/yeşil 2,5 kat yerine 5,2 kat); kırmızı bandın mutlak "
-        "değeri de %7 içinde tutuyor. Turuncu ve yeşil bantların mutlak değerleri ise "
-        "Türkiye'de daha düşük çıkıyor - yani gösterilen Avrupa sayıları bu iki bant için "
-        "kötümser. Ayrıntı: confidence-transfer-results.md. Skor girdiden hesaplanır; "
-        "model çalıştırılmaz."),
-    "confidence_not_validated": (
-        "<b>Bu model için güven bantları doğrulanmadı.</b> Bantlar yalnızca "
-        "<code>gencp_C2_fp32.onnx</code> için ölçüldü; seçtiğiniz model farklı. Güven "
-        "katmanı üretilmeyecek. Doğrulanmış modeli seçin veya güven katmanını kapatın."),
-    "confidence_no_stochastic": (
-        "<b>Güven katmanı için eşleşen rastgele model dosyası bulunamadı.</b> "
-        "<code>{name}</code> dosyasının modelin yanında olması gerekir. Güven katmanı "
-        "üretilmeyecek."),
-
-    # ---------------------------------------------------------------- errors ----
-    # Every one of these names the FIX, not just the fault.
-    "err_no_layer": "Önce bir referans katman seçin; üretilecek alan ve KRS ondan okunur.",
-    "err_pbf_empty": ("Yerel bir .osm.pbf dosyası seçin (“Gelişmiş” bölümünde “Gözat”), "
-                      "ya da yukarıdan Overpass seçeneğine geçin."),
-    "err_pbf_missing": ("OSM çıkarımı bulunamadı: {path}. Dosya taşınmış veya silinmiş "
-                        "olabilir; “Gelişmiş” bölümünden yeniden seçin."),
-    "err_clc_empty": ("CLC+ Backbone raster yolu gerekli. “Gelişmiş” bölümünden "
-                      "“Gözat” ile seçin."),
-    "err_clc_missing": ("CLC+ rasterı bulunamadı: {path}. “Gelişmiş” bölümünden yeniden "
-                        "seçin."),
-    "err_model_missing": ("Geçerli bir .onnx model dosyası seçin (4. bölüm, “Gözat”)."),
-    "err_out_missing": ("Çıktı dosyası için bir yol seçin (5. bölüm, “Farklı kaydet”), "
-                        "ya da “Diske GeoTIFF yaz” kutusunun işaretini kaldırın."),
-    "err_not_confirmed": ("Üretmeden önce 3. bölümdeki önizlemeyi oluşturun ve doğru "
-                          "olduğunu onaylayın."),
+# Arayüzde yer kaplamayan açıklamalar. Uzun anlatım QUICKSTART.md'de.
+TIP = {
+    "reference_layer": ("Üretilecek alan ve koordinat referans sistemi bu katmandan "
+                        "okunur. Katman metrik bir KRS'de olmalıdır; coğrafi KRS'ler "
+                        "kendiliğinden UTM'ye çevrilir."),
+    "extent": "Referans katmandan okunur, elle girilmez.",
+    "crs": ("Üretimin yapıldığı koordinat sistemi. Model 10 m yer örnekleme aralığında "
+            "eğitildi, bu yüzden üretim her zaman metrik bir KRS'de yapılır."),
+    "tiles_estimate": ("Karo sayısı, çıktı boyutu ve kaba süre. Sürenin çoğu "
+                       "rasterleştirmede geçer; model karo başına yarım saniyenin "
+                       "altında çalışır."),
+    "model_file": ("pix2pix üreticisinin ONNX dosyası. Güven bantları yalnızca "
+                   "gencp_C2_fp32.onnx dosyasında ölçüldü. Başka bir dosya seçerseniz "
+                   "görüntü yine üretilir, güven katmanı üretilmez. Denetim dosya adına "
+                   "değil, SHA-256 özetine bakar."),
+    "preview_button": ("Modelin göreceği rasterleştirilmiş girdiyi hazırlar. Bu bir uydu "
+                       "görüntüsü değildir: OSM yolları ile CLC+ arazi örtüsünden "
+                       "çizilmiş bir haritadır. Üretim için gerekli değildir."),
+    "preview_image": ("Modelin göreceği girdi. Buradaki arazi örtüsü, su ya da yollar "
+                      "yanlışsa üretilen görüntü de aynı biçimde yanlış olur."),
+    "verdict": ("Güven skoru rasterleştirilmiş girdiden hesaplanır, model çalıştırılmaz. "
+                "Bant sınırları 150 karoluk ayrık Avrupa kümesinde, C2 kolunda ölçüldü: "
+                "Spearman rho -0,76, eşleşen nokta sayısı sabit tutulduğunda -0,38. Aynı "
+                "sınırlar 130 karoluk Ankara kümesine uygulandığında sıralama korunur, "
+                "ayrışma artar, kırmızı bandın mutlak değeri %7 içinde kalır; turuncu ve "
+                "yeşil bantlar Türkiye'de daha düşük çıkar. Ayrıntı QUICKSTART.md'de."),
+    "out_file": ("Yazılacak GeoTIFF. Yanına rasterleştirilmiş girdi <ad>_osm.tif olarak, "
+                 "istenirse renkli güven katmanı <ad>_confidence.tif olarak yazılır."),
+    "out_crs": ("Çıktının teslim edileceği koordinat sistemi. Üretim her koşulda metrik "
+                "KRS'de, 10 m'de yapılır. Burada başka bir KRS seçerseniz özgün dosya "
+                "yerinde kalır, yanına yeniden örneklenmiş bir kopya yazılır. Kopyanın "
+                "pikselleri 10 m ızgarasında değildir; bu, kopyanın künyesine yazılır."),
+    "add_layers": "Üretilen dosyaları iş bitince haritaya ekler.",
+    "source": ("OSM verisinin okunacağı yer. Yerel .osm.pbf çevrimdışı çalışır ve "
+               "hızlıdır. Overpass çevrimiçidir, dosya gerektirmez."),
+    "pbf_file": ("Geofabrik'ten indirilen .osm.pbf. Bir kez seçilir, sonraki açılışlarda "
+                 "hatırlanır. Çalışılan alanı kapsamalıdır: kapsamazsa çıktı boş kırsal "
+                 "alan gibi görünür, hata gibi görünmez."),
+    "clc_file": ("CLC+ Backbone 2021 rasterı (Copernicus). Arazi örtüsü tabanı. Bir kez "
+                 "seçilir, sonraki açılışlarda hatırlanır."),
+    "tile_overlap": ("Komşu karoların üst üste binme miktarı. Ölçülmüş varsayılan 640 m "
+                     "(dikiş enerjisi oranı 1,008). Tek karoluk denemelerde 0 m."),
+    "confidence_alpha": ("Güven, çıktı GeoTIFF'inin 4. bandına sürekli değer olarak "
+                         "yazılır: alfa = clip((z+4)/8, 0, 1) × 255, 255 en güvenli. RGB "
+                         "bantları değişmez, alfayı yok sayan bir uygulama eskisiyle "
+                         "birebir aynı görüntüyü okur."),
+    "confidence_band_layer": ("Göz için üç renkli ayrı bir katman üretir. Sürekli değer "
+                              "zaten alfa kanalında; bu katman yalnızca okumayı "
+                              "kolaylaştırır."),
+    "add_osm_layer": ("Modelin gördüğü rasterleştirilmiş girdiyi <çıktı>_osm.tif olarak "
+                      "yazıp haritaya ekler. Böylece girdi iş bittikten sonra da "
+                      "incelenebilir."),
+    "generate": "Üretimi arka planda başlatır. QGIS bu sırada donmaz.",
+    "cancel": "Çalışan işi durdurur. Diske eksik dosya yazılmaz.",
 }
 
 
 def t(key, **kw):
-    """Look up a string and format it. A missing key is a bug, and says so loudly."""
+    """Look up a label. A missing key is a bug, and says so loudly."""
     try:
         s = S[key]
     except KeyError:
         return f"!!MISSING STRING: {key}!!"
     return s.format(**kw) if kw else s
+
+
+def tip(key):
+    """Look up a tooltip. Missing tooltips are silent - a widget may legitimately lack one."""
+    return TIP.get(key, "")

@@ -1,152 +1,52 @@
-# Canlı gösterim - adım adım
+# Gösterim
 
-Bu klasördeki `gencp_demo.qgz` dosyası gösterim için hazırlandı. Açtığınızda referans
-katman yüklü gelir ve eklentinin bütün dosya yolları **projenin içinden** doldurulur:
-klavyeye hiç dokunmadan çıktı üretebilirsiniz.
+`gencp_demo.qgz` gösterim için hazırlandı. Açıldığında referans katman yüklü gelir,
+eklentinin bütün dosya yolları projenin içinden dolar. Klavyeye dokunmadan çıktı alınır.
 
-Ölçülen süre: proje açılışından çıktı katmanına kadar **2,2 saniye** (önbellek boşken,
-QGIS 4.2.1 / macOS). Doğrulaması: `tubitak/tests/demo_dry_run.py`, 17/17.
+Ölçülen süre: proje açılışından çıktı katmanına **1,2 saniye**, önbellek boşken, QGIS
+4.2.1 / macOS. İki tıklama: eklentiyi aç, **Üret**.
 
-Seçilen alan **Ankara `ank_4_23`**. Bilerek seçildi: üretilen güven katmanında üç bandın
-üçü de görünür — yaklaşık **%30 yeşil, %29 turuncu, %41 kırmızı**. Tek renk çıkan bir
-gösterim hiçbir şey öğretmez.
+Seçilen alan Ankara `ank_4_23`. Bilerek seçildi: güven katmanında her üç bant da
+görünür — yaklaşık %30 yeşil, %29 turuncu, %41 kırmızı. Tek renk çıkan bir örnek hiçbir
+şey göstermez.
 
----
+## Akış
 
-## Gösterim akışı - üç tık
+**1. Projeyi açın.** `tubitak/demo/gencp_demo.qgz`.
 
-### 0. Projeyi açın
+Katman panelinde **referans (ank_4_23)** görünür. Bu gerçek bir Sentinel-2 görüntüsüdür;
+üretilecek alan ve koordinat sistemi ondan okunur.
 
-**Proje > Aç…** ile `tubitak/demo/gencp_demo.qgz` dosyasını seçin.
+**2. Eklentiyi açın.** **Raster > GenCP > GenCP Synthetic Reference**.
 
-> *Ekranda gösterin:* katman panelinde **referans (ank_4_23)** var. Bu, gerçek bir
-> Sentinel-2 görüntüsü; üreteceğimiz sentetik görüntünün kapsamını ve koordinat sistemini
-> bu katman belirliyor.
+Girdi bölümündeki kapsam, KRS ve karo sayısı kendiliğinden dolmuştur. Gelişmiş bölümü
+kapalıdır: dosya yolları hatırlandığı için gösterim sırasında dosya aranmaz.
 
-### 1. Eklentiyi açın
+**3. Üret.** Düğme pencerenin altındadır.
 
-**Raster ▸ GenCP ▸ GenCP Synthetic Reference…**
+İlerleme çubuğunun yanındaki satır adımı yazar: rasterleştirme, üretim, güven, birleştirme.
+İş arka planda çalışır, QGIS donmaz.
 
-> *Ekranda gösterin:* 1. bölümdeki **Kapsam**, **KRS** ve **Karo / süre tahmini**
-> satırları kendiliğinden doldu. Hiçbir şey yazmadık; alan katmandan okundu.
+**4. Sonuç.** Haritaya iki katman eklenir: üretilen görüntü ve `gencp_reference_osm`,
+yani modelin gördüğü rasterleştirilmiş girdi.
 
-> *Ekranda gösterin:* 2. bölümdeki **Gelişmiş** kapalı duruyor ve üstünde
-> "Kaynak hazır: ank_4_23.osm.pbf + CLC+ …" yazıyor. Yollar hatırlandı; gösterim sırasında
-> dosya aramıyoruz.
+Gösterilecek üç şey:
 
-**Karo bindirmesi**ni **0 m** yapın — tek karo üretir, saniyeler sürer.
+- **Girdi ile çıktıyı karşılaştırın.** `gencp_reference_osm` katmanını açıp kapatın.
+  Biri modelin gördüğü harita, öteki onun ürettiği görüntü. Nereyi tutturduğu, nereyi
+  uydurduğu görünür.
+- **Güveni gösterin.** Çıktının 4. bandı alfa kanalıdır ve sürekli güven değerini taşır.
+  Katman özelliklerinden 4. bandı tek bant gri olarak açarsanız güven haritası ortaya
+  çıkar:
+  açık bölgeler girdiye dayanır, koyu bölgeler uydurmadır.
+- **Özeti okuyun.** Çalıştırma bölümündeki tek satır her bandın yüzdesini verir.
 
-### 2. Önizleme karosunu oluşturun
+Renkli üç bantlı katmanı da göstermek isterseniz, üretimden önce Gelişmiş bölümünden
+**Renkli güven katmanı da üret** kutusunu işaretleyin.
 
-3. bölümde **Önizleme karosunu oluştur** düğmesine basın. Yaklaşık **1 saniye**.
+## Gösterimden önce
 
-> *Ekranda gösterin:* soldaki görüntü modelin göreceği **girdi**. Uydu görüntüsü değil;
-> OpenStreetMap yolları ve CLC+ arazi örtüsünden çizilmiş bir harita.
-
-> *Ekranda gösterin:* sağdaki **Bu karodaki OSM içeriği** tablosu. Kaç piksel yol, bina,
-> su, arazi kullanımı olduğunu sayıyor — "az veri var" demiyoruz, ölçüyoruz.
-
-> *Ekranda gösterin:* onay kutusunun üstündeki kutu. Bu karonun **turuncu bantta**
-> olduğunu ve o bandın Avrupa ayrık ölçümündeki hata ortancasını yazıyor. Aynı ölçü
-> birazdan üretilecek güven katmanını da belirleyecek; ikisi çelişemez.
-
-### 3. Onaylayın
-
-**"(4,23) numaralı karoya baktım …, görüntü doğru"** kutusunu işaretleyin.
-
-> *Söyleyin:* bu kutu işaretlenmeden **Üret** düğmesi açılmaz. Kullanıcının modele
-> gidecek girdiye bakmadan çıktı üretmesini kasten engelliyoruz.
-
-### 4. Üretin
-
-**Üret** düğmesine basın. Yaklaşık **1 saniye**.
-
-> *Ekranda gösterin:* düğmenin üstündeki satır hangi adımda olduğumuzu yazıyor —
-> *Rasterleştiriliyor*, *Üretiliyor*, *Güven haritası hesaplanıyor*, *Birleştiriliyor*.
-> İş arka planda bir QgsTask üzerinde koşuyor; QGIS donmuyor.
-
-> *Ekranda gösterin:* haritaya **iki** katman eklendi. `gencp_reference` üretilen
-> görüntü, `gencp_reference_confidence` güven katmanı.
-
-### 5. Sonucu gösterin
-
-Katman panelinden `gencp_reference_confidence` katmanını en üste alın.
-
-> *Ekranda gösterin:* üç renk. **Kırmızı** — çıktı burada büyük ölçüde uydurma, kullanmayın.
-> **Turuncu** — girdi zayıf. **Yeşil** — çıktı girdi bilgisine dayanıyor. Gösterge
-> kendiliğinden geldi; sembolojiyi elle ayarlamadık.
-
-> *Ekranda gösterin:* eklentinin 5. bölümündeki değerlendirme satırı: her bandın yüzdesi
-> ve bütün çalışmanın ortalama bandı. **Detaylar**'ı açarsanız ölçünün gücü ve kapsamı
-> yazılı — hangi korpusta ölçüldüğü dahil.
-
-Karşılaştırma için `gencp_reference` ile referans katmanı sırayla açıp kapatın: üretilen
-görüntünün yapıyı nerede tutturduğu, nerede uydurduğu görünür.
-
----
-
-## Ters giderse
-
-### `onnxruntime` yok
-
-**Üret**'e basınca `No module named 'onnxruntime'` çıkarsa kütüphane QGIS'in kendi
-Python'unda değil demektir. **Gösterim sırasında kurmaya çalışmayın** — QGIS'i yeniden
-başlatmak gerekir. Önceden denetleyin:
-
-**Eklentiler ▸ Python Konsolu**:
-
-```python
-import onnxruntime; print(onnxruntime.__version__)
-```
-
-Hata verirse, gösterimden **önce**:
-
-```bash
-# aynı konsolda:  import sys; print(sys.executable)
-# sonra terminalde, çıkan yolu kullanarak:
-/Applications/QGIS.app/Contents/MacOS/bin/python3 -m pip install onnxruntime
-```
-
-ve **QGIS'i tamamen kapatıp açın**.
-
-### Bir dosya yolu taşınmış
-
-Proje, yolları mutlak olarak taşır. Depo başka bir makinede farklı bir klasördeyse
-eklenti 2. veya 4. bölümde kırmızı yazıyla **hangi dosyayı bulamadığını** söyler.
-
-Düzeltme, gösterim sırasında bile 20 saniye sürer:
-
-1. 2. bölümde **Gelişmiş - dosya yolları**'nı açın.
-2. **Gözat…** ile eksik dosyayı gösterin.
-3. Aynısını 4. bölümdeki model için yapın.
-
-Eklenti yeni yolu hatırlar; ikinci kez sormaz.
-
-Dosyaların bu makinedeki yerleri:
-
-| Ne | Yol |
-|---|---|
-| Referans raster | `tubitak/data/ankara/run/ref/ank_4_23.tif` |
-| OSM çıkarımı (40 KB) | `tubitak/data/geofabrik/ankara_chips/ank_4_23.osm.pbf` |
-| CLC+ Backbone (8,2 GB) | `tubitak/data/clcplus/CLMS_CLCplus_RASTER_2021_010m_eu_03035_V1_1.tif` |
-| Model | `tubitak/data/plugin_models/gencp_C2_fp32.onnx` |
-| Çıktı klasörü | `tubitak/data/demo_out/` |
-
-### Eklenti menüde yok
-
-**Eklentiler ▸ Eklentileri Yönet ve Kur ▸ Ayarlar** → **Deneysel eklentileri de göster**
-işaretli mi? Eklenti deneysel olarak işaretli; bu kutu boşsa kurulu olsa bile listede
-görünmez.
-
-### İkinci kez çalıştırmak
-
-Aynı alanı tekrar üretirseniz rasterleştirme önbellekten gelir ve iş bir saniyenin altına
-iner. Farklı bir alan göstermek isterseniz: 1. bölümden başka bir referans katman seçin —
-önbellek alana göre anahtarlanır, eski karo yeniden kullanılmaz.
-
----
-
-## Gösterim öncesi 30 saniyelik denetim
+Otuz saniyelik denetim:
 
 ```bash
 cd <depo kökü>
@@ -156,6 +56,42 @@ QT_QPA_PLATFORM=offscreen GENCP_REPO_ROOT="$PWD" \
 cat /tmp/demo_dry_run.txt
 ```
 
-`17/17 checks passed` görüyorsanız gösterim hazırdır. Bu betik projeyi sıfırdan açar,
-hatırlanan ayarları **siler** (yolları yalnızca proje sağlasın diye), ve klavyeye
-dokunmadan çıktıya kadar gider.
+`18/18 checks passed` çıkıyorsa gösterim hazırdır. Betik projeyi sıfırdan açar, hatırlanan
+ayarları siler ki yolları yalnızca proje sağlasın, sonra klavyeye dokunmadan çıktıya
+kadar gider.
+
+## İki olası aksaklık
+
+**`onnxruntime` kurulu değil.** Üretim sırasında `No module named 'onnxruntime'` çıkar.
+Gösterim sırasında kurmaya kalkışmayın: kurulumdan sonra QGIS'i yeniden başlatmak gerekir.
+Önceden **Eklentiler > Python Konsolu** içinde denetleyin:
+
+```python
+import onnxruntime; print(onnxruntime.__version__)
+```
+
+Hata verirse, gösterimden önce kurun ve QGIS'i kapatıp açın. Komut QUICKSTART.md'de.
+
+**Bir dosya yolu değişmiş.** Projede yollar mutlak yazılıdır. Depo başka bir makinede farklı bir
+klasördeyse eklenti hangi dosyayı bulamadığını yazar. Düzeltmesi yirmi saniye sürer:
+Gelişmiş bölümünü açın, **Gözat** ile eksik dosyayı gösterin. Model için de aynısı. Yeni
+yol hatırlanır.
+
+Bu makinedeki yerler:
+
+| Ne | Yol |
+|---|---|
+| Referans raster | `tubitak/data/ankara/run/ref/ank_4_23.tif` |
+| OSM çıkarımı | `tubitak/data/geofabrik/ankara_chips/ank_4_23.osm.pbf` |
+| CLC+ Backbone | `tubitak/data/clcplus/CLMS_CLCplus_RASTER_2021_010m_eu_03035_V1_1.tif` |
+| Model | `tubitak/data/plugin_models/gencp_C2_fp32.onnx` |
+| Çıktı klasörü | `tubitak/data/demo_out/` |
+
+Eklenti menüde görünmüyorsa: **Eklentiler > Eklentileri Yönet ve Kur > Ayarlar** altında
+**Deneysel eklentileri de göster** işaretli olmalıdır.
+
+## İkinci kez çalıştırmak
+
+Aynı alan yeniden üretilirse rasterleştirme önbellekten gelir, iş bir saniyenin altına
+iner. Başka bir alan göstermek için Girdi bölümünden başka bir referans katman seçin.
+Önbellek alana göre ayrılır, eski karo yeniden kullanılmaz.

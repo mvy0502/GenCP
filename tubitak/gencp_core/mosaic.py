@@ -81,36 +81,108 @@ def build(tiles, fakes, work_crs, extent, overlap_m, progress=None):
     return out, valid, target
 
 
-def write_geotiff(path, rgb, crs, transform, provenance=None, dst_crs=None):
-    """Write the mosaic, optionally reprojecting, with provenance in GeoTIFF tags."""
+def write_geotiff(path, rgb, crs, transform, provenance=None, alpha=None):
+    """Write the mosaic in its NATIVE metric CRS. Never reprojects.
+
+    Reprojection used to live inside this function via a `dst_crs` argument, which meant
+    the only file that reached disk was the resampled one. Gate G's contract is asserted on
+    the native grid - exact 10.0 m pixels anchored on the reference NW corner - so the
+    native file must always exist and must be the one the contract is checked against.
+    `reproject_geotiff` writes the reprojected copy as a SECOND file.
+
+    `alpha`, if given, is a uint8 HxW band written as a fourth band with
+    ColorInterp.alpha. The three RGB bands are byte-identical whether or not it is passed:
+    the alpha band is appended, never blended in. tubitak/tests/gate_alpha.py asserts that
+    against a 3-band write of the same array.
+    """
     import rasterio
-    from rasterio.warp import calculate_default_transform, reproject, Resampling
+    from rasterio.enums import ColorInterp
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     _, H, W = rgb.shape
-    prof = dict(driver="GTiff", height=H, width=W, count=3, dtype="uint8",
-                crs=crs, transform=transform, nodata=0, compress="deflate")
+    count = 3 if alpha is None else 4
+    prof = dict(driver="GTiff", height=H, width=W, count=count, dtype="uint8",
+                crs=crs, transform=transform, compress="deflate")
+    # A 4-band file uses the alpha band to say what is absent, so a nodata VALUE would be
+    # a second, contradictory answer to the same question. 3-band keeps nodata=0 so nothing
+    # about the validated output changes.
+    if alpha is None:
+        prof["nodata"] = 0
     tags = {"GENCP_PROVENANCE": json.dumps(provenance or {}, sort_keys=True)}
+    with rasterio.open(path, "w", **prof) as d:
+        # indexes=[1,2,3] explicitly: a bare write() of a 3-band array into a 4-band
+        # dataset is a shape error, and letting it default would have been a silent
+        # band-order hazard even where it did not raise.
+        d.write(rgb, indexes=[1, 2, 3])
+        if alpha is not None:
+            d.write(np.asarray(alpha, dtype=np.uint8), 4)
+            d.colorinterp = [ColorInterp.red, ColorInterp.green, ColorInterp.blue,
+                             ColorInterp.alpha]
+        d.update_tags(**tags)
+    return path
 
-    if dst_crs and str(dst_crs).upper() != str(crs).upper():
-        tmp = path.with_suffix(".native.tif")
-        with rasterio.open(tmp, "w", **prof) as d:
-            d.write(rgb)
-            d.update_tags(**tags)
-        with rasterio.open(tmp) as s:
-            t2, w2, h2 = calculate_default_transform(
-                s.crs, dst_crs, s.width, s.height, *s.bounds, resolution=NOMINAL)
-            prof2 = dict(prof, crs=dst_crs, transform=t2, width=w2, height=h2)
-            with rasterio.open(path, "w", **prof2) as d:
-                for b in range(1, 4):
-                    reproject(rasterio.band(s, b), rasterio.band(d, b),
-                              resampling=Resampling.bilinear)
-                d.update_tags(**tags)
-        tmp.unlink(missing_ok=True)
-    else:
+
+def reproject_geotiff(src_path, out_path, dst_crs, provenance=None):
+    """Reproject a written mosaic into another CRS. The source file is left alone.
+
+    The result is RESAMPLED: its pixels no longer sit on the 10 m grid anchored at the
+    reference corner, so Gate G's contract does not describe it. That is recorded in its
+    own provenance rather than left for a reader to infer.
+    """
+    import rasterio
+    from rasterio.warp import calculate_default_transform, reproject, Resampling
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with rasterio.open(src_path) as s:
+        t2, w2, h2 = calculate_default_transform(
+            s.crs, dst_crs, s.width, s.height, *s.bounds)
+        prof = s.profile.copy()
+        prof.update(crs=dst_crs, transform=t2, width=w2, height=h2)
+        prov = dict(provenance or {})
+        prov.update({
+            "resampled": True,
+            "resampled_from_crs": str(s.crs),
+            "resampled_to_crs": str(dst_crs),
+            "resampling": "bilinear",
+            "grid_contract": ("NOT the Gate G grid. This file was reprojected after "
+                              "generation; its pixels are resampled and are no longer "
+                              "anchored on the reference NW corner at exactly 10.0 m. "
+                              "The native-CRS file beside it is the one the contract "
+                              "describes."),
+        })
+        with rasterio.open(out_path, "w", **prof) as d:
+            for b in range(1, s.count + 1):
+                reproject(rasterio.band(s, b), rasterio.band(d, b),
+                          resampling=Resampling.bilinear)
+            d.colorinterp = s.colorinterp
+            d.update_tags(GENCP_PROVENANCE=json.dumps(prov, sort_keys=True))
+    return out_path
+
+
+def write_osm_mosaic(path, render_paths, provenance=None):
+    """Mosaic the rasterised OSM inputs so the preview survives the run as a layer.
+
+    Merged, not resampled onto the output grid: these are the model's INPUT and are most
+    useful compared against the output exactly as the model saw them.
+    """
+    import rasterio
+    from rasterio.merge import merge
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    srcs = [rasterio.open(p) for p in render_paths]
+    try:
+        arr, t = merge(srcs)
+        prof = srcs[0].profile.copy()
+        prof.update(height=arr.shape[1], width=arr.shape[2], transform=t,
+                    count=arr.shape[0], compress="deflate")
         with rasterio.open(path, "w", **prof) as d:
-            d.write(rgb)
-            d.update_tags(**tags)
+            d.write(arr)
+            d.update_tags(GENCP_PROVENANCE=json.dumps(
+                dict(provenance or {}, product="GenCP rasterised OSM input"),
+                sort_keys=True))
+    finally:
+        for s in srcs:
+            s.close()
     return path
 
 

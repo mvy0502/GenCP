@@ -139,10 +139,10 @@ def main():
     check("reference layer loads", layer.isValid())
     QgsProject.instance().addMapLayer(layer)
     dlg.layer_box.setLayer(layer)
-    dlg.clc_edit.setText(str(CLC))
+    dlg.clc_w.setFilePath(str(CLC))
     dlg.rb_local.setChecked(True)
-    dlg.pbf_edit.setText(str(PBF))
-    dlg.model_edit.setText(str(MODEL))
+    dlg.pbf_w.setFilePath(str(PBF))
+    dlg.model_w.setFilePath(str(MODEL))
     dlg._describe_model()
     dlg.overlap_box.setCurrentIndex(0)
     QApplication.processEvents()
@@ -159,10 +159,8 @@ def main():
     out = Path(prof) / "gencp_zip_install_output.tif"
     if out.exists():
         out.unlink()
-    dlg.out_edit.setText(str(out))
-    dlg.cb_write.setChecked(True)
+    dlg.out_w.setFilePath(str(out))
     dlg.cb_add_layer.setChecked(True)
-    dlg.cb_confirm.setChecked(True)
     QApplication.processEvents()
     check("Generate is enabled", dlg.btn_run.isEnabled())
 

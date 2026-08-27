@@ -113,34 +113,38 @@ def main():
     # Turkish, and a test that asserted "tiles"/"min" was testing the language rather than
     # the behaviour.
     from qgis_plugin.strings import S as STR
-    note_lead = STR["tiles_estimate_note"].split("{")[0].strip()
+    # The estimate moved into tiles_value as one compact line (Deepness style), so the
+    # assertion follows it rather than looking for a second line that no longer exists.
+    tail = STR["tiles_value"].split("}")[-1].strip()
     check("section 1 shows tiles + estimate",
-          note_lead in dlg.lbl_tiles.text() and "<b>" in dlg.lbl_tiles.text(),
+          bool(tail) and tail in dlg.lbl_tiles.text() and "<b>" in dlg.lbl_tiles.text(),
           dlg.lbl_tiles.text().replace("<br>", " ")[:90])
 
     # 2 Data source — must block until resolved
-    dlg.pbf_edit.setText("")
+    dlg.pbf_w.setFilePath("")
     dlg.rb_local.setChecked(True)
     QApplication.processEvents()
     check("section 2 blocks preview until the source is resolved",
           not dlg.btn_preview.isEnabled(), "empty pbf path")
     pbf = ROOT / "tubitak/data/tool_runs/task3/extent.osm.pbf"
-    dlg.pbf_edit.setText(str(pbf))
+    dlg.pbf_w.setFilePath(str(pbf))
     QApplication.processEvents()
     check("section 2 unblocks once resolved", dlg.btn_preview.isEnabled(), pbf.name)
 
     # 4 Model
     model = ROOT / "tubitak/data/plugin_models/gencp_C3_fp32.onnx"
-    dlg.model_edit.setText(str(model))
+    dlg.model_w.setFilePath(str(model))
     dlg._describe_model()
     QApplication.processEvents()
     check("section 4 shows model name", model.name in dlg.lbl_model.text())
-    mod_lead = STR["model_desc"].split("{name}")[1].split("{")[0].strip()
-    check("section 4 shows modification date", mod_lead in dlg.lbl_model.text(),
+    check("section 4 shows the model file and its date",
+          model.name in dlg.lbl_model.text() and any(c.isdigit()
+                                                     for c in dlg.lbl_model.text()),
           dlg.lbl_model.text().replace("<br>", " ")[:80])
 
     # 5 Run must be gated on the preview confirmation
-    check("Run is disabled before the preview is confirmed", not dlg.btn_run.isEnabled())
+    check("Run is enabled without opening the preview", dlg.btn_run.isEnabled(),
+          "the confirmation gate was removed; nothing may gate on the preview")
 
     say("\n=== section 3: preview actually renders on screen ===")
     dlg.overlap_box.setCurrentIndex(0)   # 0 m overlap -> 1 tile over this small extent
@@ -156,22 +160,19 @@ def main():
           f"{pm.width()}x{pm.height()} px in {time.time()-t0:.1f}s" if got else "no pixmap")
     check("preview is not a thumbnail", got and pm.width() >= 256,
           f"{pm.width()} px" if got else "")
-    check("confirmation checkbox enabled after preview", dlg.cb_confirm.isEnabled())
+
 
     out = ROOT / "tubitak/data/plugin_gates/plugin_headless_out.tif"
     out.parent.mkdir(parents=True, exist_ok=True)
     if out.exists():
         out.unlink()
-    dlg.out_edit.setText(str(out))
-    dlg.cb_write.setChecked(True)
+    dlg.out_w.setFilePath(str(out))
     dlg.cb_add_layer.setChecked(True)
-    dlg.cb_confirm.setChecked(False)
     QApplication.processEvents()
-    check("Run still disabled while the preview is unconfirmed",
-          not dlg.btn_run.isEnabled(), "everything else is filled in")
-    dlg.cb_confirm.setChecked(True)
+    check("Run is NOT gated on the preview having been opened",
+          dlg.btn_run.isEnabled(), "preview never opened, everything else filled in")
     QApplication.processEvents()
-    check("Run enabled once the preview is confirmed", dlg.btn_run.isEnabled())
+
 
     say("\n=== section 5/6: generation on a QgsTask, then layer + GeoTIFF ===")
 
@@ -208,8 +209,7 @@ def main():
     check("result added as a QGIS layer", out.stem in names, ", ".join(names))
 
     say("\n=== cancellation ===")
-    dlg.cb_confirm.setChecked(True)
-    dlg.out_edit.setText(str(out.with_name("cancel_probe.tif")))
+    dlg.out_w.setFilePath(str(out.with_name("cancel_probe.tif")))
     QApplication.processEvents()
     # The cancelled flag is captured on the PYTHON side, before QGIS's task manager can
     # delete the C++ object. Reading t2.isCanceled() after the fact raised

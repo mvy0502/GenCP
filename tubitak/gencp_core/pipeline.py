@@ -217,7 +217,8 @@ def generate(extent_bbox, crs, model_path, out_tif=None, *, pbf=None,
              base_product="clcplus", overlap_m=DEFAULT_OVERLAP_M, dst_crs=None,
              work_dir=None, progress=None, cancelled=None, seam=True,
              confidence=False, stochastic_model=None, n_confidence_passes=16,
-             confidence_seed=0):
+             confidence_seed=0, alpha_confidence=True, band_layer=False,
+             write_osm=True):
     """Run the whole chain. Returns a dict describing what was produced.
 
     progress(stage, done, total) where stage is 'render' | 'infer' | 'mosaic'.
@@ -302,9 +303,6 @@ def generate(extent_bbox, crs, model_path, out_tif=None, *, pbf=None,
                   renders={f"{i}_{j}": str(p) for (i, j), p in renders.items()})
     if seam:
         result["seam"] = _mosaic.seam_metric(rgb, transform, tiles)
-    if out_tif:
-        result["output"] = str(_mosaic.write_geotiff(out_tif, rgb, work_crs, transform,
-                                                     provenance=prov, dst_crs=dst_crs))
     if conf_tiles:
         from . import confidence as _conf
         crgb, _cv, ctransform = _mosaic.build(tiles, conf_tiles, work_crs, ext, overlap_m)
@@ -330,11 +328,38 @@ def generate(extent_bbox, crs, model_path, out_tif=None, *, pbf=None,
             "calibration": _conf.CALIBRATION,
         })
         result["confidence"] = dict(verdict=verdict, provenance=cprov)
-        if out_tif:
+        result["_confidence_bands"] = bands
+        result["_confidence_alpha"] = _conf.score_to_alpha(score, valid)
+        if out_tif and band_layer:
             cpath = Path(out_tif).with_name(Path(out_tif).stem + "_confidence.tif")
             result["confidence"]["output"] = str(_mosaic.write_band_geotiff(
                 cpath, bands, work_crs, ctransform, provenance=cprov,
                 colours=_conf.BAND_COLOURS))
-        result["_confidence_bands"] = bands
+
+    # --- write, in this order: native image, then any reprojected copy, then extras ----
+    if out_tif:
+        alpha = result.get("_confidence_alpha") if alpha_confidence else None
+        if alpha is not None:
+            prov = dict(prov)
+            prov.update({
+                "alpha_band": ("CONTINUOUS confidence, not the three-band rounding: "
+                               "alpha = clip((z(conf_D) + 4) / 8, 0, 1) * 255, so 255 is "
+                               "the most confident. Invert with z = alpha/255*8 - 4."),
+                "alpha_score": _conf.ACTIVE_SCORE,
+                "alpha_calibration": _conf.CALIBRATION,
+                "rgb_bands_unchanged": ("bands 1-3 are byte-identical to the validated "
+                                        "3-band output; alpha is appended, never blended"),
+            })
+        result["output"] = str(_mosaic.write_geotiff(
+            out_tif, rgb, work_crs, transform, provenance=prov, alpha=alpha))
+        if dst_crs and str(dst_crs).upper() != str(work_crs).upper():
+            rp = Path(out_tif).with_name(
+                Path(out_tif).stem + "_" + str(dst_crs).replace(":", "").lower() + ".tif")
+            result["output_reprojected"] = str(_mosaic.reproject_geotiff(
+                result["output"], rp, dst_crs, provenance=prov))
+        if write_osm and renders:
+            opath = Path(out_tif).with_name(Path(out_tif).stem + "_osm.tif")
+            result["osm_output"] = str(_mosaic.write_osm_mosaic(
+                opath, list(renders.values()), provenance=prov))
     result["_rgb"] = rgb
     return result

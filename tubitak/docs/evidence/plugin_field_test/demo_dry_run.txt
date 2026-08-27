@@ -9,22 +9,23 @@ cleared QgsSettings GenCP/* so ONLY the project can supply paths
   [PASS] CLC+ raster pre-filled from the project  - data/clcplus/CLMS_CLCplus_RASTER_2021_010m_eu_03035_V1_1.tif
   [PASS] model pre-filled from the project  - -OpenStreetMap/tubitak/data/plugin_models/gencp_C2_fp32.onnx
   [PASS] output path pre-filled from the project  - timi-OpenStreetMap/tubitak/data/demo_out/gencp_reference.tif
-  [PASS] the extent was read  - 410240.00, 4438320.00 → 412810.00, 4440890.00  (2570
+  [PASS] the extent was read  - 410240, 4438320 → 412810, 4440890  (2570 × 2570 m)
 
-  --- the three presenter actions ---
-  [PASS] 1. Preview renders  - 0.79s
-  [PASS] the tile's band is shown in the confirmation frame  - Bu karo turuncu bantta: girdi zayıf.</b> Çıktı büyük ölçüde arazi ö
-  [PASS] 2. confirmation enables Generate
-  [PASS] 3. Generate completes  - 0.82s
+  --- the default path: preview never opened ---
+  [PASS] the preview starts closed  - section 3 is one button until asked
+  [PASS] Generate is available with the preview closed  - no confirmation gate
+  [PASS] 2. Generate is available without any confirmation step
+  [PASS] 3. Generate completes  - 1.10s
     confidence: green 29.6%  amber 29.0%  red 41.4%  run band amber
   [PASS] the confidence layer shows ALL THREE bands (a one-colour demo teaches nothing)  - min band share 29.0%
-  [PASS] output layer added  - looked for 'gencp_reference' in ['gencp_reference', 'gencp_reference_confidence', 'referans (ank_4_23)']
-  [PASS] confidence layer added
+  [PASS] output layer added  - looked for 'gencp_reference' in ['gencp_reference', 'gencp_reference_osm', 'referans (ank_4_23)']
+  [PASS] confidence is in the output's alpha band  - 4 bands, band 4 = alpha
+  [PASS] the rasterised OSM input was added as a layer  - gencp_reference, gencp_reference_osm, referans (ank_4_23)
 
   project open          0.03s
-  dialog -> output      2.17s   (preview 0.79s, generate 0.82s)
-  TOTAL, cold           2.20s
+  dialog -> output      1.34s   (preview 0.00s, generate 1.10s)
+  TOTAL, cold           1.37s
 
 ==================================================================
-17/17 checks passed
+18/18 checks passed
 ==================================================================

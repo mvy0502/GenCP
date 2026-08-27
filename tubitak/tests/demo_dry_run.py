@@ -66,24 +66,24 @@ def main():
     # Nothing is typed. Everything below must already be filled in.
     check("reference layer pre-selected", dlg.layer_box.currentLayer() is not None,
           dlg.layer_box.currentLayer().name() if dlg.layer_box.currentLayer() else "")
-    for field, label in ((dlg.pbf_edit, "OSM extract"), (dlg.clc_edit, "CLC+ raster"),
-                         (dlg.model_edit, "model"), (dlg.out_edit, "output path")):
-        v = field.text().strip()
+    for field, label in ((dlg.pbf_w, "OSM extract"), (dlg.clc_w, "CLC+ raster"),
+                         (dlg.model_w, "model"), (dlg.out_w, "output path")):
+        v = field.filePath().strip()
         check(f"{label} pre-filled from the project", bool(v) and
               (Path(v).exists() or Path(v).parent.exists()), v[-60:] if v else "EMPTY")
     check("the extent was read", "→" in dlg.lbl_extent.text(), dlg.lbl_extent.text()[:52])
     dlg.overlap_box.setCurrentIndex(0)
     QApplication.processEvents()
 
-    say("\n  --- the three presenter actions ---")
-    t_prev = time.time(); dlg.btn_preview.click(); QApplication.processEvents()
-    t_prev = time.time() - t_prev
-    pm = dlg.preview_label.pixmap()
-    check("1. Preview renders", pm is not None and not pm.isNull(), f"{t_prev:.2f}s")
-    check("the tile's band is shown in the confirmation frame",
-          bool(dlg.lbl_warn.text()), dlg.lbl_warn.text()[:70].replace("<b>", ""))
-    dlg.cb_confirm.setChecked(True); QApplication.processEvents()
-    check("2. confirmation enables Generate", dlg.btn_run.isEnabled())
+    say("\n  --- the default path: preview never opened ---")
+    check("the preview starts closed", not dlg.preview_label.isVisible(),
+          "section 3 is one button until asked")
+    check("Generate is available with the preview closed", dlg.btn_run.isEnabled(),
+          "no confirmation gate")
+    t_prev = 0.0
+
+    check("2. Generate is available without any confirmation step",
+          dlg.btn_run.isEnabled())
 
     t_run = time.time(); dlg.btn_run.click()
     task = dlg._task
@@ -110,7 +110,15 @@ def main():
     out_stem = Path(res.get("output", "")).stem
     check("output layer added", bool(out_stem) and out_stem in names,
           f"looked for {out_stem!r} in {names}")
-    check("confidence layer added", any("confidence" in n for n in names))
+    # Confidence rides in the output's alpha band now, not a separate layer.
+    import rasterio
+    from rasterio.enums import ColorInterp
+    with rasterio.open(res["output"]) as _s:
+        check("confidence is in the output's alpha band",
+              _s.count == 4 and _s.colorinterp[3] == ColorInterp.alpha,
+              f"{_s.count} bands, band 4 = {_s.colorinterp[3].name}")
+    check("the rasterised OSM input was added as a layer",
+          any(n.endswith("_osm") for n in names), ", ".join(names))
 
     total = time.time() - t0
     say(f"\n  project open        {t_open:6.2f}s")

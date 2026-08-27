@@ -9,34 +9,31 @@ executable: /Applications/QGIS-final-4_2_1.app/Contents/MacOS/QGIS-final-4_2_1
 
 === dialog construction and section wiring ===
   [PASS] dialog constructs
-  [PASS] section 1 shows the read extent  - 399960.00, 4420330.00 → 402530.00, 4422900.00  (2570 × 2570 
-  [PASS] section 1 shows the CRS  - EPSG:32636 — WGS 84 / UTM zone 36N
-  [PASS] section 1 shows tiles + estimate  - <b>2 karo</b> → çıktı 257 × 257 piksel (0.1 Mpiksel), EPSG:32636 <span style='color:gray'>
+  [PASS] section 1 shows the read extent  - 399960, 4420330 → 402530, 4422900  (2570 × 2570 m)
+  [PASS] section 1 shows the CRS  - EPSG:32636
+  [PASS] section 1 shows tiles + estimate  - <b>2 karo</b> · 257 × 257 piksel · yaklaşık 0.2 dk
   [PASS] section 2 blocks preview until the source is resolved  - empty pbf path
   [PASS] section 2 unblocks once resolved  - extent.osm.pbf
   [PASS] section 4 shows model name
-  [PASS] section 4 shows modification date  - <b>gencp_C3_fp32.onnx</b> değiştirilme 2026-08-26 16:27:01 · 217.7 MB
-  [PASS] Run is disabled before the preview is confirmed
+  [PASS] section 4 shows the model file and its date  - gencp_C3_fp32.onnx · 218 MB · 2026-08-26
+  [PASS] Run is enabled without opening the preview  - the confirmation gate was removed; nothing may gate on the preview
 
 === section 3: preview actually renders on screen ===
-  [PASS] preview renders a real image  - 384x384 px in 5.5s
-  [PASS] preview is not a thumbnail  - 384 px
-  [PASS] confirmation checkbox enabled after preview
-  [PASS] Run still disabled while the preview is unconfirmed  - everything else is filled in
-  [PASS] Run enabled once the preview is confirmed
+  [PASS] preview renders a real image  - 320x320 px in 0.1s
+  [PASS] preview is not a thumbnail  - 320 px
+  [PASS] Run is NOT gated on the preview having been opened  - preview never opened, everything else filled in
 
 === section 5/6: generation on a QgsTask, then layer + GeoTIFF ===
   [PASS] a QgsTask was created
-    messageBar: ('GenCP', 'yazıldı: plugin_headless_out.tif · katman olarak eklendi')
-  [PASS] generation completed  - Üretmeden önce 3. bölümdeki önizlemeyi oluşturun ve doğru olduğunu ona
+  [PASS] generation completed  - Hazır
   [PASS] inference ran OFF the main thread  - QgsTask worker thread
-  [PASS] progress bar advanced  - 3 distinct values
+  [PASS] progress bar advanced  - 4 distinct values
   [PASS] GeoTIFF written to the chosen path  - 0.10 MB
-  [PASS] result added as a QGIS layer  - plugin_headless_out, reference
+  [PASS] result added as a QGIS layer  - plugin_headless_out, plugin_headless_out_osm, reference
 
 === cancellation ===
-  [PASS] cancel stops the task  - cancel called=True, terminated=True, status='Vazgeçildi. Diske yarım dosya yazılmadı.'
+  [PASS] cancel stops the task  - cancel called=True, terminated=True, status='Hazır'
 
 ==============================================================
-25/25 checks passed
+23/23 checks passed
 ==============================================================

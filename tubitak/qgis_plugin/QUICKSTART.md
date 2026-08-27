@@ -1,231 +1,149 @@
-# GenCP Sentetik Referans eklentisi - hızlı başlangıç
+# GenCP Sentetik Referans — kullanım
 
-QGIS kullanmış, ancak bu eklentiyi hiç görmemiş biri için. Yalnızca tıklamalar.
-Mimari ve gerekçe için `README.md`, ölçüm kayıtları için
-`tubitak/docs/confidence-results.md` ve `tubitak/docs/plugin-field-test.md`.
+Eklenti, seçtiğiniz bir alan için OpenStreetMap ve CLC+ arazi örtüsü verisinden
+georeferanslı sentetik referans görüntü üretir. Her pikselin ne ölçüde girdiye
+dayandığı, çıktının alfa kanalına ölçülmüş bir değer olarak yazılır.
 
-Doğrulandığı sürüm: **QGIS 4.2.1 (macOS)**. QGIS 3.28 için kod uyumlu yazıldı ama
-denenmedi. Arayüz Türkçedir.
+Doğrulandığı ortam: QGIS 4.2.1, macOS. QGIS 3.28 için kod uyumlu yazıldı, denenmedi.
+Windows denenmedi.
 
----
+Terim karşılıkları: [`tubitak/docs/terimler.md`](../docs/terimler.md).
 
-## Önce indirilecek dosyalar
+## Gerekenler
 
-| Dosya | Nereden | Ne işe yarar |
+| Dosya | Boyut | Nereden |
 |---|---|---|
-| `gencp_plugin.zip` (48 KB) | https://github.com/mvy0502/gencp-validation/releases/download/plugin-v0.2.0/gencp_plugin.zip | Eklentinin kendisi |
-| `gencp_C2_fp32.onnx` (208 MB) | Doğrudan proje sahibinden isteyin | Üretici model ağırlıkları |
+| `gencp_plugin.zip` | 73 KB | [sürüm sayfası](https://github.com/mvy0502/gencp-validation/releases/latest/download/gencp_plugin.zip) |
+| `gencp_C2_fp32.onnx` | 208 MB | [sürüm sayfası](https://github.com/mvy0502/gencp-validation/releases/latest/download/gencp_C2_fp32.onnx) |
+| CLC+ Backbone 2021 rasterı | 8,2 GB | Copernicus Land Monitoring Service |
+| `.osm.pbf` çıkarımı | değişir | Geofabrik. Overpass seçilirse bu dosya gerekmez |
 
-
-Sürüm sayfası: https://github.com/mvy0502/gencp-validation/releases/tag/plugin-v0.2.0
-
-Model dosyası neden bağlantıyla verilmiyor: ağırlıklar GenCP'nin CC-BY 4.0
-ağırlıklarından türedi, ancak ince ayar girdileri ODbL lisanslı OpenStreetMap verisinden
-üretildi. ODbL'nin share-alike yükümlülüğünün bu ağırlıklara uzanıp uzanmadığı belirsiz
-olduğu için dosyalar kurum içi doğrudan aktarımla veriliyor.
-Ayrıntı: `tubitak/docs/evidence/BACKUP.md`.
-
-Ayrıca elinizde bulunması gerekenler:
-
-- **CLC+ Backbone 2021 rasterı** (`CLMS_CLCplus_RASTER_2021_010m_eu_03035_V1_1.tif`,
-  8.2 GB) - Copernicus Land Monitoring Service'ten indirilir.
-- **Bir `.osm.pbf` dosyası** (örneğin Geofabrik'ten `turkey-latest.osm.pbf`) - çalışacağınız
-  alanı kapsamalı. Alternatif olarak **Çevrimiçi (Overpass)** seçeneği kullanılabilir.
-- **Bir referans katman** - üretilecek görüntünün kapsamını ve KRS'sini bu katman belirler.
-
----
+Ayrıca bir referans katman gerekir. Üretilecek alan ve KRS o katmandan okunur.
 
 ## Kurulum
 
-1. QGIS'i açın.
-2. **Eklentiler > Eklentileri Yönet ve Kur...** seçin.
-3. Soldaki listeden **Ayarlar** sekmesine geçin.
-4. **Deneysel eklentileri de göster** kutusunu işaretleyin.
-   Bu adım atlanamaz: eklenti `experimental=True` olarak işaretli olduğu için bu kutu
-   işaretli değilse kurulduktan sonra listede görünmez.
-5. Soldaki listeden **ZIP'ten Kur** sekmesine geçin.
-6. **...** düğmesiyle `gencp_plugin.zip` dosyasını seçin.
-7. **Eklentiyi Kur** düğmesine basın.
-8. **Kurulu** sekmesinde **GenCP Synthetic Reference** satırının işaretli olduğunu
-   doğrulayın.
-9. Pencereyi kapatın. Eklenti artık **Raster > GenCP > GenCP Synthetic Reference...**
-   menüsünde ve araç çubuğunda.
+1. **Eklentiler > Eklentileri Yönet ve Kur** penceresini açın.
+2. **Ayarlar** sekmesinde **Deneysel eklentileri de göster** kutusunu işaretleyin.
+   Eklenti deneysel işaretli; bu kutu boşken kurulur ama listede görünmez.
+3. **ZIP'ten Kur** sekmesinden `gencp_plugin.zip` dosyasını seçip kurun.
+4. Eklenti **Raster > GenCP > GenCP Synthetic Reference** altında ve araç çubuğunda çıkar.
 
----
+## Üretim
 
-## Bir çıktı üretmek
+Referans katmanı projeye ekleyin, eklentiyi açın.
 
-10. Referans katmanınızı QGIS'e ekleyin (**Katman > Katman Ekle > Raster Katman Ekle...**).
-11. **Raster > GenCP > GenCP Synthetic Reference...** ile eklentiyi açın.
+**Girdi.** Listeden referans katmanı seçin. Kapsam, KRS ve karo sayısı kendiliğinden
+dolar. KRS metrik olmalıdır. EPSG:3857 seçilirse eklenti uyarır ve düğmeler kapalı kalır;
+katmanı **Dışa Aktar > Nesneleri Farklı Kaydet** ile UTM'ye çevirin. EPSG:4326 ve
+EPSG:4258 gibi coğrafi sistemler kendiliğinden UTM'ye çevrilir.
 
-### 1 · Girdi
+**Model.** `gencp_C2_fp32.onnx` dosyasını gösterin. Yol bir kez seçilir, sonra hatırlanır.
 
-12. **Referans katman** listesinden 10. adımdaki katmanı seçin.
-13. **Kapsam**, **KRS** ve **Karo / süre tahmini** satırlarının dolduğunu görün.
-    - **KRS metrik olmalıdır.** Katmanınız EPSG:3857 (Web Mercator) ise burada kırmızı bir
-      uyarı çıkar ve düğmeler kapalı kalır; uyarı ne yapmanız gerektiğini yazar. Katmanı
-      kendi UTM diliminize dönüştürün: katmana sağ tıklayın, **Dışa Aktar > Nesneleri
-      Farklı Kaydet...**, KRS alanından UTM seçin. Coğrafi KRS'ler (EPSG:4326, EPSG:4258)
-      otomatik olarak UTM'ye dönüştürülür.
-14. **Karo bindirmesi** varsayılan 640 m'dir. İlk denemeniz için **0 m** seçin - tek karo
-    üretir ve saniyeler sürer.
+**Çıktı.** Yazılacak dosyanın yolunu verin. Çıktı KRS varsayılan olarak referans katmanın
+KRS'sidir; başka bir sistem seçerseniz özgün dosya yerinde kalır, yanına yeniden
+örneklenmiş bir kopya yazılır.
 
-### 2 · Veri kaynağı
+**Gelişmiş.** İlk kullanımda açıp OSM çıkarımı ile CLC+ rasterının yolunu verin. Her iki
+yol da hatırlanır; sonraki açılışlarda bu bölüme dokunmanız gerekmez. Karo bindirmesi ve
+güven katmanı seçenekleri de buradadır.
 
-15. **Yerel vektör dosyası (.osm.pbf)** seçeneğini işaretleyin.
-16. **Gelişmiş - dosya yolları** başlığına tıklayarak açın.
-17. **OSM çıkarımı** ve **CLC+ Backbone rasterı** alanlarını **Gözat…** ile doldurun.
-18. Kırmızı yazı kalmamalı; kalıyorsa hangi dosyanın bulunamadığını ve ne yapmanız
-    gerektiğini yazar.
+**Üret.** Düğme pencerenin altındadır ve her boyutta görünür. İş arka planda çalışır,
+QGIS donmaz. İlerleme çubuğunun yanındaki satır hangi adımda olduğunu yazar.
+**Vazgeç** işi durdurur; diske eksik dosya yazılmaz.
 
-**Bir sonraki açılışta bu yolları yeniden seçmeniz gerekmez.** Eklenti son kullandığınız
-CLC+, model ve çıktı klasörü yollarını hatırlar ve **Gelişmiş** bölümünü kapalı açar.
+İş bitince haritaya iki katman eklenir: üretilen görüntü ve `<ad>_osm` adıyla modelin
+gördüğü rasterleştirilmiş girdi.
 
-### 3 · Önizleme (bu adımı atlamayın)
+### Önizleme
 
-19. **Önizleme karosunu oluştur** düğmesine basın. Birkaç saniye sürer.
-20. Çıkan görüntüye **bakın**. Modelin gireceği rasterleştirilmiş girdi budur. Yollar, su
-    ve arazi örtüsü burada yanlışsa üretilen görüntü de aynı şekilde ve kendinden emin
-    biçimde yanlış olur.
-21. Görüntünün sağındaki **Bu karodaki OSM içeriği** tablosuna bakın: yollar, binalar, su
-    ve arazi kullanımı için kaç piksel olduğunu ve toplam yüzdeyi verir. Sayılar çok
-    düşükse çıktı büyük ölçüde arazi örtüsünden türetilecektir.
-22. Onay kutusunun üstündeki kutuyu okuyun. Bu karonun hangi güven bandında olduğunu
-    yazar - kırmızı, turuncu ya da yeşil - ve bu, üretilecek güven katmanının kullandığı
-    ölçünün aynısıdır; ikisi çelişemez. Ayrıca seçtiğiniz `.osm.pbf` bu alanı kapsamıyorsa
-    "hiç OSM nesnesi yok" uyarısı çıkar: sonuç yine üretilir ve boş bir kırsal alan gibi
-    görünür, hata gibi görünmez. Uyarı, onay kutusuyla aynı çerçevenin içindedir.
-23. Çok karolu bir alanda **Sonraki karo** ile başka karolara da bakabilirsiniz.
-24. Görüntü doğruysa **... numaralı karoya baktım ..., görüntü doğru** kutusunu
-    işaretleyin. Bu kutu işaretlenmeden **Üret** düğmesi açılmaz.
+**Önizlemeyi göster** düğmesi, modelin göreceği rasterleştirilmiş girdiyi ekrana getirir.
+Bu bir uydu görüntüsü değil, OSM yolları ile arazi örtüsünden çizilmiş bir haritadır.
+Üretim için gerekli değildir; girdinin beklediğiniz gibi olduğunu görmek isterseniz
+kullanın. Açıkken karoda kaç piksel yol, bina, su ve arazi kullanımı olduğu da yazılır.
 
-### 4 · Model
+## Güven
 
-25. **Gözat…** ile `gencp_C2_fp32.onnx` dosyasını seçin.
-26. Altında dosya adının, değiştirilme tarihinin ve boyutunun göründüğünü doğrulayın.
+Güven, çıktı GeoTIFF'inin **4. bandına (alfa)** sürekli değer olarak yazılır:
 
-### 5 · Çıktı
+    alfa = clip((z + 4) / 8, 0, 1) × 255          z = alfa / 255 × 8 − 4
 
-27. **Diske GeoTIFF yaz** kutusunu işaretli bırakın.
-28. **Farklı kaydet…** ile çıktı yolunu belirleyin (örneğin `gencp_reference.tif`).
-29. **Sonucu haritaya katman olarak ekle** işaretliyse sonuç bitince haritaya eklenir.
-30. **Güven katmanı da üret** kutusu varsayılan olarak işaretlidir. Bkz. aşağıdaki bölüm.
-    Bu katman girdiden hesaplanır; ek bir model çalıştırmaz ve kayda değer bir süre eklemez.
+255 en yüksek güven demektir. Bu eşleme dosyanın künyesine de yazılır. **RGB bantları değişmez**:
+alfa kanalını yok sayan bir uygulama, alfa eklenmeden önceki görüntüyle birebir aynı
+baytları okur.
 
-### 6 · Çalıştırma
+Göz için üç renkli ayrı bir katman da üretilebilir (Gelişmiş bölümünde). Bantların
+ölçülmüş karşılıkları:
 
-31. **Üret** düğmesine basın. Bu düğme her zaman pencerenin altında görünür; kaydırmanız
-    gerekmez.
-32. İlerleme çubuğunun altındaki satır hangi adımda olduğunuzu yazar:
-    *Rasterleştiriliyor*, *Üretiliyor*, *Güven haritası hesaplanıyor*, *Birleştiriliyor*.
-    Üretim arka planda bir **QgsTask** üzerinde çalışır; QGIS donmaz.
-33. Vazgeçmek isterseniz **Vazgeç** düğmesine basın. İş durur ve **yarım bir dosya diske
-    yazılmaz**.
-34. Bittiğinde yazılan dosyanın adı görünür ve katmanlar haritaya eklenir.
+| Bant | Ayrık Avrupa kümesinde ortanca eşleştirme hatası |
+|---|---|
+| Kırmızı — kullanmayın | 3,31 piksel |
+| Turuncu — dikkatli kullanın | 2,63 piksel |
+| Yeşil — kullanılabilir | 1,33 piksel |
 
-Üretilen GeoTIFF, referans katmanın kuzeybatı köşesine tam oturur, piksel boyu tam
-10.0 m'dir ve içinde hangi model ve hangi ayarlarla üretildiğini anlatan bir
-`GENCP_PROVENANCE` etiketi taşır.
+İş bitince Çalıştırma bölümünde tek satırlık bir özet çıkar: her bandın yüzdesi. Kırmızı
+%20'yi aşarsa ayrıca uyarı verilir.
 
----
+### Ölçümün sınırları
 
-## Güven katmanı
+Skor rasterleştirilmiş girdiden hesaplanır, model çalıştırılmaz. Bu yüzden üretime
+kayda değer bir süre eklemez.
 
-İkinci bir katman üretilir: `<çıktı adı>_confidence.tif`. Her piksel için tek bir soruyu
-yanıtlar: **çıktı burada girdi bilgisine mi dayanıyor, yoksa uydurma mı?**
+Bant sınırları 150 karoluk ayrık Avrupa kümesinde, C2 kolunda ölçüldü. Spearman rho
+**-0,76**; KARIOS'un eşleştirdiği nokta sayısı sabit tutulduğunda **-0,38**. Güveni en düşük yarı
+atıldığında ortanca hata 1,98 pikselden 1,30 piksele iner.
 
-Üç bant, otomatik olarak renklendirilir - sembolojiyi elle ayarlamanız gerekmez:
+Aynı sınırlar 130 karoluk Ankara kümesine değiştirilmeden uygulandığında sıralama korunur
+ve ayrışma artar (kırmızı/yeşil oranı 2,5 kat yerine 5,2 kat). Kırmızı bandın mutlak
+değeri %7 içinde kalır. Turuncu ve yeşil bantlar Türkiye'de daha düşük çıkar; yukarıdaki
+Avrupa sayıları bu iki bant için kötümserdir.
 
-| Bant | Anlamı | Ayrık ölçümde o bandın hata ortancası |
-|---|---|---|
-| **Kırmızı - kullanmayın** | Çıktı burada büyük ölçüde uydurma | 3,31 piksel |
-| **Turuncu - dikkatli kullanın** | Girdi zayıf; başka bir kaynakla karşılaştırın | 2,63 piksel |
-| **Yeşil - kullanılabilir** | Çıktı burada girdi bilgisine dayanıyor | 1,33 piksel |
+Bantlar yalnızca `gencp_C2_fp32.onnx` dosyasında ölçüldü. Başka bir model seçilirse Model
+bölümünde uyarı çıkar ve güven katmanı üretilmez. Denetim dosya adına değil, SHA-256
+özetine bakar.
 
-5. bölümde ayrıca bütün çalışma için tek satırlık bir değerlendirme çıkar: her bandın
-yüzdesi ve çalışmanın ortalama bandı. Kırmızı %20'yi aşarsa ayrıca uyarı verir.
+Bir karoda hiç OSM nesnesi olmasa bile bant yeşil çıkabilir: skor arazi örtüsü
+çeşitliliğini de sayar. "OSM nesnesi yok" uyarısı bu yüzden banttan bağımsız olarak
+ayrıca verilir.
 
-**Bilmeniz gereken dört sınır:**
+## `onnxruntime` kurulu değilse
 
-1. **Bantlar yalnızca `gencp_C2_fp32.onnx` için ölçüldü.** Başka bir model seçerseniz
-   4. bölümde uyarı çıkar ve eklenti güven katmanını **üretmez**. Doğrulanmamış bir model
-   için bant göstermek, olmayan bir ölçümü uydurmak olurdu. Model dosyası adına göre
-   değil, SHA-256 özetine göre denetlenir.
-2. **Skor girdiden hesaplanır.** Model çalıştırılmaz; katman, rasterleştirilmiş girdinin
-   yerel sınıf çeşitliliğinden gelir. Bu yüzden 3. bölümdeki önizleme uyarısı ile üretilen
-   katman aynı sayıyı kullanır ve birbiriyle çelişemez.
-3. **Ölçünün gücü.** 150 ayrık Avrupa karosunda Spearman rho **-0,76**, 130 Ankara
-   karosunda **-0,77**; KARIOS'un eşleştirdiği nokta sayısı sabit tutulduğunda sırasıyla
-   **-0,38** ve **-0,29**. Yani ilişkinin bir bölümü nokta sayısı üzerinden gidiyor.
-   En düşük güvenli %50 atıldığında Avrupa'da hata ortancası 1,98 pikselden 1,30 piksele
-   iner.
-4. **Bir karoda hiç OSM nesnesi olmasa bile bant yeşil çıkabilir**, çünkü skor arazi
-   örtüsü çeşitliliğini de sayar. Bu yüzden "hiç OSM nesnesi yok" uyarısı bandan bağımsız
-   olarak ayrıca gösterilir.
+Üretim sırasında `No module named 'onnxruntime'` hatası alırsanız kütüphane QGIS'in kendi
+Python'unda yok demektir. Başka bir Python'a kurmak işe yaramaz.
 
----
+**Eklentiler > Python Konsolu** içinde yorumlayıcının yolunu öğrenin:
 
-## Süre hakkında
-
-1. bölümdeki tahmin karo başına yaklaşık 6 saniyedir ve **toplam** süreyi kabaca doğru
-verir. Ancak bu sürenin neredeyse tamamı rasterleştirmede geçer; modelin kendisi karo
-başına yarım saniyenin altındadır. Yani 19. adım beklediğinizden uzun, 31. adım
-beklediğinizden kısa sürer. Aynı alanı ikinci kez ürettiğinizde rasterleştirme
-önbellekten gelir ve iş saniyeler sürer.
-
----
-
-## `onnxruntime` yoksa ne yapmalı
-
-**Üret** sırasında `No module named 'onnxruntime'` benzeri bir hata görürsünüz. Kütüphaneyi
-**QGIS'in kendi Python'una** kurmanız gerekir; başka bir Python'a kurmak işe yaramaz.
-
-1. QGIS'te **Eklentiler > Python Konsolu** açın.
-2. Şunu çalıştırın:
-
-   ```python
-   import sys; print(sys.executable)
-   ```
-
-3. Bir terminal açın ve çıkan yolu kullanarak kurun:
-
-   ```bash
-   "<2. adımda yazan yol>" -m pip install onnxruntime
-   ```
-
-   macOS'ta genellikle:
-
-   ```bash
-   /Applications/QGIS.app/Contents/MacOS/bin/python3 -m pip install onnxruntime
-   ```
-
-4. **QGIS'i tamamen kapatıp yeniden açın.** Yeniden başlatmadan kütüphane görünmez.
-5. Python Konsolu'nda doğrulayın:
-
-   ```python
-   import onnxruntime; print(onnxruntime.__version__)
-   ```
-
-Yerel `.osm.pbf` kullanacaksanız `osmium` da aynı şekilde gerekir:
-
-```bash
-"<QGIS'in python yolu>" -m pip install osmium
+```python
+import sys; print(sys.executable)
 ```
 
-**macOS'a özel not.** onnxruntime QGIS uygulamasının içinde çalışır ama paketle gelen
-`python3.12` çalıştırılabiliriyle test ederseniz "different Team IDs" hatası alırsınız.
-Bu bir kurulum hatası değildir; eklenti QGIS uygulaması içinde sorunsuz çalışır.
+Terminalde, çıkan yolu kullanarak kurun:
 
----
+```bash
+/Applications/QGIS.app/Contents/MacOS/bin/python3 -m pip install onnxruntime
+```
 
-## Bir şey ters giderse
+Yerel `.osm.pbf` kullanacaksanız `osmium` da gerekir. Kurulumdan sonra QGIS'i kapatıp
+yeniden açın.
 
-| Belirti | Sebep |
+macOS'a özgü bir not: onnxruntime QGIS uygulamasının içinde sorunsuz çalışır, ancak
+paketle gelen `python3.12` çalıştırılabiliriyle denenirse "different Team IDs" hatası
+verir. Bu bir kurulum sorunu değildir.
+
+## Sık karşılaşılanlar
+
+| Belirti | Nedeni |
 |---|---|
-| Eklenti kurulduktan sonra listede yok | 4. adımdaki **Deneysel eklentileri de göster** işaretlenmemiş |
-| **Önizleme karosunu oluştur** kapalı | 2. bölümde kırmızı yazı var; CLC+ veya `.osm.pbf` yolu boş ya da dosya yok |
-| 1. bölümde kırmızı KRS uyarısı | Referans katman metrik olmayan bir KRS'te; 13. adıma bakın |
-| **Üret** düğmesi kapalı | 6. bölümün alt satırı sıradaki tek eksiği yazar: katman, kaynak, model, çıktı yolu ya da 24. adımdaki onay |
-| Önizlemede sarı uyarı | `.osm.pbf` bu alanı kapsamıyor; 22. adıma bakın |
-| Çıktı boş bir kırsal alan gibi | Aynı sebep - 22. adım |
-| Güven katmanı üretilmedi | 4. bölümdeki uyarı sebebini yazar: seçtiğiniz model bantların ölçüldüğü model değil |
+| Eklenti kurulduğu hâlde listede yok | Kurulumun 2. adımındaki kutu işaretlenmemiş |
+| Üret düğmesi kapalı | Çalıştırma bölümündeki satır neyin eksik olduğunu yazar |
+| Kırmızı KRS uyarısı | Referans katman metrik olmayan bir KRS'de |
+| Önizleme düğmesi kapalı | OSM çıkarımı ya da CLC+ rasterı yerinde değil |
+| Çıktı boş kırsal alan gibi | Seçilen `.osm.pbf` bu alanı kapsamıyor |
+| Güven katmanı üretilmedi | Seçilen model, bantların ölçüldüğü model değil |
+
+## Lisans
+
+Model ağırlıkları GenCP'nin CC-BY 4.0 lisanslı ağırlıklarından türetilmiştir; atıf
+[telespazio-tim/GenCP](https://github.com/telespazio-tim/GenCP) projesinedir. Eklenti
+çalışma anında OpenStreetMap verisi okur; OSM verisi ODbL lisanslıdır ve
+[OpenStreetMap katkıcılarına](https://www.openstreetmap.org/copyright) atıf gerektirir.
+CLC+ Backbone, Copernicus Land Monitoring Service ürünüdür.

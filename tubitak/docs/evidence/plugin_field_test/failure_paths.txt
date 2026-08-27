@@ -4,45 +4,45 @@ FAILURE PATHS - what a user sees when things go wrong
 
   CLC+ path left empty
     verdict : BLOCKED
-    seen    : preview enabled=False; message="<span style='color:#a00'>The CLC+ Backbone raster path is required.</span>"
+    seen    : preview enabled=False; status='Gelişmiş bölümünden CLC+ rasterını seçin.'
 
   CLC+ path points at a file that does not exist
     verdict : BLOCKED
-    seen    : preview button enabled=False; message shown="<span style='color:#a00'>CLC+ raster not found: /no/such/place/clcplus.tif</span>"
+    seen    : preview button enabled=False; message shown='CLC+ rasterı yerinde değil: /no/such/place/clcplus.tif'
 
   OSM extract path points at a file that does not exist
     verdict : BLOCKED
-    seen    : preview enabled=False; message="<span style='color:#a00'>OSM extract not found: /no/such/extract.osm.pbf</span>"
+    seen    : preview enabled=False; status='OSM çıkarımı yerinde değil: /no/such/extract.osm.pbf'
 
   ONNX model path points at a file that does not exist
     verdict : BLOCKED
-    seen    : Generate enabled=False; model label='No model selected.'
+    seen    : Generate enabled=False; model label='—'
 
   CLC+ path exists but is not a raster
     verdict : MESSAGE
-    seen    : uncaught=none; popup='(\'critical\', \'Preview failed\', "\'/Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/plugin_gates/failure_paths/not_a_raster.tif\' not recognized as being in a supported file format.")'; status="Preview failed: '/Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/plugin_gates/failure"; dialog still open=True
+    seen    : uncaught=none; popup='(\'critical\', \'Önizleme alınamadı\', "\'/Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/plugin_gates/failure_paths/not_a_raster.tif\' not recognized as being in a supported file format.")'; status="Önizleme alınamadı: '/Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/plugin_gates/fai"; dialog still open=True
     note    : the message is the underlying library's, not one this plugin wrote
 
   reference layer in EPSG:4326 (geographic, explicitly handled)
     verdict : HANDLED
-    seen    : working CRS EPSG:32636; extent span 2636.6 working units; output grid 264 x 264 px; dialog shows: <b>4 tiles</b> → output 264 × 264 px (0.1 Mpx) in EPSG:32636 | <span style='color:gray'>rough estimate 0.4 min on CPU — an estimate, not a guarantee</
+    seen    : working CRS EPSG:32636; extent span 2636.6 working units; output grid 264 x 264 px; dialog shows: <b>4 karo</b> · 264 × 264 piksel · yaklaşık 0.4 dk
 
   reference layer in EPSG:3857 (projected but NOT metric - units are metres only at the equator)
     verdict : MESSAGE
-    seen    : ExtentError: EPSG:3857 (WGS 84 / Pseudo-Mercator) is Web/Pseudo-Mercator. Its units are called metres but are only true metres at the equator, so a 10 m grid built in it would not be 10 m on the ground. Reproject the reference layer to its UTM zone (Layer > Save As, or Processing > Reproject Layer) and run again.; dialog shows: <span style='color:#a00'>EPSG:3857 (WGS 84 / Pseudo-Mercator) is Web/Pseudo-Mercator. Its units are called metres but are only true metres at the equa
+    seen    : ExtentError: EPSG:3857 (WGS 84 / Pseudo-Mercator) is Web/Pseudo-Mercator. Its units are called metres but are only true metres at the equator, so a 10 m grid built in it would not be 10 m on the ground. Reproject the reference layer to its UTM zone (Layer > Save As, or Processing > Reproject Layer) and run again.; dialog shows: —
 
   reference layer in EPSG:4258 (geographic (ETRS89) but not EPSG:4326)
     verdict : HANDLED
-    seen    : working CRS EPSG:32636; extent span 2636.6 working units; output grid 264 x 264 px; dialog shows: <b>4 tiles</b> → output 264 × 264 px (0.1 Mpx) in EPSG:32636 | <span style='color:gray'>rough estimate 0.4 min on CPU — an estimate, not a guarantee</
+    seen    : working CRS EPSG:32636; extent span 2636.6 working units; output grid 264 x 264 px; dialog shows: <b>4 karo</b> · 264 × 264 piksel · yaklaşık 0.4 dk
 
   extent with no OSM coverage in the chosen .osm.pbf
     verdict : WARNED
-    seen    : error=none; output written=True; OSM features found=0; warnings raised=['1 of 1 tile(s) contain ZERO OSM features ((0,0)). the .osm.pbf extract extent.osm.pbf returned nothing for that ground, so those tiles are the CLC+ land-cover base alone: no roads, no buildings, no water outlines. The result will look like plausible empty countryside rather than like an error. Check that the extract covers this extent.']; distinct colours in the rasterised input=946
+    seen    : error=none; output written=True; OSM features found=0; warnings raised=[{'kind': 'zero_osm', 'n': 1, 'total': 1, 'tiles': [[0, 0]], 'more': 0, 'source': 'extent.osm.pbf'}]; distinct colours in the rasterised input=946
     note    : no vectors means no roads, buildings or water are drawn; the CLC+ base is still there, so the render looks like a plausible empty landscape rather than like an error
 
   Cancel pressed mid-run
     verdict : MESSAGE
-    seen    : tiles='<b>2 tiles</b> → output 257 × 257 px (0.'; progress when cancelled=12.5; stopped after 2.24s; event loop serviced 66 times while cancelling; status='Cancelled.'; partial file left on disk=False
+    seen    : tiles='<b>2 karo</b> · 257 × 257 piksel · yakla'; progress when cancelled=40.0; stopped after 1.99s; event loop serviced 60 times while cancelling; status='Hazır'; partial file left on disk=False
     note    : a partial GeoTIFF left behind after a cancel would be the dangerous outcome
 
   exceptions raised inside Qt slots during all of the above

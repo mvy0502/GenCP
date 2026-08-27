@@ -317,6 +317,31 @@ def band_map(score):
     return out
 
 
+ALPHA_RANGE = 4.0
+
+
+def score_to_alpha(score, valid=None):
+    """Continuous confidence as a uint8 alpha band. 255 = most confident.
+
+    Deliberately NOT the three-band rounding. A downstream matcher may want finer
+    discrimination than red/amber/green, and throwing that away at the file boundary would
+    be a decision made on its behalf. The mapping is linear and stated in the output's
+    provenance so it can be inverted: z = alpha / 255 * 8 - 4.
+
+    Where the mosaic has no data the alpha is 0, which is what an alpha band means.
+    """
+    z = np.clip(np.asarray(score, dtype=np.float64), -ALPHA_RANGE, ALPHA_RANGE)
+    a = ((z + ALPHA_RANGE) / (2 * ALPHA_RANGE) * 255.0).round().astype(np.uint8)
+    if valid is not None:
+        a = np.where(np.asarray(valid, dtype=bool), a, 0).astype(np.uint8)
+    return a
+
+
+def alpha_to_score(alpha):
+    """Inverse of score_to_alpha, for anyone reading the delivered file."""
+    return np.asarray(alpha, dtype=np.float64) / 255.0 * (2 * ALPHA_RANGE) - ALPHA_RANGE
+
+
 def run_verdict(score, red_warn_fraction=0.20):
     """What percentage of the output falls in each band, plus the run-level band.
 
