@@ -93,18 +93,23 @@ S = {
     # Driven by the SAME registered score and the SAME band boundaries as the output
     # layer, so the two cannot disagree. The old version used a hand-set 0.2% pixel
     # threshold that contradicted the layer on the very first tile it was tested on.
+    # Every per-band figure NAMES ITS CORPUS. Registration 3 measured that the European
+    # numbers do not transfer to Ankara for amber (-47%) and green (-56%) - only red does
+    # (-6.7%). An unqualified "3,3 piksel" was therefore a European number presented as if
+    # it were universal. See confidence-transfer-results.md.
     "preview_band_red": (
         "<b>Bu karo kırmızı bantta: üretilen görüntü burada büyük ölçüde uydurma "
         "olacak.</b> Girdi bu alan hakkında neredeyse hiçbir şey söylemiyor, dolayısıyla "
-        "modelin ürettiği doku ölçülmüş bir şeye dayanmıyor. Ayrık ölçümde bu bandın "
-        "eşleştirme hatası ortancası {px} pikseldi. Eşleştirme için kullanmayın."),
+        "modelin ürettiği doku ölçülmüş bir şeye dayanmıyor. Bu bandın eşleştirme hatası "
+        "ortancası <b>Avrupa ayrık ölçümünde {px} piksel</b>di. Eşleştirme için "
+        "kullanmayın."),
     "preview_band_amber": (
         "<b>Bu karo turuncu bantta: girdi zayıf.</b> Çıktı büyük ölçüde arazi "
-        "örtüsünden türetilecek. Ayrık ölçümde bu bandın eşleştirme hatası ortancası "
-        "{px} pikseldi. Başka bir kaynakla karşılaştırmadan kullanmayın."),
+        "örtüsünden türetilecek. Bu bandın eşleştirme hatası ortancası <b>Avrupa ayrık "
+        "ölçümünde {px} piksel</b>di. Başka bir kaynakla karşılaştırmadan kullanmayın."),
     "preview_band_green": (
-        "Bu karo yeşil bantta: çıktı burada girdi bilgisine dayanıyor "
-        "(ayrık ölçümde hata ortancası {px} piksel)."),
+        "Bu karo yeşil bantta: çıktı burada girdi bilgisine dayanıyor (bu bandın hata "
+        "ortancası Avrupa ayrık ölçümünde {px} piksel)."),
     # Turkish renderings of gencp_core.pipeline.coverage_warnings' STRUCTURED output. That
     # function used to return English sentences, which appeared under a Turkish heading in
     # a half-translated warning box.
@@ -189,10 +194,14 @@ S = {
         "eşleştirme için kullanılmamalıdır."),
     "details": "Detaylar - ölçüm ve kapsam",
     "verdict_scope": (
-        "Bantlar 150 ayrık Avrupa karosunda C2 kolu için ölçüldü (Spearman rho -0,75; "
-        "eşleşen nokta sayısı sabit tutulduğunda -0,38). Görüntü belirlenimci yoldan, "
-        "güven haritası ise dropout açık 16 geçişten gelir - teslim edilen görüntü "
-        "rastgele yoldan gelmez."),
+        "Bant sınırları <b>150 ayrık Avrupa karosunda</b>, C2 kolu için ölçüldü "
+        "(Spearman rho -0,76; eşleşen nokta sayısı sabit tutulduğunda -0,38). Aynı "
+        "sınırlar 130 Ankara karosuna değiştirilmeden uygulandığında sıralama korunuyor "
+        "ve ayrışma artıyor (kırmızı/yeşil 2,5 kat yerine 5,2 kat); kırmızı bandın mutlak "
+        "değeri de %7 içinde tutuyor. Turuncu ve yeşil bantların mutlak değerleri ise "
+        "Türkiye'de daha düşük çıkıyor - yani gösterilen Avrupa sayıları bu iki bant için "
+        "kötümser. Ayrıntı: confidence-transfer-results.md. Skor girdiden hesaplanır; "
+        "model çalıştırılmaz."),
     "confidence_not_validated": (
         "<b>Bu model için güven bantları doğrulanmadı.</b> Bantlar yalnızca "
         "<code>gencp_C2_fp32.onnx</code> için ölçüldü; seçtiğiniz model farklı. Güven "
