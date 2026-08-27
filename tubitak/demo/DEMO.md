@@ -37,8 +37,13 @@ Gösterilecek üç şey:
   uydurduğu görünür.
 - **Güveni gösterin.** Çıktının 4. bandı alfa kanalıdır ve sürekli güven değerini taşır.
   Katman özelliklerinden 4. bandı tek bant gri olarak açarsanız güven haritası ortaya
-  çıkar:
-  açık bölgeler girdiye dayanır, koyu bölgeler uydurmadır.
+  çıkar: açık bölgeler girdiye dayanır, koyu bölgeler uydurmadır.
+
+  Eklenti katmanı haritaya eklerken 4. bandı **çizimde yok sayar**; görüntü tam opak
+  görünür. Bu bilerek yapılıyor. Alfa bandı burada saydamlık değil güven taşır, ama QGIS
+  bunu bilemez ve varsayılan olarak alttaki katmanla karıştırır. Karıştırdığında
+  karşılaştırma bozulur: üretilen görüntü, altındaki gerçek görüntüyle harmanlanıp
+  olduğundan çok daha isabetli görünür.
 - **Özeti okuyun.** Çalıştırma bölümündeki tek satır her bandın yüzdesini verir.
 
 Renkli üç bantlı katmanı da göstermek isterseniz, üretimden önce Gelişmiş bölümünden

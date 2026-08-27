@@ -602,6 +602,40 @@ def phase_c(plugin, layer):
     check("the OSM input was added as a layer named <output>_osm",
           osm_tif.stem in names, ", ".join(names))
 
+    # The alpha band carries CONFIDENCE, not opacity. QGIS cannot know that and will
+    # composite with it unless told otherwise, which drew the output semi-transparently
+    # over whatever sat beneath - measured once at alpha mean 108/255, never opaque. A
+    # comparison tool that silently mixes the two things being compared is worse than no
+    # comparison, so the added layer must ignore band 4 when drawing.
+    from qgis.core import (QgsMapSettings, QgsMapRendererParallelJob,
+                           QgsMultiBandColorRenderer)
+    from qgis.PyQt.QtCore import QSize as _QSize
+    from qgis.PyQt.QtGui import QColor as _QColor, QImage as _QImage
+    outl = names.get(out.stem)
+    check("the 4-band output is added with a renderer that ignores the alpha band",
+          outl is not None and isinstance(outl.renderer(), QgsMultiBandColorRenderer),
+          type(outl.renderer()).__name__ if outl else "layer missing")
+    if outl is not None:
+        ms = QgsMapSettings()
+        ms.setLayers([outl])
+        ms.setBackgroundColor(_QColor(255, 0, 255))   # magenta shows through any blend
+        ms.setOutputSize(_QSize(outl.width(), outl.height()))
+        ms.setExtent(outl.extent())
+        ms.setDestinationCrs(outl.crs())
+        job = QgsMapRendererParallelJob(ms)
+        job.start()
+        job.waitForFinished()
+        im = job.renderedImage().convertToFormat(_QImage.Format.Format_RGB32)
+        ptr = im.bits()
+        ptr.setsize(im.sizeInBytes())
+        drawn = _np.frombuffer(ptr, _np.uint8).reshape(
+            im.height(), im.bytesPerLine() // 4, 4)[:, :im.width(), :3][:, :, ::-1]
+        with _rio.open(out) as _s:
+            stored = _np.moveaxis(_s.read([1, 2, 3]), 0, -1)
+        d = float(_np.abs(drawn.astype(float) - stored.astype(float)).mean())
+        check("what QGIS draws is the stored RGB, not a blend with the background",
+              d < 5.0, f"mean |drawn - stored| = {d:.2f} DN (a blend measured 83 DN)")
+
     # now the OPT-IN coloured band layer
     say("\n  --- opt-in coloured band layer ---")
     dlg.cb_band_layer.setChecked(True)

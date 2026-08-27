@@ -1,6 +1,6 @@
 cleared QgsSettings GenCP/* so ONLY the project can supply paths
 
-  [PASS] the demo project opens  - 0.03s
+  [PASS] the demo project opens  - 0.02s
   [PASS] the reference raster is already loaded  - referans (ank_4_23)
   [PASS] the plugin is loaded
   [PASS] the dialog opens
@@ -15,16 +15,16 @@ cleared QgsSettings GenCP/* so ONLY the project can supply paths
   [PASS] the preview starts closed  - section 3 is one button until asked
   [PASS] Generate is available with the preview closed  - no confirmation gate
   [PASS] 2. Generate is available without any confirmation step
-  [PASS] 3. Generate completes  - 1.10s
+  [PASS] 3. Generate completes  - 0.93s
     confidence: green 29.6%  amber 29.0%  red 41.4%  run band amber
   [PASS] the confidence layer shows ALL THREE bands (a one-colour demo teaches nothing)  - min band share 29.0%
   [PASS] output layer added  - looked for 'gencp_reference' in ['gencp_reference', 'gencp_reference_osm', 'referans (ank_4_23)']
   [PASS] confidence is in the output's alpha band  - 4 bands, band 4 = alpha
   [PASS] the rasterised OSM input was added as a layer  - gencp_reference, gencp_reference_osm, referans (ank_4_23)
 
-  project open          0.03s
-  dialog -> output      1.34s   (preview 0.00s, generate 1.10s)
-  TOTAL, cold           1.37s
+  project open          0.02s
+  dialog -> output      1.16s   (preview 0.00s, generate 0.93s)
+  TOTAL, cold           1.19s
 
 ==================================================================
 18/18 checks passed

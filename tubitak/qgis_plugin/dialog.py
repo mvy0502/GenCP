@@ -712,6 +712,7 @@ class GenCPDialog(QDialog):
         lyr = QgsRasterLayer(str(path), name or Path(path).stem)
         if not lyr.isValid():
             return None
+        self._draw_rgb_opaque(lyr)
         if style_bands:
             try:
                 self._style_bands(lyr)
@@ -719,6 +720,40 @@ class GenCPDialog(QDialog):
                 _log(f"confidence styling failed: {e}", member(Qgis, 'Warning'))
         QgsProject.instance().addMapLayer(lyr)
         return lyr
+
+    def _draw_rgb_opaque(self, layer):
+        """Draw bands 1-3 and IGNORE band 4, even though band 4 is a real alpha band.
+
+        The alpha band carries CONFIDENCE for the downstream matcher, not opacity. GDAL and
+        QGIS cannot know that: they see ColorInterp.alpha and composite with it, so the
+        output was being drawn semi-transparently over whatever sat beneath it. Measured on
+        the demo tile: alpha mean 108 of 255, never once fully opaque, 79% of pixels below
+        half. Toggling the generated layer on and off therefore changed the picture far
+        less than it should have, and a side-by-side against the reference underneath was
+        showing a blend that sat 2.3x closer to the reference than the generated image
+        actually is. A comparison tool that silently mixes the two things being compared is
+        worse than no comparison.
+
+        The FILE is untouched - the alpha band is still there and still means what the
+        provenance says. This only fixes how QGIS draws it.
+        """
+        if layer.bandCount() < 4:
+            return
+        try:
+            from qgis.core import QgsMultiBandColorRenderer, QgsContrastEnhancement
+            prov = layer.dataProvider()
+            r = QgsMultiBandColorRenderer(prov, 1, 2, 3)
+            for band, setter in ((1, r.setRedContrastEnhancement),
+                                 (2, r.setGreenContrastEnhancement),
+                                 (3, r.setBlueContrastEnhancement)):
+                ce = QgsContrastEnhancement(prov.dataType(band))
+                ce.setMinimumValue(0)
+                ce.setMaximumValue(255)
+                setter(ce)
+            layer.setRenderer(r)
+            layer.triggerRepaint()
+        except Exception as e:                       # noqa: BLE001
+            _log(f"could not force opaque RGB rendering: {e}", member(Qgis, 'Warning'))
 
     def _style_bands(self, layer):
         """Paletted renderer with band names, so nobody configures symbology."""
