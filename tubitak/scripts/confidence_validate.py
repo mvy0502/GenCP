@@ -34,10 +34,14 @@ from gencp_core import infer as ginfer
 
 # --- everything below is quoted from the registration, not chosen here -----------------
 PER_CHIP = ROOT / "tubitak/docs/evidence/regD/regD_per_chip.csv"
-INPUTS = ROOT / "tubitak/data/eu_holdout/inputs"
+# Registration 2 evaluates the same scores on the Ankara Overpass corpus. One switch, one
+# implementation: a copied script would drift from this one.
+_ANKARA = "--ankara" in sys.argv
+INPUTS = (ROOT / "tubitak/data/ankara/run/inputs") if _ANKARA else (ROOT / "tubitak/data/eu_holdout/inputs")
 ARM_PRIMARY = "C2"
 ARM_SECONDARY = "C1"
-SITEVAR = "eu"
+CORPUS_TAG = "ankara" if _ANKARA else "eu"
+SITEVAR = "ank_overpass" if _ANKARA else "eu"
 ERR_COL = "med_mean32"
 N_COL = "n_mean32"
 N_PASSES = 16
@@ -219,7 +223,9 @@ def main():
     for r, c in zip(recs, COMB):
         r["conf_COMB"] = float(c)
 
-    with open(OUT / ("per_chip_onnx.csv" if use_onnx else "per_chip.csv"), "w", newline="") as f:
+    _name = ("per_chip_onnx.csv" if use_onnx else "per_chip.csv").replace(
+        ".csv", f"_{CORPUS_TAG}.csv" if _ANKARA else ".csv")
+    with open(OUT / _name, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(recs[0]))
         w.writeheader()
         w.writerows(recs)
@@ -290,20 +296,20 @@ def main():
     say(f"    median residual over all {len(E)} chips: {med_all:.4f} px")
     rng = np.random.default_rng(BOOT_SEED)
     curve = {}
-    say(f"    {'X%':>4}  {'kept':>5}  {'COMB':>8}  {'baseline B':>11}  {'random':>8}")
+    say(f"    {'X%':>4}  {'kept':>5}  {'COMB':>8}  {'conf_D':>8}  {'baseline B':>11}  {'random':>8}")
     for X in (10, 25, 50):
         k = int(round(len(E) * X / 100.0))
         keep_n = len(E) - k
         res = {}
-        for nm, v in (("COMB", COMB), ("B", B)):
+        for nm, v in (("COMB", COMB), ("B", B), ("D", D)):
             idx = np.argsort(v)[::-1][:keep_n]     # highest confidence retained
             res[nm] = float(np.median(E[idx]))
         rnd = float(np.mean([np.median(E[rng.choice(len(E), keep_n, replace=False)])
                              for _ in range(1000)]))
         res["random"] = rnd
         curve[X] = res
-        say(f"    {X:>3}%  {keep_n:>5}  {res['COMB']:>8.4f}  {res['B']:>11.4f}  "
-            f"{rnd:>8.4f}")
+        say(f"    {X:>3}%  {keep_n:>5}  {res['COMB']:>8.4f}  {res['D']:>8.4f}  "
+            f"{res['B']:>11.4f}  {rnd:>8.4f}")
     RESULTS["discard_curve"] = curve
     RESULTS["median_all"] = med_all
 
@@ -358,7 +364,43 @@ def main():
             medians={k: v["median"] for k, v in bands.items()},
             iqrs={k: v["iqr"] for k, v in bands.items()})
 
-    tag = "_onnx" if use_onnx else ""
+    tag = ("_onnx" if use_onnx else "") + ("_ankara" if _ANKARA else "")
+    # ------------------------------------------------- registration 2 decision -------
+    say("\n" + "=" * 78)
+    say("REGISTRATION 2 - non-inferiority: is conf_D alone not meaningfully worse?")
+    say("=" * 78)
+    rho_D = spearman(D, E)
+    d_lo2, d_hi2 = boot_ci(lambda i: spearman(D[i], E[i]) - spearman(COMB[i], E[i]), len(E))
+    b_lo2, b_hi2 = boot_ci(lambda i: spearman(D[i], E[i]) - spearman(B[i], E[i]), len(E))
+    ci_D = boot_ci(lambda i: spearman(D[i], E[i]), len(E))
+    MARGIN = 0.05
+    c1 = d_hi2 < MARGIN
+    c2 = rho_D <= RHO_PASS and ci_D[1] < 0
+    c3 = b_hi2 < 0
+    say(f"  rho(conf_D)                    {rho_D:+.3f}  95% CI [{ci_D[0]:+.3f}, {ci_D[1]:+.3f}]")
+    say(f"  rho(conf_COMB)                 {spearman(COMB, E):+.3f}")
+    say(f"  rho(conf_B)                    {spearman(B, E):+.3f}")
+    say(f"  rho(D) - rho(COMB)             {rho_D - spearman(COMB, E):+.3f}  "
+        f"95% CI [{d_lo2:+.3f}, {d_hi2:+.3f}]")
+    say(f"  rho(D) - rho(B)                {rho_D - spearman(B, E):+.3f}  "
+        f"95% CI [{b_lo2:+.3f}, {b_hi2:+.3f}]")
+    say("")
+    say(f"  1 non-inferiority  upper CI {d_hi2:+.3f} < +{MARGIN}      : {'PASS' if c1 else 'FAIL'}")
+    say(f"  2 stands alone     rho <= {RHO_PASS}, CI excludes 0 : {'PASS' if c2 else 'FAIL'}")
+    say(f"  3 beats baseline   upper CI {b_hi2:+.3f} < 0        : {'PASS' if c3 else 'FAIL'}")
+    say("")
+    say(f"  REGISTERED DECISION: {'SWITCH to conf_D alone' if (c1 and c2 and c3) else 'KEEP conf_COMB'}")
+    RESULTS["registration2"] = dict(
+        rho_D=rho_D, ci_D=list(ci_D), rho_COMB=spearman(COMB, E), rho_B=spearman(B, E),
+        diff_D_COMB=[d_lo2, d_hi2], diff_D_B=[b_lo2, b_hi2], margin=MARGIN,
+        cond_noninferior=bool(c1), cond_standalone=bool(c2), cond_beats_baseline=bool(c3),
+        decision=("switch_to_conf_D" if (c1 and c2 and c3) else "keep_conf_COMB"))
+    say("\n  partial rho given n_mean32, every score:")
+    for nm, v in (("conf_D", D), ("conf_B", B), ("conf_S", S), ("conf_COMB", COMB)):
+        pr_ = partial_spearman(v, E, N)
+        say(f"    {nm:10s} raw {spearman(v, E):+.3f}   partial {pr_:+.3f}")
+        RESULTS.setdefault("partial_all", {})[nm] = pr_
+
     (OUT / f"results{tag}.json").write_text(json.dumps(RESULTS, indent=2, default=str))
     say(f"\nwrote {OUT}/results{tag}.json")
     return 0

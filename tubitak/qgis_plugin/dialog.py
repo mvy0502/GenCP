@@ -11,9 +11,11 @@ Six sections, in the order the work is done:
                  confirms. The breakdown is what gives that confirmation something to bite
                  on: "is this correct?" is unanswerable when the tile is flat green.
   4 Model        weights path, with the model's file name and modification date
-  5 Çalıştırma   on a QgsTask, with a stage-aware progress line and a working Cancel
-  6 Çıktı        add as layer and/or write a GeoTIFF; optionally a confidence layer,
+  5 Çıktı        add as layer and/or write a GeoTIFF; optionally a confidence layer,
                  auto-styled, with a plain-language verdict for the whole run
+  6 Çalıştırma   on a QgsTask, with a stage-aware progress line and a working Cancel.
+                 PINNED below the scroll area, so the primary action is visible at every
+                 window size - it used to scroll off the bottom of a short window
 
 Every numeric or geometric decision is delegated: extents and tile grids to
 gencp_core.extent, rendering to gencp_core.rasterize, generation to gencp_core.pipeline,
@@ -47,14 +49,24 @@ ensure_core_importable()
 
 TILE_PREVIEW_PX = 384
 SETTINGS_PREFIX = "GenCP/"
-# Below this share of OSM-class pixels the tile counts as "very little OSM data". Taken
-# from the held-out corpus, where chips run 0.02%-0.2% and the confidence score's red band
-# is already biting. It is a prompt to look, not a threshold with a decision attached.
-SPARSE_OSM_FRACTION = 0.002
+# There is deliberately no hand-set "very little OSM data" threshold here any more. It was
+# an unregistered guess sitting beside a registered measurement, and on the first tile it
+# was tested against the two disagreed: 0.295% OSM so no warning, while the confidence
+# layer put 33.6% of that same tile in the red band. The preview judgement now comes from
+# the registered score and the registered band boundaries, so the two cannot diverge.
 
-WARN_STYLE = "background:#fff3cd; color:#664d03; border:1px solid #ffe69c; padding:6px;"
+# Theme-aware. A solid #fff3cd panel is a light box punched into a dark UI under QGIS's
+# Night Mapping theme; a translucent amber wash over palette(window) reads as a warning in
+# BOTH themes, and the text colour comes from the palette so it stays legible either way.
+WARN_STYLE = ("background: rgba(224,168,0,0.16); color: palette(window-text); "
+              "border: 1px solid rgba(224,168,0,0.55); border-left: 4px solid #e0a800; "
+              "padding: 6px;")
+DANGER_STYLE = ("background: rgba(202,0,32,0.14); color: palette(window-text); "
+                "border: 1px solid rgba(202,0,32,0.55); border-left: 4px solid #ca0020; "
+                "padding: 6px;")
+INFO_STYLE = ("border: 1px solid palette(mid); color: palette(window-text); padding: 6px;")
 CALM_BOX = "QWidget { border:1px solid palette(mid); border-radius:4px; }"
-ALERT_BOX = "QWidget { border:2px solid #ffc107; border-radius:4px; }"
+ALERT_BOX = "QWidget { border:2px solid #e0a800; border-radius:4px; }"
 
 
 def _log(msg, level=member(Qgis, 'Info')):
@@ -121,7 +133,9 @@ class GenCPDialog(QDialog):
         self.iface = iface
         self.settings = QgsSettings()
         self.setWindowTitle(t("window_title"))
-        self.setMinimumSize(QSize(720, 560))
+        # Small enough to open fully on a short screen; the preview area starts collapsed
+        # so all six section headers and the Generate button fit without scrolling.
+        self.setMinimumSize(QSize(700, 460))
         self._extent = None
         self._crs = None
         self._preview_index = 0
@@ -131,7 +145,8 @@ class GenCPDialog(QDialog):
         self._ui_ready = False
         self._build_ui()
         self._refresh_extent()
-        self.resize(QSize(820, 900))
+        self._connect_project_signals()
+        self.resize(QSize(840, 760))
 
     # ------------------------------------------------------------- settings ----
     def _remember(self, key, value):
@@ -144,36 +159,44 @@ class GenCPDialog(QDialog):
     # ------------------------------------------------------------------- UI ----
     def _build_ui(self):
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(12, 12, 12, 12)
-        outer.setSpacing(10)
+        outer.setContentsMargins(10, 10, 10, 10)
+        outer.setSpacing(8)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(getattr(getattr(QScrollArea, "Shape", QScrollArea), "NoFrame"))
         body = QWidget()
         lay = QVBoxLayout(body)
         lay.setContentsMargins(0, 0, 0, 0)
-        lay.setSpacing(10)
+        lay.setSpacing(8)
         scroll.setWidget(body)
         outer.addWidget(scroll, 1)
 
         # --- 1 Girdi -------------------------------------------------------
         g1 = QGroupBox(t("sec1"))
-        f1 = QFormLayout(g1)
+        g1v = QVBoxLayout(g1)
+        g1v.setContentsMargins(10, 8, 10, 8)
+        g1v.setSpacing(6)
+        f1 = QFormLayout()
         f1.setLabelAlignment(member(Qt, 'AlignRight') | member(Qt, 'AlignVCenter'))
         f1.setHorizontalSpacing(12)
         f1.setVerticalSpacing(8)
-        f1.setContentsMargins(12, 12, 12, 12)
         self.layer_box = QgsMapLayerComboBox()
         self.layer_box.setFilters(member(QgsMapLayerProxyModel, 'All'))
         self.layer_box.layerChanged.connect(self._refresh_extent)
         f1.addRow(t("reference_layer"), self.layer_box)
-        self.lbl_extent = QLabel(t("unset"))
+        # An empty combo with no explanation reads as broken. This says what is missing and
+        # what to do about it, right where the missing thing would have been.
+        self.lbl_layer_hint = QLabel("")
+        self.lbl_layer_hint.setWordWrap(True)
+        self.lbl_layer_hint.setVisible(False)
+        self.lbl_layer_hint.setToolTip(t("no_raster_layer_tooltip"))
+        self.lbl_extent = QLabel(t("waiting"))
         self.lbl_extent.setWordWrap(True)
         f1.addRow(t("extent"), self.lbl_extent)
-        self.lbl_crs = QLabel(t("unset"))
+        self.lbl_crs = QLabel(t("waiting"))
         self.lbl_crs.setWordWrap(True)
         f1.addRow(t("crs"), self.lbl_crs)
-        self.lbl_tiles = QLabel(t("unset"))
+        self.lbl_tiles = QLabel(t("waiting"))
         self.lbl_tiles.setWordWrap(True)
         f1.addRow(t("tiles_estimate"), self.lbl_tiles)
         self.overlap_box = QComboBox()
@@ -184,13 +207,15 @@ class GenCPDialog(QDialog):
         self.overlap_box.setCurrentIndex(3)
         self.overlap_box.currentIndexChanged.connect(self._refresh_extent)
         f1.addRow(t("tile_overlap"), self.overlap_box)
+        g1v.addLayout(f1)
+        g1v.addWidget(self.lbl_layer_hint)
         lay.addWidget(g1)
 
         # --- 2 Veri kaynağı ------------------------------------------------
         g2 = QGroupBox(t("sec2"))
         f2 = QVBoxLayout(g2)
         f2.setSpacing(8)
-        f2.setContentsMargins(12, 12, 12, 12)
+        f2.setContentsMargins(10, 8, 10, 8)
         row = QHBoxLayout()
         self.rb_online = QRadioButton(t("source_online"))
         self.rb_local = QRadioButton(t("source_local"))
@@ -210,7 +235,7 @@ class GenCPDialog(QDialog):
         fa = QFormLayout(self.adv)
         fa.setHorizontalSpacing(12)
         fa.setVerticalSpacing(8)
-        fa.setContentsMargins(12, 12, 12, 12)
+        fa.setContentsMargins(10, 8, 10, 8)
         self.pbf_edit, pbf_row = self._file_row(self._pick_pbf)
         fa.addRow(t("pbf_label"), pbf_row)
         self.clc_edit, clc_row = self._file_row(self._pick_clc)
@@ -222,27 +247,42 @@ class GenCPDialog(QDialog):
         g3 = QGroupBox(t("sec3"))
         f3 = QVBoxLayout(g3)
         f3.setSpacing(8)
-        f3.setContentsMargins(12, 12, 12, 12)
-        hint = QLabel(t("preview_hint"))
+        f3.setContentsMargins(10, 8, 10, 8)
+        self.preview_hint = QLabel(t("preview_hint"))
         # Without word wrap this label's one-line sizeHint becomes the form's minimum
         # width, and a horizontal scrollbar appears under every section.
-        hint.setWordWrap(True)
-        f3.addWidget(hint)
+        self.preview_hint.setWordWrap(True)
+        f3.addWidget(self.preview_hint)
 
-        img_row = QHBoxLayout()
+        # Slim placeholder while there is nothing to preview. A 384 px empty box pushed
+        # sections 4-6 and the Generate button below the fold, so a first-time user never
+        # saw the primary action at all.
+        self.preview_slim = QLabel(t("preview_needs_layer"))
+        self.preview_slim.setWordWrap(True)
+        self.preview_slim.setStyleSheet(INFO_STYLE)
+        self.preview_slim.setMinimumHeight(44)
+        f3.addWidget(self.preview_slim)
+
+        # The image and the OSM panel live in one widget that is shown or hidden as a
+        # whole, and the panel keeps a FIXED width whether or not it has content, so the
+        # layout does not jump between the empty and populated states.
+        self.preview_body = QWidget()
+        img_row = QHBoxLayout(self.preview_body)
+        img_row.setContentsMargins(0, 0, 0, 0)
         img_row.setSpacing(12)
-        self.preview_label = QLabel(t("preview_none"))
+        self.preview_label = QLabel(t("preview_press"))
         self.preview_label.setAlignment(member(Qt, 'AlignCenter'))
-        self.preview_label.setMinimumHeight(TILE_PREVIEW_PX)
-        self.preview_label.setMinimumWidth(TILE_PREVIEW_PX)
+        self.preview_label.setWordWrap(True)
+        self.preview_label.setFixedSize(TILE_PREVIEW_PX, TILE_PREVIEW_PX)
         self.preview_label.setStyleSheet("border:1px solid palette(mid);")
         img_row.addWidget(self.preview_label, 0)
-        self.lbl_osm = QLabel("")
+        self.lbl_osm = QLabel(t("osm_placeholder"))
         self.lbl_osm.setWordWrap(True)
         self.lbl_osm.setAlignment(member(Qt, 'AlignTop'))
-        self.lbl_osm.setMinimumWidth(190)
+        self.lbl_osm.setMinimumWidth(210)
         img_row.addWidget(self.lbl_osm, 1)
-        f3.addLayout(img_row)
+        self.preview_body.setVisible(False)
+        f3.addWidget(self.preview_body)
 
         prow = QHBoxLayout()
         prow.setSpacing(8)
@@ -282,19 +322,26 @@ class GenCPDialog(QDialog):
         g4 = QGroupBox(t("sec4"))
         f4 = QVBoxLayout(g4)
         f4.setSpacing(8)
-        f4.setContentsMargins(12, 12, 12, 12)
+        f4.setContentsMargins(10, 8, 10, 8)
         self.model_edit, mrow = self._file_row(self._pick_model)
         f4.addLayout(mrow)
         self.lbl_model = QLabel(t("model_none"))
         self.lbl_model.setWordWrap(True)
         f4.addWidget(self.lbl_model)
+        # Which model SHIPS and which model the bands were CALIBRATED ON are two separate
+        # decisions. This states the second one wherever the first is made, so one cannot
+        # silently imply the other.
+        self.lbl_model_calib = QLabel("")
+        self.lbl_model_calib.setWordWrap(True)
+        self.lbl_model_calib.setVisible(False)
+        f4.addWidget(self.lbl_model_calib)
         lay.addWidget(g4)
 
-        # --- 5 Çalıştırma --------------------------------------------------
+        # --- 6 Çalıştırma (pinned below the scroll area, built here, placed later) --
         g5 = QGroupBox(t("sec5"))
         f5 = QVBoxLayout(g5)
         f5.setSpacing(8)
-        f5.setContentsMargins(12, 12, 12, 12)
+        f5.setContentsMargins(10, 8, 10, 8)
         self.progress = QProgressBar()
         self.progress.setValue(0)
         self.progress.setMinimumHeight(22)
@@ -323,13 +370,13 @@ class GenCPDialog(QDialog):
         rrow.addWidget(self.btn_cancel)
         rrow.addStretch(1)
         f5.addLayout(rrow)
-        lay.addWidget(g5)
+        self._run_group = g5          # placed after the scroll area, not inside it
 
-        # --- 6 Çıktı -------------------------------------------------------
+        # --- 5 Çıktı -------------------------------------------------------
         g6 = QGroupBox(t("sec6"))
         f6 = QVBoxLayout(g6)
         f6.setSpacing(8)
-        f6.setContentsMargins(12, 12, 12, 12)
+        f6.setContentsMargins(10, 8, 10, 8)
         self.cb_add_layer = QCheckBox(t("add_layer"))
         self.cb_add_layer.setChecked(True)
         self.cb_write = QCheckBox(t("write_tif"))
@@ -354,9 +401,27 @@ class GenCPDialog(QDialog):
         self.lbl_verdict.setWordWrap(True)
         self.lbl_verdict.setVisible(False)
         f6.addWidget(self.lbl_verdict)
+        # The Spearman / partial-rho sentence is real and stays available, but it is not
+        # what a GIS analyst needs in the first two seconds. Prominent: the band shares and
+        # the red-share warning. Behind a fold: the statistics.
+        self.details = _collapsible(t("details"))
+        fd = QVBoxLayout(self.details)
+        fd.setContentsMargins(10, 8, 10, 8)
+        self.lbl_scope = QLabel(t("verdict_scope"))
+        self.lbl_scope.setWordWrap(True)
+        fd.addWidget(self.lbl_scope)
+        self.details.setVisible(False)
+        f6.addWidget(self.details)
         lay.addWidget(g6)
 
         lay.addStretch(1)
+        # The run controls sit OUTSIDE the scroll area, pinned above the Close button, so
+        # the primary action is visible at every window size and scroll position. It used
+        # to be the fifth of six scrolling sections and fell below the fold on a short
+        # screen with nothing selected - a first-time user never saw the Generate button
+        # at all. Pinning it also puts the sections in the order they are actually used:
+        # choose the output path (5), then press Generate (6).
+        outer.addWidget(self._run_group, 0)
         self.buttons = QDialogButtonBox(member(QDialogButtonBox, 'Close'))
         btn = self.buttons.button(member(QDialogButtonBox, 'Close'))
         if btn is not None:
@@ -370,6 +435,35 @@ class GenCPDialog(QDialog):
         # construction, which QGIS turns into a modal error dialog.
         self._ui_ready = True
         self._prefill()
+
+    def _connect_project_signals(self):
+        """Repopulate when the project's layers change.
+
+        QgsMapLayerComboBox tracks the project itself, but the surrounding explanation, the
+        placeholders and the enabled/disabled state do not - so a user who loads a raster
+        with this dialog open would otherwise still be looking at "no suitable layer".
+        """
+        prj = QgsProject.instance()
+        for sig in ("layersAdded", "layersRemoved", "layersWillBeRemoved"):
+            try:
+                getattr(prj, sig).connect(self._on_project_layers_changed)
+            except Exception:                        # noqa: BLE001 - signal set varies
+                pass
+
+    def _on_project_layers_changed(self, *_a):
+        self._refresh_layer_hint()
+        self._refresh_extent()
+
+    def _refresh_layer_hint(self):
+        n = self.layer_box.count()
+        if n:
+            self.lbl_layer_hint.setVisible(False)
+            self.lbl_layer_hint.setText("")
+            return
+        self.lbl_layer_hint.setText(
+            t("no_raster_layer") + "<br>" + t("no_raster_layer_hint"))
+        self.lbl_layer_hint.setStyleSheet(INFO_STYLE)
+        self.lbl_layer_hint.setVisible(True)
 
     def _set_advanced_collapsed(self, collapsed):
         try:
@@ -489,6 +583,25 @@ class GenCPDialog(QDialog):
         st = p.stat()
         mt = datetime.datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
         self.lbl_model.setText(t("model_desc", name=p.name, mtime=mt, mb=st.st_size / 1e6))
+        self._describe_calibration(p)
+
+    def _describe_calibration(self, model_path):
+        """Say, at the point the model is chosen, whether the bands were measured on it."""
+        from gencp_core import confidence as conf
+        try:
+            ok = conf.model_is_validated(model_path)
+        except Exception:                            # noqa: BLE001
+            ok = False
+        if ok:
+            self.lbl_model_calib.setText(t("model_calibrated_ok"))
+            self.lbl_model_calib.setStyleSheet("")
+        else:
+            self.lbl_model_calib.setText(t(
+                "model_not_calibrated",
+                calib=conf.CALIBRATION["calibrated_model_file"]))
+            self.lbl_model_calib.setStyleSheet(WARN_STYLE)
+            self.lbl_model_calib.setToolTip(t("model_not_calibrated_tooltip"))
+        self.lbl_model_calib.setVisible(True)
 
     def _on_confirm(self, on):
         self._confirmed = bool(on)
@@ -499,10 +612,12 @@ class GenCPDialog(QDialog):
         layer = self.layer_box.currentLayer()
         if layer is None:
             for lbl in (self.lbl_extent, self.lbl_crs, self.lbl_tiles):
-                lbl.setText(t("unset"))
+                lbl.setText(t("waiting"))
             self._extent = self._crs = None
             self._extent_ok = False
             self._invalidate_preview()
+            self._set_preview_area(False)
+            self._refresh_layer_hint()
             self._validate()
             return
         r = layer.extent()
@@ -530,7 +645,22 @@ class GenCPDialog(QDialog):
             self.lbl_tiles.setText(f"<span style='color:#a00'>{e}</span>")
             self._extent_ok = False
         self._invalidate_preview()
+        self._set_preview_area(True)
+        self._refresh_layer_hint()
         self._validate()
+
+    def _set_preview_area(self, have_layer):
+        """Collapse section 3 to one line until there is something to preview."""
+        # With no layer, section 3 is ONE line. Advice about reading a preview, and a box
+        # asking the user to confirm one, are both noise when there is no preview - and
+        # together they were ~180 px of the empty form, which is what pushed Generate below
+        # the fold on a short screen.
+        self.preview_slim.setVisible(not have_layer)
+        self.preview_hint.setVisible(bool(have_layer))
+        self.preview_body.setVisible(bool(have_layer))
+        self.confirm_box.setVisible(bool(have_layer))
+        for b in (self.btn_preview, self.btn_prev, self.btn_next):
+            b.setVisible(bool(have_layer))
 
     def _invalidate_preview(self):
         self._preview_index = 0
@@ -539,10 +669,10 @@ class GenCPDialog(QDialog):
         self.cb_confirm.setText(t("confirm_generic"))
         self.btn_prev.setEnabled(False)
         self.btn_next.setEnabled(False)
-        self.preview_label.setText(t("preview_none"))
+        self.preview_label.setText(t("preview_press"))
         self.preview_label.setPixmap(QPixmap())
         if hasattr(self, "lbl_osm"):
-            self.lbl_osm.setText("")
+            self.lbl_osm.setText(t("osm_placeholder"))
         if hasattr(self, "lbl_warn"):
             self.lbl_warn.setVisible(False)
             self.lbl_warn.setText("")
@@ -598,8 +728,20 @@ class GenCPDialog(QDialog):
             breakdown = conf.osm_class_breakdown(idx, names)
             frac = float(conf.osm_mask(idx, names).mean())
             self._show_osm_content(breakdown, frac)
+
+            # The judgement about this tile comes from the SAME registered score and the
+            # SAME band boundaries the output layer will use, computed on the very tile
+            # being shown. It replaced a hand-set 0.2%-of-pixels threshold that
+            # contradicted the layer on the first tile it was tried on: 0.295% OSM, no
+            # warning, while the layer put 33.6% of that tile in the red band. Two
+            # indicators of one thing, one measured and one guessed, is worse than either.
+            # Since registration 2 the score is conf_D, so this needs no inference at all.
+            sig = conf.signals(np.asarray(img.convert("RGB")))
+            score = conf.deployed_score(sig["conf_D"])
+            verdict = conf.run_verdict(score)
             self._show_warnings(
-                pipeline.coverage_warnings(stats, self._pbf_or_none()), breakdown, frac)
+                pipeline.coverage_warnings(stats, self._pbf_or_none()),
+                breakdown, verdict)
 
             self.cb_confirm.setEnabled(True)
             self.btn_prev.setEnabled(len(tiles) > 1)
@@ -647,7 +789,26 @@ class GenCPDialog(QDialog):
             f"</table>"
             f"<span style='color:gray'>{frac * 100:.3f}%</span>")
 
-    def _show_warnings(self, msgs, breakdown=None, frac=None):
+    def _render_coverage(self, items):
+        """Turkish rendering of gencp_core's STRUCTURED coverage facts.
+
+        gencp_core returns numbers and a `kind`, never prose: it used to return English
+        sentences that the dialog then displayed under a Turkish heading, which is how a
+        half-translated warning box got shipped.
+        """
+        out = []
+        for it in items or []:
+            if it.get("kind") == "zero_osm":
+                tiles = ", ".join(f"({i},{j})" for i, j in it.get("tiles", []))
+                more = t("warn_more_tiles", n=it["more"]) if it.get("more") else ""
+                src = it.get("source") or t("warn_zero_osm_source_overpass")
+                out.append(t("warn_zero_osm_tiles", n=it["n"], total=it["total"],
+                             tiles=tiles, more=more, source=src))
+            elif it.get("kind") == "count_unavailable":
+                out.append(t("warn_count_unavailable", n=it["n"], total=it["total"]))
+        return out
+
+    def _show_warnings(self, msgs, breakdown=None, verdict=None):
         """Warnings go inside the confirmation frame, directly above the checkbox.
 
         A tile with no OSM data renders as clean CLC+ land cover and looks like
@@ -655,27 +816,46 @@ class GenCPDialog(QDialog):
         is correct; this is what gives that box something to bite on, so the two are drawn
         as one block and the frame itself changes colour.
         """
-        parts = list(msgs or [])
-        if breakdown is not None:
-            if breakdown["total_osm_px"] == 0:
-                parts.insert(0, t("osm_zero_warning"))
-            elif frac is not None and frac < SPARSE_OSM_FRACTION:
-                parts.insert(0, t("osm_sparse_warning", pct=frac * 100,
-                                  roads=breakdown["roads"],
-                                  buildings=breakdown["buildings"],
-                                  water=breakdown["water"],
-                                  landuse=breakdown["landuse"]))
+        from gencp_core import confidence as conf
+        parts = self._render_coverage(msgs) if msgs and isinstance(
+            (msgs or [{}])[0], dict) else list(msgs or [])
+        severity = "warn" if parts else "info"
+        if breakdown is not None and breakdown["total_osm_px"] == 0:
+            # A fact, and it stays a warning whatever the score says. conf_D measures how
+            # much INPUT information the tile carries, and CLC+ land-cover variety alone
+            # can put a tile in the green band with zero OSM features in it. Those are two
+            # different statements and the user needs both.
+            parts.insert(0, t("osm_zero_warning"))
+            severity = "warn"
+        if verdict is not None:
+            band = verdict["mean_band"]
+            px = conf.CALIBRATION["band_median_px"][band]
+            if band == "red":
+                parts.insert(0, t("preview_band_red", px=f"{px:.1f}".replace(".", ",")))
+                severity = "danger"
+            elif band == "amber":
+                parts.insert(0, t("preview_band_amber", px=f"{px:.1f}".replace(".", ",")))
+                severity = "warn"
+            else:
+                # Green is not a warning, but silence would leave the user with nothing to
+                # weigh the checkbox against, so it is stated calmly.
+                parts.append(t("preview_band_green", px=f"{px:.1f}".replace(".", ",")))
+                # Only calm the frame if nothing ELSE raised a flag.
+                if severity != "warn":
+                    severity = "info"
         if not parts:
             self.lbl_warn.setVisible(False)
             self.lbl_warn.setText("")
             self.confirm_box.setStyleSheet(CALM_BOX)
             return
         self.lbl_warn.setText("<br><br>".join(parts))
-        self.lbl_warn.setStyleSheet(WARN_STYLE)
+        self.lbl_warn.setStyleSheet(
+            {"danger": DANGER_STYLE, "warn": WARN_STYLE, "info": INFO_STYLE}[severity])
         self.lbl_warn.setVisible(True)
-        self.confirm_box.setStyleSheet(ALERT_BOX)
-        for m in parts:
-            _log(m, member(Qgis, 'Warning'))
+        self.confirm_box.setStyleSheet(CALM_BOX if severity == "info" else ALERT_BOX)
+        if severity != "info":
+            for m in parts:
+                _log(m, member(Qgis, 'Warning'))
 
     # ----------------------------------------------------------- validation ---
     def _pbf_or_none(self):
@@ -724,7 +904,7 @@ class GenCPDialog(QDialog):
             return False, ""
         if not conf.model_is_validated(model):
             return False, t("confidence_not_validated")
-        if conf.stochastic_model_for(model) is None:
+        if conf.needs_stochastic() and conf.stochastic_model_for(model) is None:
             name = Path(model).stem.replace("_fp32", "_stochastic_fp32") + ".onnx"
             return False, t("confidence_no_stochastic", name=name)
         return True, ""
@@ -786,7 +966,8 @@ class GenCPDialog(QDialog):
             pbf=self._pbf_or_none(), base_product="clcplus",
             overlap_m=float(self.overlap_box.currentData()),
             confidence=bool(will_conf),
-            stochastic_model=(str(conf.stochastic_model_for(model)) if will_conf else None),
+            stochastic_model=(str(conf.stochastic_model_for(model))
+                              if (will_conf and conf.needs_stochastic()) else None),
         )
         self._apply_clc_path()
         self._remember("clc_path", self.clc_edit.text().strip())
@@ -889,6 +1070,7 @@ class GenCPDialog(QDialog):
         """One line for the whole run, in plain language, with its scope attached."""
         if not verdict:
             self.lbl_verdict.setVisible(False)
+            self.details.setVisible(False)
             return
         fr = verdict["fractions"]
         band_label = {"red": t("band_red"), "amber": t("band_amber"),
@@ -899,12 +1081,11 @@ class GenCPDialog(QDialog):
         if verdict["red_exceeds_threshold"]:
             html.append(t("verdict_red_warning", red=fr["red"] * 100,
                           thr=verdict["red_warn_fraction"] * 100))
-        html.append(f"<span style='color:gray'>{t('verdict_scope')}</span>")
         self.lbl_verdict.setText("<br>".join(html))
         self.lbl_verdict.setStyleSheet(
-            WARN_STYLE if verdict["red_exceeds_threshold"]
-            else "border:1px solid palette(mid); padding:6px;")
+            WARN_STYLE if verdict["red_exceeds_threshold"] else INFO_STYLE)
         self.lbl_verdict.setVisible(True)
+        self.details.setVisible(True)
 
     def _failed(self):
         task, self._task = self._task, None

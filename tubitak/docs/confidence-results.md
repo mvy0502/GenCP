@@ -209,7 +209,102 @@ which the preview covered tile 0 and the worker had to render the rest would hav
 in any earlier build. `gencp_core` now uses rasterio's PROJ binding throughout, with the
 four-corner arithmetic unchanged; Gate R still renders byte-identically.
 
-## 7. Open items
+## 7. Registration 2 — the stochastic term is dropped
+
+Executes [`confidence-registration-2.md`](confidence-registration-2.md), committed
+(`4019717`) before any Ankara number existed. Decision corpus: the **130 Ankara Overpass
+chips**, arm C2, `med_mean32`. Zero stem overlap with the 150 European chips that raised
+the question.
+
+| signal | Ankara rho | 95% CI | Europe rho |
+|---|---|---|---|
+| `conf_D` input density | **-0.768** | [-0.831, -0.676] | -0.755 |
+| `conf_COMB` incumbent | -0.645 | — | -0.747 |
+| `conf_B` baseline | -0.387 | — | -0.647 |
+| `conf_S` stochastic spread | -0.327 | — | -0.455 |
+
+| registered condition | result |
+|---|---|
+| 1. Non-inferiority: upper CI of `rho(D) - rho(COMB)` below +0.05 | **-0.035** — PASS |
+| 2. Stands alone: `rho <= -0.25`, CI excludes 0 | PASS |
+| 3. Beats the baseline: upper CI of `rho(D) - rho(B)` below 0 | **-0.245** — PASS |
+
+**Registered decision: SWITCH to `conf_D` alone.** It was framed as non-inferiority and it
+cleared superiority: `rho(D) - rho(COMB) = -0.123`, CI [-0.219, -0.035], excluding zero.
+
+### The number that actually settles it
+
+Partial rho on Ankara, with matched-point count held constant:
+
+| score | raw | partial given `n_mean32` |
+|---|---|---|
+| `conf_D` | -0.768 | **-0.287** |
+| `conf_COMB` | -0.645 | **+0.012** |
+| `conf_B` | -0.387 | -0.045 |
+| `conf_S` | -0.327 | +0.079 |
+
+**On Ankara, once point count is held constant, only `conf_D` retains any association at
+all.** The combination's entire Ankara correlation ran through how many points KARIOS
+matched; `conf_D`'s did not. The confound check was registered as mandatory because this
+mechanism produced a false result in this project once before, and here it is what
+distinguishes the two candidates rather than merely qualifying them.
+
+Discard curves agree, though less sharply — at every level `conf_D` is at or ahead of the
+combination (50%: 0.601 vs 0.627 px, against 0.947 for random discard).
+
+### What changed as a result
+
+- **No stochastic pass.** No 16 ONNX draws, no second 208 MB model to ship or request, no
+  explicit-noise graph surgery, and no need to explain that the image is deterministic
+  while its confidence map is not. The confidence layer is now computed from the rasterised
+  **input** alone and adds no measurable time.
+- **Bands re-derived on the EUROPEAN corpus**, as registered — Ankara decided, Europe
+  calibrated, so the decision and the calibration are not on one corpus.
+
+| band | boundary on `z(conf_D)` | n | median residual | IQR |
+|---|---|---|---|---|
+| Red — do not use | `<= -0.9824` | 19 | **3.309 px** | 0.692 |
+| Amber — use with care | -0.9824 to -0.2453 | 55 | **2.631 px** | 1.085 |
+| Green — usable | `>= -0.2453` | 76 | **1.331 px** | 0.996 |
+
+- `export_stochastic`, `StochasticOnnxGenerator` and `CALIBRATION_COMB_SUPERSEDED` are
+  **kept**, because `confidence_validate.py` still reproduces both registrations and this
+  document reports their numbers. They are simply no longer on the plugin's path.
+
+### Scope, restated
+
+Two corpora, both arm C2. Ankara is far denser in OSM than the European set (which runs
+0.02%-0.2% OSM-class pixels), so the score has now been asked to work in two regimes rather
+than one. That is better than one and it is not "general".
+
+---
+
+## 8. The four review decisions
+
+| | decision | what was done |
+|---|---|---|
+| 1.1 | Separate "which model ships" from "which model the bands were calibrated on" | `CALIBRATION` now records `calibrated_model_file` **and its SHA-256**, and `model_is_validated` checks the hash rather than the file name — a renamed C3 can no longer be handed C2's bands. Section 4 states, at the point the model is chosen and independently of the confidence checkbox, whether the bands were measured on it. |
+| 1.2 | Delete the hand-set 0.2% sparse-OSM threshold | Deleted, not re-tuned. The preview warning is computed from the **same registered score and the same band boundaries** the output layer uses, on the tile being shown, so the two cannot disagree by construction. Measured on the Ankara test tile: preview says 67.4% red, layer says 67.8% — the difference is only the 257 to 256 px alignment. Since the score is now `conf_D`, this costs no inference. |
+| 1.3 | One registered test | Above. |
+| 1.4 | Two interface corrections | The half-translated warning box is fixed at the source: `pipeline.coverage_warnings` returns **structured facts**, not English prose, and the dialog renders them in Turkish. The Spearman/partial-rho sentence moved behind a collapsible "Detaylar"; the band shares and the red-share warning stay prominent. |
+
+### Which arm is pre-filled, and the choice that is yours
+
+The plugin currently pre-fills **`gencp_C2_fp32.onnx`**, and it is worth being explicit
+that this happened as a side effect: C2 was chosen as the *calibration* arm because it is
+the only one with held-out European KARIOS errors, and the pre-fill followed. That is not a
+reason to ship it. The options:
+
+1. **Keep C2 as the default.** The confidence layer works out of the box. Whether C2 is the
+   best generator is a separate question this package has not measured.
+2. **Default to C3** (the previous default) and accept that the confidence layer is
+   withheld until the user switches model — the dialog now says so clearly.
+3. **Calibrate the bands for C3 as well.** This needs held-out European KARIOS errors for
+   C3, which do not exist; producing them is a run, not a decision.
+
+This is a product decision and it is left open deliberately.
+
+## 9. Open items
 
 1. **Drop the stochastic term?** `conf_D` alone scored better here, at a fraction of the
    cost and with no second model to ship. Needs its own registration on a different corpus.
@@ -219,13 +314,13 @@ four-corner arithmetic unchanged; Gate R still renders byte-identically.
 4. **C3 and the pretrained arm** have no held-out EU KARIOS errors, so the layer cannot yet
    be offered for them. The plugin now pre-fills C2 rather than C3 for this reason, which
    changes the default model a user gets.
-5. **The sparse-OSM warning and the confidence layer disagree, and the warning is the
-   weaker instrument.** The Ankara test tile carries 195 road pixels, 0.295% - just above
-   the dialog's 0.2% "very little OSM data" threshold, so no warning fires. The confidence
-   layer calls **33.6% of that same tile red**. The threshold is a hand-set prompt and the
-   score is a measured one; the obvious move is to derive the warning from the score
-   instead. Not done here, because the threshold was not registered and changing it now to
-   agree with a result I have already seen is the kind of tuning this project forbids.
-   It needs its own registration.
+5. ~~The sparse-OSM warning and the confidence layer disagree.~~ **Closed by decision 1.2**
+   — the threshold was deleted rather than tuned, and the warning now comes from the
+   registered score.
+7. **`conf_D` measures INPUT information, not OSM information.** A tile with zero OSM
+   features can still land in the green band on CLC+ land-cover variety alone. Observed
+   while wiring the preview warning, and handled by keeping the zero-OSM notice as a
+   warning in its own right regardless of the band. Whether the score *should* weight OSM
+   evidence more heavily than land-cover variety is unmeasured.
 6. **Per-pixel bands are chip-level boundaries applied at pixel granularity.** Stated
    wherever they appear, but a per-pixel calibration would need a per-pixel error source.

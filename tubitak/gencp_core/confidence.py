@@ -173,40 +173,101 @@ def osm_class_breakdown(idx, names):
 # middle of the scale and report green.
 # --------------------------------------------------------------------------------------
 
+# The score that SHIPS. Registration 2 (confidence-registration-2.md) tested dropping the
+# stochastic term as a NON-INFERIORITY question, because the justification was
+# simplification rather than correlation, and all three registered conditions passed on the
+# 130 Ankara chips - a corpus with zero stem overlap with the European set that raised the
+# question. conf_D also turned out to be strictly better there (-0.768 vs -0.645), and the
+# confound check is what settles it: with matched-point count held constant, conf_D keeps
+# rho -0.287 while the combination collapses to +0.012. The combination's entire Ankara
+# association ran through point count; conf_D's did not.
+#
+# So: no stochastic pass, no second 208 MB model, no explicit-noise ONNX, and no need to
+# explain that the image is deterministic while its confidence map is not.
+ACTIVE_SCORE = "conf_D"
+
 CALIBRATION = {
-    "corpus": "150 held-out EU chips, sitevar=eu in tubitak/docs/evidence/regD/regD_per_chip.csv",
+    "score": ACTIVE_SCORE,
+    "definition": "z(input density), z-scored against the European held-out corpus",
+    "decision_corpus": ("130 Ankara Overpass chips, sitevar=ank_overpass in "
+                        "tubitak/docs/evidence/regD/regD_per_chip.csv - chose the score"),
+    "calibration_corpus": ("150 held-out EU chips, sitevar=eu in the same file - set the "
+                           "band boundaries"),
     "arm": "C2",
     "error_column": "med_mean32 (KARIOS median radial residual, px)",
-    "spread_path": "gencp_C2_stochastic_fp32.onnx, 16 draws, seed 0",
-    "spearman_rho": -0.7466,
-    "spearman_ci": [-0.8226, -0.6473],
-    "partial_rho_given_point_count": -0.3810,
+    # The model the bands were calibrated against, by CONTENT. A file name can be changed;
+    # this cannot, so a renamed or substituted model cannot pass itself off as the one the
+    # bands were measured on.
+    "calibrated_model_file": "gencp_C2_fp32.onnx",
+    "calibrated_model_sha256":
+        "d3b75c364e46141eea6bbc3b2e5763dff46bff002d2afea93cd378e500fbec6b",
+    "spearman_rho_eu": -0.7553,
+    "spearman_rho_ankara": -0.7684,
+    "partial_rho_given_point_count_eu": -0.3810,
+    "partial_rho_given_point_count_ankara": -0.2870,
     "registration": "tubitak/docs/confidence-registration.md",
+    "registration_2": "tubitak/docs/confidence-registration-2.md",
     "results": "tubitak/docs/confidence-results.md",
-    # z-score statistics, taken over the held-out corpus
+    # z-score statistics, from the EUROPEAN corpus. Never re-fitted to a user's run: a run
+    # over one flat tile would z-score itself to the middle of the scale and report green.
     "conf_D_mean": 0.716106, "conf_D_std": 0.514109,
-    "conf_S_mean": -1.807605, "conf_S_std": 0.805370,
-    # band boundaries on the combined score
-    "red_hi": -0.728778, "green_lo": -0.104970,
-    "band_median_px": {"red": 3.133, "amber": 2.7054, "green": 1.3804},
-    "band_n": {"red": 23, "amber": 43, "green": 84},
+    # band boundaries on z(conf_D), derived on the European corpus by the registered rule
+    "red_hi": -0.982375, "green_lo": -0.245312,
+    "band_median_px": {"red": 3.3093, "amber": 2.6310, "green": 1.3310},
+    "band_n": {"red": 19, "amber": 55, "green": 76},
     "corpus_median_px": 1.9802,
 }
 
-# The one model this score is calibrated for. C3 has no held-out EU KARIOS errors, so the
-# bands have no meaning there and the plugin must not pretend otherwise.
-VALIDATED_MODEL_STEMS = ("gencp_C2_fp32", "gencp_C2_stochastic_fp32")
+# Superseded by registration 2, kept because confidence-results.md reports its numbers and
+# tubitak/scripts/confidence_validate.py still reproduces both registrations.
+CALIBRATION_COMB_SUPERSEDED = {
+    "score": "conf_COMB", "conf_S_mean": -1.807605, "conf_S_std": 0.805370,
+    "red_hi": -0.728778, "green_lo": -0.104970,
+    "spearman_rho_eu": -0.7466, "spearman_rho_ankara": -0.6449,
+    "partial_rho_given_point_count_ankara": 0.0120,
+}
+
+
+# The model whose weights the bands were calibrated on, by name, used only as a fallback
+# when the file cannot be hashed. model_is_validated() checks the SHA-256.
+VALIDATED_MODEL_STEMS = ("gencp_C2_fp32",)
 
 BAND_RED, BAND_AMBER, BAND_GREEN = 1, 2, 3
 BAND_NAMES = {BAND_RED: "red", BAND_AMBER: "amber", BAND_GREEN: "green"}
 # The bands are NAMED red/amber/green, so they are DRAWN red/amber/green. A first pass used
 # a blue for the green band on colour-blind grounds and produced a legend that read
-# "Yeşil - kullanılabilir" beside a blue swatch, which is worse: the reader now has to
+# "Yesil - kullanilabilir" beside a blue swatch, which is worse: the reader now has to
 # remember a mapping. Red-green confusion is mitigated the other way instead - the three
 # differ markedly in LIGHTNESS (relative luminance 0.13 / 0.48 / 0.22), so they stay
 # distinguishable in greyscale, and every place the bands are reported in words carries the
 # operational meaning next to the colour name.
-BAND_COLOURS = {BAND_RED: (202, 0, 32), BAND_AMBER: (244, 165, 130), BAND_GREEN: (26, 150, 65)}
+BAND_COLOURS = {BAND_RED: (202, 0, 32), BAND_AMBER: (244, 165, 130),
+                BAND_GREEN: (26, 150, 65)}
+
+
+def needs_stochastic():
+    """Does the shipping score require a dropout-enabled model? Since registration 2, no."""
+    return ACTIVE_SCORE != "conf_D"
+
+
+def model_sha256(path):
+    import hashlib
+    h = hashlib.sha256()
+    with open(str(path), "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def deployed_score(conf_D_field, conf_S_field=None):
+    """The score the plugin actually draws bands from. See ACTIVE_SCORE."""
+    if ACTIVE_SCORE == "conf_D":
+        c = CALIBRATION
+        return (np.asarray(conf_D_field, dtype=np.float64)
+                - c["conf_D_mean"]) / c["conf_D_std"]
+    if conf_S_field is None:
+        raise ValueError(f"score {ACTIVE_SCORE} needs a stochastic spread field")
+    return combined_score(conf_D_field, conf_S_field)
 
 
 def align_to(field, shape):
@@ -214,13 +275,12 @@ def align_to(field, shape):
 
     conf_D is computed on the 257 px RENDER, because class assignment has to see the
     palette colours before `infer.preprocess` resizes them to 256 with BICUBIC and blends
-    them into things that are no longer palette entries. conf_S necessarily lives on the
-    model's 256 px output grid. The two have to meet somewhere, and it is the entropy field
-    that moves, because it is smooth over a 33 px window and resampling it costs nothing.
+    them into things that are no longer palette entries. The mosaic works on the model's
+    256 px output grid. It is the entropy field that moves, because it is smooth over a
+    33 px window and resampling it costs nothing.
 
-    Validation aggregated both to chip means, where this never arose; the per-pixel map is
-    what forced the question. Re-running the validation with the alignment applied leaves
-    rho unchanged to four decimals.
+    Measured: this shifts the chip mean the validation used by at most 6.6e-06 bits,
+    against a corpus standard deviation of 0.514.
     """
     from scipy.ndimage import zoom
     a = np.asarray(field, dtype=np.float64)
@@ -231,7 +291,8 @@ def align_to(field, shape):
 
 def combined_score(conf_D, conf_S):
     """The registered score: mean of the two z-scores, using held-out corpus statistics."""
-    c = CALIBRATION
+    c = dict(CALIBRATION)
+    c.update(CALIBRATION_COMB_SUPERSEDED)
     conf_D = np.asarray(conf_D, dtype=np.float64)
     conf_S = np.asarray(conf_S, dtype=np.float64)
     if conf_D.shape != conf_S.shape:
@@ -278,9 +339,17 @@ def run_verdict(score, red_warn_fraction=0.20):
 
 
 def model_is_validated(model_path):
-    """True when the chosen weights are the ones the bands were calibrated on."""
+    """True when the chosen weights ARE the ones the bands were calibrated on.
+
+    Checked by SHA-256, not by file name. Names are trivially changed and a renamed C3
+    would otherwise be handed C2's bands - the exact confusion the bands' scope exists to
+    prevent. Falls back to the name only if the file cannot be read.
+    """
     from pathlib import Path as _P
-    return _P(str(model_path)).stem in VALIDATED_MODEL_STEMS
+    try:
+        return model_sha256(model_path) == CALIBRATION["calibrated_model_sha256"]
+    except OSError:
+        return _P(str(model_path)).stem in VALIDATED_MODEL_STEMS
 
 
 def stochastic_model_for(model_path):

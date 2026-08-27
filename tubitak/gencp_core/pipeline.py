@@ -162,26 +162,28 @@ def render_inputs(tiles, work_crs, work_dir, pbf=None, base_product="clcplus",
 
 
 def coverage_warnings(stats_by_tile, pbf=None):
-    """Human-readable warnings about tiles the vector source did not cover.
+    """Facts about tiles the vector source did not cover. STRUCTURED, not prose.
 
-    Returns a list of strings; empty when every tile had OSM features.
+    Returns a list of dicts, each with a `kind` and the numbers behind it. It used to
+    return English sentences, which the Turkish dialog then displayed under a Turkish
+    heading - a half-translated warning box. gencp_core has no business holding user-facing
+    prose in any language; the caller renders these in whatever language it speaks.
+
+    Empty list when every tile had OSM features.
     """
-    empty = [k for k, s in (stats_by_tile or {}).items()
-             if s and s.get("n_osm_features", None) == 0]
-    unknown = [k for k, s in (stats_by_tile or {}).items() if not s]
-    msgs = []
+    empty = sorted(k for k, s in (stats_by_tile or {}).items()
+                   if s and s.get("n_osm_features", None) == 0)
+    unknown = sorted(k for k, s in (stats_by_tile or {}).items() if not s)
+    total = len(stats_by_tile or {})
+    out = []
     if empty:
-        where = ("the .osm.pbf extract " + Path(pbf).name) if pbf else "Overpass"
-        msgs.append(
-            f"{len(empty)} of {len(stats_by_tile)} tile(s) contain ZERO OSM features "
-            f"({', '.join(f'({i},{j})' for i, j in sorted(empty)[:6])}"
-            f"{'…' if len(empty) > 6 else ''}). {where} returned nothing for that ground, "
-            f"so those tiles are the CLC+ land-cover base alone: no roads, no buildings, "
-            f"no water outlines. The result will look like plausible empty countryside "
-            f"rather than like an error. Check that the extract covers this extent.")
+        out.append(dict(kind="zero_osm", n=len(empty), total=total,
+                        tiles=[list(t) for t in empty[:6]],
+                        more=max(0, len(empty) - 6),
+                        source=(Path(pbf).name if pbf else None)))
     if unknown:
-        msgs.append(f"{len(unknown)} tile(s) had no feature count available.")
-    return msgs
+        out.append(dict(kind="count_unavailable", n=len(unknown), total=total))
+    return out
 
 
 def preview_image(render_path):
@@ -251,29 +253,41 @@ def generate(extent_bbox, crs, model_path, out_tif=None, *, pbf=None,
     if confidence:
         from . import confidence as _conf
         sto = None
-        if stochastic_model:
+        if _conf.needs_stochastic():
+            # Only reachable if ACTIVE_SCORE is put back to a two-term score. Refused
+            # rather than silently substituting a one-term score: bands calibrated on two
+            # terms mean nothing computed from one.
+            if not stochastic_model:
+                raise ValueError(
+                    f"score {_conf.ACTIVE_SCORE} needs the matching "
+                    "*_stochastic_fp32.onnx export; without it the score is not the one "
+                    "the bands were calibrated on")
             sto = _infer.StochasticOnnxGenerator(str(stochastic_model))
         for n, (key, path) in enumerate(renders.items(), 1):
             if cancelled is not None and cancelled():
                 raise Cancelled()
             sig = _conf.signals(np.asarray(preview_image(path)))
+            conf_s = None
             if sto is not None:
                 spread, _m = sto.spread(preview_image(path),
                                         n_passes=n_confidence_passes,
                                         seed=confidence_seed)
                 conf_s = -spread
-            else:
-                # Without a noise-input export there is no spread term. Rather than
-                # silently substituting a different score, this is refused: the bands were
-                # calibrated on the two-term score and mean nothing without it.
-                raise ValueError(
-                    "a confidence pass needs the matching *_stochastic_fp32.onnx export; "
-                    "without it the score is not the one the bands were calibrated on")
-            conf_tiles[key] = _encode_score(_conf.combined_score(sig["conf_D"], conf_s))
+            # conf_D lives on the 257 px RENDER (class assignment must see palette
+            # colours before preprocess resizes them); the mosaic works on the model's
+            # 256 px output grid. combined_score used to align them incidentally, via
+            # conf_S's shape - dropping conf_S removed that, so the alignment is now
+            # explicit rather than a side effect of a term that no longer exists.
+            _field = _conf.align_to(sig["conf_D"], (_extent.OUT_PX, _extent.OUT_PX))
+            conf_tiles[key] = _encode_score(
+                _conf.deployed_score(_field, conf_s))
             if progress is not None:
                 progress("confidence", n, len(renders))
-        conf_meta = dict(n_passes=n_confidence_passes, seed=confidence_seed,
-                         model=str(stochastic_model))
+        conf_meta = dict(score=_conf.ACTIVE_SCORE,
+                         stochastic=bool(sto),
+                         n_passes=(n_confidence_passes if sto else 0),
+                         seed=(confidence_seed if sto else None),
+                         model=(str(stochastic_model) if sto else None))
 
     rgb, valid, transform = _mosaic.build(tiles, fakes, work_crs, ext, overlap_m,
                                           progress=sub("mosaic"))
@@ -305,9 +319,13 @@ def generate(extent_bbox, crs, model_path, out_tif=None, *, pbf=None,
                             "3": "green - usable", "0": "nodata"},
             "inference_path_image": "DETERMINISTIC - gencp_core.infer.OnnxGenerator",
             "inference_path_confidence": (
-                "STOCHASTIC - dropout re-enabled via explicit noise inputs, "
-                f"{n_confidence_passes} draws, seed {confidence_seed}. The delivered image "
-                "does NOT come from this path."),
+                (f"STOCHASTIC - dropout re-enabled via explicit noise inputs, "
+                 f"{n_confidence_passes} draws, seed {confidence_seed}. The delivered "
+                 f"image does NOT come from this path.")
+                if conf_meta.get("stochastic") else
+                ("DETERMINISTIC - computed from the rasterised INPUT alone (local "
+                 "palette-class entropy). No inference of any kind is involved, so the "
+                 "confidence map and the image cannot disagree about which model ran.")),
             "confidence": conf_meta,
             "calibration": _conf.CALIBRATION,
         })

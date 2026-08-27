@@ -15,14 +15,11 @@ denenmedi. Arayüz Türkçedir.
 |---|---|---|
 | `gencp_plugin.zip` (48 KB) | https://github.com/mvy0502/gencp-validation/releases/download/plugin-v0.2.0/gencp_plugin.zip | Eklentinin kendisi |
 | `gencp_C2_fp32.onnx` (208 MB) | Doğrudan proje sahibinden isteyin | Üretici model ağırlıkları |
-| `gencp_C2_stochastic_fp32.onnx` (208 MB) | Doğrudan proje sahibinden isteyin | **Yalnızca güven katmanı için.** Bu dosya olmadan görüntü yine üretilir, güven katmanı üretilmez |
+
 
 Sürüm sayfası: https://github.com/mvy0502/gencp-validation/releases/tag/plugin-v0.2.0
 
-**İki `.onnx` dosyasını aynı klasöre koyun.** Eklenti, seçtiğiniz modelin yanında
-`_stochastic_fp32.onnx` ile biten eşini arar; bulamazsa 6. bölümde bunu yazar.
-
-Model dosyaları neden bağlantıyla verilmiyor: ağırlıklar GenCP'nin CC-BY 4.0
+Model dosyası neden bağlantıyla verilmiyor: ağırlıklar GenCP'nin CC-BY 4.0
 ağırlıklarından türedi, ancak ince ayar girdileri ODbL lisanslı OpenStreetMap verisinden
 üretildi. ODbL'nin share-alike yükümlülüğünün bu ağırlıklara uzanıp uzanmadığı belirsiz
 olduğu için dosyalar kurum içi doğrudan aktarımla veriliyor.
@@ -93,10 +90,11 @@ CLC+, model ve çıktı klasörü yollarını hatırlar ve **Gelişmiş** bölü
 21. Görüntünün sağındaki **Bu karodaki OSM içeriği** tablosuna bakın: yollar, binalar, su
     ve arazi kullanımı için kaç piksel olduğunu ve toplam yüzdeyi verir. Sayılar çok
     düşükse çıktı büyük ölçüde arazi örtüsünden türetilecektir.
-22. Sarı bir uyarı kutusu çıkarsa okuyun. En sık çıkanı: seçtiğiniz `.osm.pbf` bu alanı
-    kapsamıyor, yani karoda **hiç OSM nesnesi yok**. Sonuç yine de üretilir ve boş bir
-    kırsal alan gibi görünür - hata gibi görünmez. Bu durumda alanı kapsayan bir `.osm.pbf`
-    seçin. Uyarı, onay kutusuyla aynı çerçevenin içindedir ve çerçeve turuncuya döner.
+22. Onay kutusunun üstündeki kutuyu okuyun. Bu karonun hangi güven bandında olduğunu
+    yazar - kırmızı, turuncu ya da yeşil - ve bu, üretilecek güven katmanının kullandığı
+    ölçünün aynısıdır; ikisi çelişemez. Ayrıca seçtiğiniz `.osm.pbf` bu alanı kapsamıyorsa
+    "hiç OSM nesnesi yok" uyarısı çıkar: sonuç yine üretilir ve boş bir kırsal alan gibi
+    görünür, hata gibi görünmez. Uyarı, onay kutusuyla aynı çerçevenin içindedir.
 23. Çok karolu bir alanda **Sonraki karo** ile başka karolara da bakabilirsiniz.
 24. Görüntü doğruysa **... numaralı karoya baktım ..., görüntü doğru** kutusunu
     işaretleyin. Bu kutu işaretlenmeden **Üret** düğmesi açılmaz.
@@ -106,16 +104,18 @@ CLC+, model ve çıktı klasörü yollarını hatırlar ve **Gelişmiş** bölü
 25. **Gözat…** ile `gencp_C2_fp32.onnx` dosyasını seçin.
 26. Altında dosya adının, değiştirilme tarihinin ve boyutunun göründüğünü doğrulayın.
 
-### 6 · Çıktı
+### 5 · Çıktı
 
 27. **Diske GeoTIFF yaz** kutusunu işaretli bırakın.
 28. **Farklı kaydet…** ile çıktı yolunu belirleyin (örneğin `gencp_reference.tif`).
 29. **Sonucu haritaya katman olarak ekle** işaretliyse sonuç bitince haritaya eklenir.
 30. **Güven katmanı da üret** kutusu varsayılan olarak işaretlidir. Bkz. aşağıdaki bölüm.
+    Bu katman girdiden hesaplanır; ek bir model çalıştırmaz ve kayda değer bir süre eklemez.
 
-### 5 · Çalıştırma
+### 6 · Çalıştırma
 
-31. **Üret** düğmesine basın.
+31. **Üret** düğmesine basın. Bu düğme her zaman pencerenin altında görünür; kaydırmanız
+    gerekmez.
 32. İlerleme çubuğunun altındaki satır hangi adımda olduğunuzu yazar:
     *Rasterleştiriliyor*, *Üretiliyor*, *Güven haritası hesaplanıyor*, *Birleştiriliyor*.
     Üretim arka planda bir **QgsTask** üzerinde çalışır; QGIS donmaz.
@@ -138,26 +138,30 @@ yanıtlar: **çıktı burada girdi bilgisine mi dayanıyor, yoksa uydurma mı?**
 
 | Bant | Anlamı | Ayrık ölçümde o bandın hata ortancası |
 |---|---|---|
-| **Kırmızı - kullanmayın** | Çıktı burada büyük ölçüde uydurma | 3,13 piksel |
-| **Turuncu - dikkatli kullanın** | Girdi zayıf; başka bir kaynakla karşılaştırın | 2,71 piksel |
-| **Yeşil - kullanılabilir** | Çıktı burada girdi bilgisine dayanıyor | 1,38 piksel |
+| **Kırmızı - kullanmayın** | Çıktı burada büyük ölçüde uydurma | 3,31 piksel |
+| **Turuncu - dikkatli kullanın** | Girdi zayıf; başka bir kaynakla karşılaştırın | 2,63 piksel |
+| **Yeşil - kullanılabilir** | Çıktı burada girdi bilgisine dayanıyor | 1,33 piksel |
 
-6. bölümde ayrıca bütün çalışma için tek satırlık bir değerlendirme çıkar: her bandın
+5. bölümde ayrıca bütün çalışma için tek satırlık bir değerlendirme çıkar: her bandın
 yüzdesi ve çalışmanın ortalama bandı. Kırmızı %20'yi aşarsa ayrıca uyarı verir.
 
-**Bilmeniz gereken üç sınır:**
+**Bilmeniz gereken dört sınır:**
 
 1. **Bantlar yalnızca `gencp_C2_fp32.onnx` için ölçüldü.** Başka bir model seçerseniz
-   eklenti güven katmanını **üretmez** ve bunu 6. bölümde yazar. Doğrulanmamış bir model
-   için bant göstermek, olmayan bir ölçümü uydurmak olurdu.
-2. **Teslim edilen görüntü belirlenimci yoldan gelir.** Güven haritası, dropout açık 16
-   ayrı geçişten hesaplanır. Görüntünün kendisi bu rastgele yoldan **gelmez**.
-3. **Ölçünün gücü.** 150 ayrık Avrupa karosunda Spearman rho **-0,75**; ancak KARIOS'un
-   eşleştirdiği nokta sayısı sabit tutulduğunda **-0,38**. Yani ilişkinin yaklaşık yarısı
-   nokta sayısı üzerinden gidiyor. En düşük güvenli %50 atıldığında hata ortancası
-   1,98 pikselden 1,30 piksele iner.
-
-Maliyet: karo başına yaklaşık 0,3 saniye. İstemiyorsanız kutunun işaretini kaldırın.
+   4. bölümde uyarı çıkar ve eklenti güven katmanını **üretmez**. Doğrulanmamış bir model
+   için bant göstermek, olmayan bir ölçümü uydurmak olurdu. Model dosyası adına göre
+   değil, SHA-256 özetine göre denetlenir.
+2. **Skor girdiden hesaplanır.** Model çalıştırılmaz; katman, rasterleştirilmiş girdinin
+   yerel sınıf çeşitliliğinden gelir. Bu yüzden 3. bölümdeki önizleme uyarısı ile üretilen
+   katman aynı sayıyı kullanır ve birbiriyle çelişemez.
+3. **Ölçünün gücü.** 150 ayrık Avrupa karosunda Spearman rho **-0,76**, 130 Ankara
+   karosunda **-0,77**; KARIOS'un eşleştirdiği nokta sayısı sabit tutulduğunda sırasıyla
+   **-0,38** ve **-0,29**. Yani ilişkinin bir bölümü nokta sayısı üzerinden gidiyor.
+   En düşük güvenli %50 atıldığında Avrupa'da hata ortancası 1,98 pikselden 1,30 piksele
+   iner.
+4. **Bir karoda hiç OSM nesnesi olmasa bile bant yeşil çıkabilir**, çünkü skor arazi
+   örtüsü çeşitliliğini de sayar. Bu yüzden "hiç OSM nesnesi yok" uyarısı bandan bağımsız
+   olarak ayrıca gösterilir.
 
 ---
 
@@ -221,7 +225,7 @@ Bu bir kurulum hatası değildir; eklenti QGIS uygulaması içinde sorunsuz çal
 | Eklenti kurulduktan sonra listede yok | 4. adımdaki **Deneysel eklentileri de göster** işaretlenmemiş |
 | **Önizleme karosunu oluştur** kapalı | 2. bölümde kırmızı yazı var; CLC+ veya `.osm.pbf` yolu boş ya da dosya yok |
 | 1. bölümde kırmızı KRS uyarısı | Referans katman metrik olmayan bir KRS'te; 13. adıma bakın |
-| **Üret** düğmesi kapalı | 5. bölümün alt satırı sıradaki tek eksiği yazar: katman, kaynak, model, çıktı yolu ya da 24. adımdaki onay |
+| **Üret** düğmesi kapalı | 6. bölümün alt satırı sıradaki tek eksiği yazar: katman, kaynak, model, çıktı yolu ya da 24. adımdaki onay |
 | Önizlemede sarı uyarı | `.osm.pbf` bu alanı kapsamıyor; 22. adıma bakın |
 | Çıktı boş bir kırsal alan gibi | Aynı sebep - 22. adım |
-| Güven katmanı üretilmedi | 6. bölümdeki sarı not sebebini yazar: ya model doğrulanmamış, ya `_stochastic_fp32.onnx` eşi bulunamadı |
+| Güven katmanı üretilmedi | 4. bölümdeki uyarı sebebini yazar: seçtiğiniz model bantların ölçüldüğü model değil |

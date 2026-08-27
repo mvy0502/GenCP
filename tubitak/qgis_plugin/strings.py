@@ -33,6 +33,17 @@ S = {
     "overlap_economy": "{m} m (ekonomik)",
     "overlap_plain": "{m} m",
     "unset": "—",
+    # A bare dash reads as "failed". These say "waiting for you", which is what they mean.
+    "waiting": "<span style='color:gray'>— katman seçilince dolar</span>",
+    "no_raster_layer": "<b>Projede uygun katman yok.</b>",
+    # Kept to two lines: this sits in the empty state, and an empty form that is taller
+    # than a filled one pushes the Generate button off the screen.
+    "no_raster_layer_hint": (
+        "Önce bir raster katman yükleyin: <b>Katman > Katman Ekle > Raster Katman "
+        "Ekle…</b> — bu pencere açıkken de olur, liste kendini günceller."),
+    "no_raster_layer_tooltip": (
+        "Üretilecek alan ve koordinat referans sistemi seçtiğiniz katmandan okunur. "
+        "Katman georeferanslı ve metrik bir KRS'de olmalıdır."),
     "extent_value": "{xmin:.2f}, {ymin:.2f} → {xmax:.2f}, {ymax:.2f}  ({w:.0f} × {h:.0f} harita birimi)",
     "tiles_value": "<b>{n} karo</b> → çıktı {w} × {h} piksel ({mp:.1f} Mpiksel), {crs}",
     "tiles_estimate_note": "kaba tahmin {mins:.1f} dakika (CPU) — garanti değil, tahmindir",
@@ -55,6 +66,11 @@ S = {
                      "burada yanlışsa üretilen görüntü de aynı şekilde ve kendinden emin "
                      "biçimde yanlış olur."),
     "preview_none": "Henüz önizleme yok.",
+    "preview_needs_layer": (
+        "Önizleme, 1. bölümde bir referans katman seçildikten sonra burada görünür."),
+    "preview_press": (
+        "Katman hazır. <b>Önizleme karosunu oluştur</b> düğmesine basın."),
+    "osm_placeholder": "<span style='color:gray'>Önizleme oluşturulunca dolar.</span>",
     "preview_button": "Önizleme karosunu oluştur",
     "preview_prev": "◀ Önceki karo",
     "preview_next": "Sonraki karo ▶",
@@ -74,12 +90,32 @@ S = {
     "osm_landuse": "arazi kullanımı",
     "osm_px": "{n} piksel",
     "osm_none": "yok",
-    "osm_sparse_warning": (
-        "<b>Bu karoda çok az OSM verisi var</b> ({pct:.3f}% piksel; yollar {roads}, "
-        "binalar {buildings}, su {water}, arazi kullanımı {landuse}). Çıktı büyük ölçüde "
-        "arazi örtüsünden türetilecek: model, girdinin sessiz kaldığı yerde detay "
-        "uyduruyor. Aşağıdaki onay kutusunu işaretlemeden önce bunu göz önünde "
-        "bulundurun."),
+    # Driven by the SAME registered score and the SAME band boundaries as the output
+    # layer, so the two cannot disagree. The old version used a hand-set 0.2% pixel
+    # threshold that contradicted the layer on the very first tile it was tested on.
+    "preview_band_red": (
+        "<b>Bu karo kırmızı bantta: üretilen görüntü burada büyük ölçüde uydurma "
+        "olacak.</b> Girdi bu alan hakkında neredeyse hiçbir şey söylemiyor, dolayısıyla "
+        "modelin ürettiği doku ölçülmüş bir şeye dayanmıyor. Ayrık ölçümde bu bandın "
+        "eşleştirme hatası ortancası {px} pikseldi. Eşleştirme için kullanmayın."),
+    "preview_band_amber": (
+        "<b>Bu karo turuncu bantta: girdi zayıf.</b> Çıktı büyük ölçüde arazi "
+        "örtüsünden türetilecek. Ayrık ölçümde bu bandın eşleştirme hatası ortancası "
+        "{px} pikseldi. Başka bir kaynakla karşılaştırmadan kullanmayın."),
+    "preview_band_green": (
+        "Bu karo yeşil bantta: çıktı burada girdi bilgisine dayanıyor "
+        "(ayrık ölçümde hata ortancası {px} piksel)."),
+    # Turkish renderings of gencp_core.pipeline.coverage_warnings' STRUCTURED output. That
+    # function used to return English sentences, which appeared under a Turkish heading in
+    # a half-translated warning box.
+    "warn_zero_osm_tiles": (
+        "<b>{n} / {total} karoda hiç OSM nesnesi yok</b> ({tiles}{more}). Seçtiğiniz "
+        "kaynak ({source}) bu alan için hiçbir şey döndürmedi; o karolar yalnızca CLC+ "
+        "arazi örtüsünden oluşuyor: yol, bina ve su sınırı yok. Sonuç makul bir kırsal "
+        "alan gibi görünür, hata gibi görünmez. Kaynağın bu kapsamı içerdiğini denetleyin."),
+    "warn_zero_osm_source_overpass": "Overpass",
+    "warn_more_tiles": " ve {n} karo daha",
+    "warn_count_unavailable": "<b>{n} / {total} karo için nesne sayısı okunamadı.</b>",
     "osm_zero_warning": (
         "<b>Bu karoda hiç OSM nesnesi yok.</b> Seçtiğiniz kaynak bu alanı kapsamıyor "
         "olabilir. Sonuç yine de üretilir ve makul bir kırsal alan gibi görünür - hata "
@@ -90,9 +126,22 @@ S = {
     "model_none": "Model seçilmedi.",
     "model_desc": "<b>{name}</b><br>değiştirilme {mtime} · {mb:.1f} MB",
     "model_pick": "ONNX üretici model",
+    # 1.1 - which model SHIPS and which model the bands were CALIBRATED ON are two
+    # different decisions, and the dialog now says so out loud instead of letting one
+    # imply the other.
+    "model_calibrated_ok": (
+        "<span style='color:gray'>Güven bantları bu model dosyası için ölçüldü "
+        "(SHA-256 doğrulandı).</span>"),
+    "model_not_calibrated": (
+        "<b>Güven bantları bu model için ölçülmedi</b> — yalnızca <code>{calib}</code> "
+        "için. Görüntü üretilir, güven katmanı üretilmez."),
+    "model_not_calibrated_tooltip": (
+        "Bantlar 150 ayrık Avrupa karosunda C2 kolu için ölçüldü. Başka bir modele "
+        "taşındıklarında geçerli olmayabilirler, bu yüzden bu model seçiliyken güven "
+        "katmanı üretilmez."),
 
     # ---------------------------------------------------------------- 5 run -----
-    "sec5": "5 · Çalıştırma",
+    "sec5": "6 · Çalıştırma",
     "idle": "Hazır.",
     "generate": "Üret",
     "cancel": "Vazgeç",
@@ -108,13 +157,13 @@ S = {
     "failed": "Başarısız: {err}",
 
     # ---------------------------------------------------------------- 6 output --
-    "sec6": "6 · Çıktı",
+    "sec6": "5 · Çıktı",
     "add_layer": "Sonucu haritaya katman olarak ekle",
     "write_tif": "Diske GeoTIFF yaz",
     "save_as": "Farklı kaydet…",
     "out_pick": "GeoTIFF yaz",
     "make_confidence": "Güven katmanı da üret (piksel başına güvenilirlik)",
-    "confidence_cost": "16 ek çıkarım geçişi; karo başına yaklaşık 0,3 saniye.",
+    "confidence_cost": "Girdiden hesaplanır; ek model çalıştırmaz.",
     "wrote": "yazıldı: {path}",
     "added_layer": "katman olarak eklendi",
     "no_file_to_add": ("diske hiçbir şey yazılmadı, dolayısıyla eklenecek dosya yok; "
@@ -138,6 +187,7 @@ S = {
         "<b>Uyarı: kırmızı bant çıktının yaklaşık %{red:.0f} kadarını kaplıyor</b> "
         "(eşik %{thr:.0f}). Bu bölgelerde görüntü büyük ölçüde uydurmadır ve "
         "eşleştirme için kullanılmamalıdır."),
+    "details": "Detaylar - ölçüm ve kapsam",
     "verdict_scope": (
         "Bantlar 150 ayrık Avrupa karosunda C2 kolu için ölçüldü (Spearman rho -0,75; "
         "eşleşen nokta sayısı sabit tutulduğunda -0,38). Görüntü belirlenimci yoldan, "
@@ -164,7 +214,7 @@ S = {
     "err_clc_missing": ("CLC+ rasterı bulunamadı: {path}. “Gelişmiş” bölümünden yeniden "
                         "seçin."),
     "err_model_missing": ("Geçerli bir .onnx model dosyası seçin (4. bölüm, “Gözat”)."),
-    "err_out_missing": ("Çıktı dosyası için bir yol seçin (6. bölüm, “Farklı kaydet”), "
+    "err_out_missing": ("Çıktı dosyası için bir yol seçin (5. bölüm, “Farklı kaydet”), "
                         "ya da “Diske GeoTIFF yaz” kutusunun işaretini kaldırın."),
     "err_not_confirmed": ("Üretmeden önce 3. bölümdeki önizlemeyi oluşturun ve doğru "
                           "olduğunu onaylayın."),

@@ -249,8 +249,14 @@ def phase_b(plugin):
     QApplication.processEvents()
     check("shot 1: dialog on open, nothing selected",
           shot(dlg, "01_dialog_on_open.png"))
-    check("with no layer in the project the extent reads as unset",
-          dlg.lbl_extent.text() == "—", repr(dlg.lbl_extent.text()))
+    # A bare "—" reads as failed. The empty state now says it is waiting for input, and
+    # the test asserts that rather than asserting the dash it replaced.
+    import importlib as _il
+    _STR = _il.import_module(f"{PLUGIN_ID}.strings").S
+    check("the empty extent field explains itself rather than showing a bare dash",
+          dlg.lbl_extent.text() == _STR["waiting"] and "—" in dlg.lbl_extent.text()
+          and len(dlg.lbl_extent.text()) > len("—"),
+          dlg.lbl_extent.text())
     check("Generate is disabled on open", not dlg.btn_run.isEnabled())
 
     layer = QgsRasterLayer(str(REF), "reference (ank_0_30)")
@@ -481,26 +487,29 @@ def phase_c(plugin, layer):
           full_shot(dlg, "10_preview_with_osm_breakdown.png"))
     check("the OSM breakdown panel is populated",
           bool(dlg.lbl_osm.text()), dlg.lbl_osm.text()[:70].replace("<b>", ""))
-    # Assert the RULE, not a hoped-for outcome. This Ankara tile carries 195 road pixels,
-    # 0.295% - just ABOVE the 0.2% sparse threshold - so the correct behaviour here is
-    # silence, and a test demanding a warning would have been a test demanding a false
-    # positive. The warning path is exercised on a genuinely empty extent below.
     import importlib
+    dmod = importlib.import_module(f"{PLUGIN_ID}.dialog")
+    # The hand-set sparse threshold is gone (decision 1.2). The preview judgement now
+    # comes from the SAME registered score and band boundaries as the output layer, so the
+    # test is that the two AGREE on this tile rather than that some threshold fired.
     import numpy as _np
     from gencp_core import confidence as _conf, pipeline as _pl
-    dmod = importlib.import_module(f"{PLUGIN_ID}.dialog")
+    _e, _work, _ = _pl._extent.resolve(dlg._extent, dlg._crs)
+    _tile = _pl._extent.tile_grid(_e, dlg.overlap_box.currentData())[0][0]
     _img = _pl.preview_image(list(_pl.render_inputs(
-        [ _pl._extent.tile_grid(_pl._extent.resolve(dlg._extent, dlg._crs)[0],
-                                dlg.overlap_box.currentData())[0][0] ],
-        _pl._extent.resolve(dlg._extent, dlg._crs)[1],
-        _pl.default_work_dir() / "render", pbf=dlg._pbf_or_none()).values())[0])
-    _idx, _names = _conf.class_map(_np.asarray(_img.convert("RGB")))
-    _frac = float(_conf.osm_mask(_idx, _names).mean())
-    _should = _frac < dmod.SPARSE_OSM_FRACTION
-    check("the sparse-tile warning follows its threshold rule, either way",
-          dlg.lbl_warn.isVisible() == _should,
-          f"osm fraction {_frac*100:.4f}%, threshold {dmod.SPARSE_OSM_FRACTION*100:.1f}%, "
-          f"warning shown={dlg.lbl_warn.isVisible()} (expected {_should})")
+        [_tile], _work, _pl.default_work_dir() / "render",
+        pbf=dlg._pbf_or_none()).values())[0])
+    _sig = _conf.signals(_np.asarray(_img.convert("RGB")))
+    _v = _conf.run_verdict(_conf.deployed_score(_sig["conf_D"]))
+    say(f"    previewed tile band: {_v['mean_band']}  "
+        f"(green {_v['fractions']['green']*100:.1f}%  amber {_v['fractions']['amber']*100:.1f}%  "
+        f"red {_v['fractions']['red']*100:.1f}%)")
+    check("the preview judgement is driven by the registered score, not a hand-set threshold",
+          not hasattr(dmod, "SPARSE_OSM_FRACTION"),
+          "dialog exposes no SPARSE_OSM_FRACTION constant")
+    check("a non-green tile shows its band in the confirmation frame",
+          (_v["mean_band"] == "green") or dlg.lbl_warn.isVisible(),
+          f"band={_v['mean_band']}, warning shown={dlg.lbl_warn.isVisible()}")
     dlg.cb_confirm.setChecked(True)
     QApplication.processEvents()
 
@@ -612,11 +621,166 @@ def phase_c(plugin, layer):
     QApplication.processEvents()
     check("an extent with zero OSM features raises the warning",
           dlg.lbl_warn.isVisible(), dlg.lbl_warn.text()[:90].replace("<b>", ""))
+    # Assert against the dialog's own constant, not a colour literal the theme work moved.
     check("the confirmation checkbox is inside the alerted frame",
-          "ffc107" in dlg.confirm_box.styleSheet(), dlg.confirm_box.styleSheet()[:60])
+          dlg.confirm_box.styleSheet() == dmod.ALERT_BOX,
+          dlg.confirm_box.styleSheet()[:70])
     check("shot 15: the warning, framed together with the checkbox it qualifies",
           full_shot(dlg, "15_sparse_osm_warning.png"))
     QgsProject.instance().removeMapLayer(vl.id())
+    return dlg
+
+
+def _dark_palette():
+    """A dark Qt palette, the way macOS dark mode reaches QGIS's widgets."""
+    from qgis.PyQt.QtGui import QPalette, QColor
+    R = QPalette.ColorRole if hasattr(QPalette, "ColorRole") else QPalette
+    p = QPalette()
+    for role, col in (("Window", "#2b2b2b"), ("WindowText", "#e6e6e6"),
+                      ("Base", "#1e1e1e"), ("AlternateBase", "#2b2b2b"),
+                      ("Text", "#e6e6e6"), ("Button", "#3a3a3a"),
+                      ("ButtonText", "#e6e6e6"), ("Mid", "#5a5a5a"),
+                      ("Midlight", "#4a4a4a"), ("Dark", "#202020"),
+                      ("ToolTipBase", "#3a3a3a"), ("ToolTipText", "#e6e6e6"),
+                      ("Highlight", "#2a82da"), ("HighlightedText", "#ffffff"),
+                      ("PlaceholderText", "#9a9a9a")):
+        if hasattr(R, role):
+            p.setColor(getattr(R, role), QColor(col))
+    return p
+
+
+def _apply_theme(widget, dark, light_palette):
+    """Actually make the widgets dark, and verify it took.
+
+    setPalette() alone was not enough: the macOS native style largely ignores palette
+    colours, so the first "dark" capture came out light and the check was asserting
+    nothing. Fusion honours the palette in full, which is what the dialog's
+    palette(window-text) / palette(mid) / rgba() styling has to survive. The widget style
+    is therefore not pixel-identical to macOS native here - the COLOUR behaviour is what is
+    under test, and that is what this exercises.
+    """
+    from qgis.PyQt.QtWidgets import QApplication, QStyleFactory
+    st = QStyleFactory.create("Fusion")
+    if st is not None:
+        QApplication.setStyle(st)
+    pal = _dark_palette() if dark else light_palette
+    QApplication.setPalette(pal)
+    for w in [widget] + widget.findChildren(type(widget).__bases__[0]):
+        try:
+            w.setPalette(pal)
+        except Exception:                            # noqa: BLE001
+            pass
+    widget.setPalette(pal)
+    widget.style().unpolish(widget)
+    widget.style().polish(widget)
+    widget.update()
+
+
+def phase_d(plugin):
+    """Empty state, window sizes and both QGIS themes.
+
+    The complaint this answers: the plugin was opened in a real QGIS with no raster loaded,
+    every field showed a dash, and sections 4-6 - including Generate - were below the fold.
+    A first-time user never saw the primary action.
+    """
+    say("")
+    say("=" * 72)
+    say("PHASE D - empty state, window sizes, light and dark themes")
+    say("=" * 72)
+    from qgis.PyQt.QtWidgets import QApplication, QScrollArea, QGroupBox
+    from qgis.core import QgsApplication
+
+    QgsProject.instance().removeAllMapLayers()
+    QApplication.processEvents()
+    plugin.dialog = None
+    plugin.action.trigger()
+    QApplication.processEvents()
+    dlg = plugin.dialog
+
+    check("with an empty project the layer combo is empty", dlg.layer_box.count() == 0,
+          f"{dlg.layer_box.count()} entries")
+    check("and the dialog SAYS so, where the combo is",
+          dlg.lbl_layer_hint.isVisible() and bool(dlg.lbl_layer_hint.text()),
+          dlg.lbl_layer_hint.text()[:100].replace("<b>", "").replace("</b>", ""))
+    check("the preview area is collapsed to a slim placeholder",
+          dlg.preview_slim.isVisible() and not dlg.preview_body.isVisible(),
+          f"slim={dlg.preview_slim.isVisible()} body={dlg.preview_body.isVisible()}")
+
+    themes = list(QgsApplication.uiThemes().keys())
+    say(f"    UI themes available: {themes}")
+    # This QGIS build ships only the 'default' UI theme, so QgsApplication.setUITheme
+    # cannot produce a dark one. That is not a gap in the test: on macOS QGIS follows the
+    # SYSTEM appearance, and it reaches the widgets as a dark Qt palette either way. So the
+    # palette is what gets swapped here - which is also exactly what the dialog's
+    # palette(window-text) / palette(mid) styling depends on.
+    light_palette = QApplication.palette()
+    cases = [("light", None, 700, 460), ("light", None, 840, 760),
+             ("light", None, 1000, 900),
+             ("dark", "palette", 1000, 900), ("dark", "palette", 700, 460)]
+
+    def _scroll(d):
+        return d.findChild(QScrollArea)
+
+    for name, theme, w, h in cases:
+        _apply_theme(dlg, name == "dark", light_palette)
+        QApplication.processEvents()
+        dlg.resize(w, h)
+        QApplication.processEvents()
+        time.sleep(0.15)
+        QApplication.processEvents()
+        sa = _scroll(dlg)
+        hbar = sa.horizontalScrollBar()
+        vp = sa.viewport()
+        body = sa.widget()
+        # Generate is pinned OUTSIDE the scroll area, so the question is no longer "is it
+        # scrolled into view" but "is it on screen at all". Measured in DIALOG coordinates
+        # and cross-checked against Qt's own clipping via visibleRegion().
+        y = dlg.btn_run.mapTo(dlg, dlg.btn_run.rect().topLeft()).y()
+        on_screen = (y >= 0 and y + dlg.btn_run.height() <= dlg.height()
+                     and not dlg.btn_run.visibleRegion().isEmpty())
+        say(f"    {name:5s} {w}x{h}: h-scroll={hbar.isVisible()}  "
+            f"scrollBody={body.sizeHint().height()}px viewport={vp.height()}px  "
+            f"GenerateTop={y}px dialogH={dlg.height()}px visible={on_screen}")
+        bg = dlg.palette().color(dlg.backgroundRole())
+        is_dark = bg.lightness() < 128
+        check(f"the {name} capture really is {name}", is_dark == (name == "dark"),
+              f"window background lightness {bg.lightness()}")
+        check(f"no horizontal scrollbar at {name} {w}x{h}", not hbar.isVisible())
+        check(f"Generate is visible without scrolling at {name} {w}x{h}", on_screen,
+              f"button spans {y}..{y + dlg.btn_run.height()}px of a {dlg.height()}px dialog")
+        if (w, h) == (1000, 900):
+            heads = [g for g in body.findChildren(QGroupBox) if g.parent() is body]
+            check("all scrolling section headers exist and are laid out",
+                  len(heads) >= 5, f"{len(heads)} group boxes in the scroll body")
+        shot(dlg, f"20_empty_{name}_{w}x{h}.png")
+
+    # populated, dark, so the warning and verdict colours can actually be judged
+    if True:
+        _apply_theme(dlg, True, light_palette)
+        QApplication.processEvents()
+        layer = QgsRasterLayer(str(REF), "reference (ank_0_30)")
+        QgsProject.instance().addMapLayer(layer)
+        dlg.layer_box.setLayer(layer)
+        dlg.clc_edit.setText(str(CLC))
+        dlg.rb_local.setChecked(True)
+        dlg.pbf_edit.setText(str(PBF))
+        dlg.model_edit.setText(str(ROOT / "tubitak/data/plugin_models/gencp_C2_fp32.onnx"))
+        dlg._describe_model()
+        dlg.overlap_box.setCurrentIndex(0)
+        QApplication.processEvents()
+        dlg._render_preview()
+        QApplication.processEvents()
+        dlg.resize(840, 1000)
+        QApplication.processEvents()
+        check("shot 21: populated dialog in the dark theme",
+              full_shot(dlg, "21_populated_dark.png"))
+        # and the same state in light, for a like-for-like comparison
+        _apply_theme(dlg, False, light_palette)
+        QApplication.processEvents()
+        time.sleep(0.2)
+        QApplication.processEvents()
+        check("shot 22: the same state in the light theme",
+              full_shot(dlg, "22_populated_light.png"))
     return dlg
 
 
@@ -640,6 +804,7 @@ def main():
             layer = l
     if dlg is not None and layer is not None:
         phase_c(plugin, layer)
+    phase_d(plugin)
     say("")
     say("=" * 72)
     failed = [n for n, ok, _ in CHECKS if not ok]
