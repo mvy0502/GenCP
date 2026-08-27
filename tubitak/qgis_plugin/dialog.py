@@ -154,6 +154,19 @@ class GenCPDialog(QDialog):
             self.settings.setValue(SETTINGS_PREFIX + key, str(value))
 
     def _recall(self, key, default=""):
+        """Project first, then QgsSettings, then the caller's default.
+
+        QgsSettings is per-PROFILE, so it cannot travel in a .qgz. A demo or a handover
+        project needs to carry its own paths, which is what the project entries are for.
+        Reading them first means opening such a project just works; _remember still writes
+        only to QgsSettings, so ordinary use never mutates somebody's project file.
+        """
+        try:
+            v, ok = QgsProject.instance().readEntry("GenCP", key, "")
+            if ok and v:
+                return str(v)
+        except Exception:                            # noqa: BLE001
+            pass
         return str(self.settings.value(SETTINGS_PREFIX + key, default) or default)
 
     # ------------------------------------------------------------------- UI ----

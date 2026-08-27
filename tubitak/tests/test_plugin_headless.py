@@ -211,15 +211,36 @@ def main():
     dlg.cb_confirm.setChecked(True)
     dlg.out_edit.setText(str(out.with_name("cancel_probe.tif")))
     QApplication.processEvents()
+    # The cancelled flag is captured on the PYTHON side, before QGIS's task manager can
+    # delete the C++ object. Reading t2.isCanceled() after the fact raised
+    # "wrapped C/C++ object of type GenerateTask has been deleted" as soon as runs got fast
+    # enough for the task to be reaped before the assertion - a lifetime bug in this
+    # harness, not in the plugin, and one that only showed up once the confidence work
+    # removed 16 inference passes.
+    seen_cancel = {}
+
+    _orig_cancel = GenerateTask.cancel
+    def _record_cancel(self):
+        seen_cancel["flag"] = True
+        return _orig_cancel(self)
+    GenerateTask.cancel = _record_cancel
+
     dlg._start()
     t2 = dlg._task
+    t2.taskTerminated.connect(
+        lambda: seen_cancel.setdefault("terminated", True))
     QApplication.processEvents()
     dlg._cancel()
     deadline = time.time() + 300
     while dlg._task is not None and time.time() < deadline:
         QApplication.processEvents()
         time.sleep(0.05)
-    check("cancel stops the task", t2.isCanceled(), dlg.lbl_status.text()[:60])
+    GenerateTask.cancel = _orig_cancel
+    check("cancel stops the task",
+          seen_cancel.get("flag") and seen_cancel.get("terminated")
+          and dlg._task is None,
+          f"cancel called={seen_cancel.get('flag')}, terminated="
+          f"{seen_cancel.get('terminated')}, status={dlg.lbl_status.text()[:40]!r}")
 
     say("\n" + "=" * 62)
     say(f"{len(CHECKS)-len(FAILURES)}/{len(CHECKS)} checks passed")
