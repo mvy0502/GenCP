@@ -1,0 +1,96 @@
+==============================================================================
+CONFIDENCE SCORE VALIDATION - executing confidence-registration.md
+==============================================================================
+  torch 2.13.0 | numpy 2.4.6 | onnxruntime 1.29.0
+  window 33 | N passes 16 | seeds 0..15
+  stochastic spread computed via         : onnx (the deployed path)
+  held-out chips with C2 errors : 130
+  also with C1 errors               : 130
+  input renders present                  : 130/130
+initialize network with normal
+  dropout modules re-enabled             : 3
+
+--- CONTROL: stochastic passes must sit around the deterministic output ---
+    ank_0_10  mean |det - stoch_mean|   0.40 DN   max   5.39 DN
+    ank_0_16  mean |det - stoch_mean|   0.29 DN   max   5.16 DN
+    ank_0_30  mean |det - stoch_mean|   0.46 DN   max   6.08 DN
+    ank_0_41  mean |det - stoch_mean|   0.55 DN   max  10.59 DN
+    ank_10_1  mean |det - stoch_mean|   0.31 DN   max   3.85 DN
+    worst chip mean difference: 0.55 DN
+
+--- computing signals over 130 chips ---
+    25/130 chips   (7s elapsed)
+    50/130 chips   (15s elapsed)
+    75/130 chips   (22s elapsed)
+    100/130 chips   (29s elapsed)
+    125/130 chips   (36s elapsed)
+    130/130 chips   (37s elapsed)
+  wrote /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/docs/evidence/confidence/per_chip.csv
+
+==============================================================================
+PRIMARY - Spearman rho against KARIOS median residual (arm C2, 150 held-out chips)
+==============================================================================
+  convention: higher confidence = better, so a NEGATIVE rho supports the score
+    conf_D  (input density)          rho -0.768   95% CI [-0.831, -0.676]  excludes 0
+    conf_B  (distance baseline)      rho -0.387   95% CI [-0.540, -0.219]  excludes 0
+    conf_S  (stochastic spread)      rho -0.327   95% CI [-0.467, -0.173]  excludes 0
+    conf_COMB (registered)           rho -0.645   95% CI [-0.740, -0.528]  excludes 0
+
+  rho(COMB) - rho(B) = -0.258  95% CI [-0.404, -0.116]  -> COMB beats the baseline
+
+  REGISTERED PRIMARY TEST (rho <= -0.25 and CI excludes 0): PASS
+
+  secondary arm C1 (replication check only):
+    conf_B     rho -0.470  (n=130)
+    conf_COMB  rho -0.601  (n=130)
+
+==============================================================================
+CONFOUND - matched point count (this mechanism produced a false result once)
+==============================================================================
+    rho(conf_COMB, n_mean32)                 +0.778
+    rho(n_mean32,  err)                      -0.835
+    partial rho(conf_COMB, err | n_mean32)   +0.012   (primary was -0.645)
+    restricted to n_mean32 >= 10             rho -0.645  (n=130, dropped 0)
+
+==============================================================================
+OPERATIONAL - discard the lowest-confidence X%, what happens to the rest
+==============================================================================
+    median residual over all 130 chips: 0.9418 px
+      X%   kept      COMB    conf_D   baseline B    random
+     10%    117    0.8680    0.8502       0.9115    0.9483
+     25%     98    0.7560    0.7405       0.8243    0.9439
+     50%     65    0.6268    0.6011       0.7136    0.9468
+
+==============================================================================
+BANDS
+==============================================================================
+    corpus median M = 0.9418 px; red requires a conditional median >= 1.4127
+    red band permitted by |rho| >= 0.35: True
+    red upper boundary  : -0.528920797608954
+    green lower boundary: 0.19032185211453048
+    red    n= 29  median residual 2.6993 px  IQR 1.2983
+    green  n= 49  median residual 0.5848 px  IQR 0.3024
+    amber  n= 52  median residual 1.0864 px  IQR 1.2625
+
+==============================================================================
+REGISTRATION 2 - non-inferiority: is conf_D alone not meaningfully worse?
+==============================================================================
+  rho(conf_D)                    -0.768  95% CI [-0.831, -0.676]
+  rho(conf_COMB)                 -0.645
+  rho(conf_B)                    -0.387
+  rho(D) - rho(COMB)             -0.123  95% CI [-0.219, -0.035]
+  rho(D) - rho(B)                -0.380  95% CI [-0.520, -0.245]
+
+  1 non-inferiority  upper CI -0.035 < +0.05      : PASS
+  2 stands alone     rho <= -0.25, CI excludes 0 : PASS
+  3 beats baseline   upper CI -0.245 < 0        : PASS
+
+  REGISTERED DECISION: SWITCH to conf_D alone
+
+  partial rho given n_mean32, every score:
+    conf_D     raw -0.768   partial -0.287
+    conf_B     raw -0.387   partial -0.045
+    conf_S     raw -0.327   partial +0.079
+    conf_COMB  raw -0.645   partial +0.012
+
+wrote /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/docs/evidence/confidence/results_onnx_ankara.json
