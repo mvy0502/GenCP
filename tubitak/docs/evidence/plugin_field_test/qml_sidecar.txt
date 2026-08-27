@@ -1,0 +1,15 @@
+  [PASS] the file under test really carries an alpha band  - 4 bands, colorinterp ['3', '4', '5', '6']
+  [PASS] and that alpha would visibly blend if honoured  - alpha min 83 max 204 mean 108.0; fully opaque pixels 0.0%
+  [PASS] write_qml_sidecar produced the file QGIS looks for  - gencp_reference.qml
+
+  mean |what QGIS draws - the RGB stored in the file|, over magenta:
+    without the .qml :    82.97 DN   (pure-magenta pixels 0.25%)
+    with the .qml    :     2.31 DN   (pure-magenta pixels 0.00%)
+    with the .qml, interior only: 2.11 DN, max 45 DN, 6.63% of pixels over 8 DN
+
+  [PASS] the measurement can fail: without the sidecar the render is a blend  - 82.97 DN
+  [PASS] with the sidecar QGIS draws the stored RGB  - 2.31 DN
+  [PASS] and no background bleeds through  - 0.0000% pure magenta
+========================================================================
+6/6 checks passed
+========================================================================

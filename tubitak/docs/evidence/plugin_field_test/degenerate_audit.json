@@ -1,0 +1,577 @@
+[
+ {
+  "script": "_guard.py",
+  "modes": {
+   "no-args": {
+    "rc": 0,
+    "claims_success": false,
+    "silent": true,
+    "head": ""
+   },
+   "empty-input": {
+    "rc": 0,
+    "claims_success": false,
+    "silent": true,
+    "head": ""
+   },
+   "missing-file": {
+    "rc": 0,
+    "claims_success": false,
+    "silent": true,
+    "head": ""
+   }
+  }
+ },
+ {
+  "script": "arm_common_support.py",
+  "modes": {
+   "no-args": {
+    "rc": 0,
+    "claims_success": true,
+    "silent": false,
+    "head": "sign flips: 0    changes beyond 0.15 px: 0 / =============================================================================="
+   },
+   "empty-input": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  This verifier refuses arguments it does not understand rather than /   ignoring them and reporting a verdict for something you did not ask for."
+   },
+   "missing-file": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  This verifier refuses arguments it does not understand rather than /   ignoring them and reporting a verdict for something you did not ask for."
+   }
+  }
+ },
+ {
+  "script": "arm_point_screen.py",
+  "modes": {
+   "no-args": {
+    "rc": 0,
+    "claims_success": false,
+    "silent": false,
+    "head": "flagged pairwise comparisons overall: 206 / =========================================================================="
+   },
+   "empty-input": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  This verifier refuses arguments it does not understand rather than /   ignoring them and reporting a verdict for something you did not ask for."
+   },
+   "missing-file": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  This verifier refuses arguments it does not understand rather than /   ignoring them and reporting a verdict for something you did not ask for."
+   }
+  }
+ },
+ {
+  "script": "check_links.py",
+  "modes": {
+   "no-args": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  0 links checked across 1 files; 0 dead /   NOTHING TO CHECK: files were read but not one link was found. That is a broken extractor or the wrong cor"
+   },
+   "empty-input": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  0 links checked across 1 files; 0 dead /   NOTHING TO CHECK: files were read but not one link was found. That is a broken extractor or the wrong cor"
+   },
+   "missing-file": {
+    "rc": 1,
+    "claims_success": false,
+    "silent": false,
+    "head": "           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ / FileNotFoundError: [Errno 2] No such file or directory: '/var/folders/my/zq5vn6"
+   }
+  }
+ },
+ {
+  "script": "demo_dry_run.py",
+  "modes": {
+   "no-args": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  File \"<string>\", line 97, in main / AttributeError: 'NoneType' object has no attribute 'result'"
+   },
+   "empty-input": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  File \"<string>\", line 97, in main / AttributeError: 'NoneType' object has no attribute 'result'"
+   },
+   "missing-file": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  File \"<string>\", line 97, in main / AttributeError: 'NoneType' object has no attribute 'result'"
+   }
+  }
+ },
+ {
+  "script": "gate_alpha.py",
+  "modes": {
+   "no-args": {
+    "rc": 0,
+    "claims_success": false,
+    "silent": false,
+    "head": "GATE ALPHA: PASS (19/19) / ======================================================================"
+   },
+   "empty-input": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  This verifier refuses arguments it does not understand rather than /   ignoring them and reporting a verdict for something you did not ask for."
+   },
+   "missing-file": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  This verifier refuses arguments it does not understand rather than /   ignoring them and reporting a verdict for something you did not ask for."
+   }
+  }
+ },
+ {
+  "script": "gate_d_analyse.py",
+  "modes": {
+   "no-args": {
+    "rc": 0,
+    "claims_success": true,
+    "silent": false,
+    "head": "  regA det_C2         median 62  min 17  max 467 / =============================================================================="
+   },
+   "empty-input": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  This verifier refuses arguments it does not understand rather than /   ignoring them and reporting a verdict for something you did not ask for."
+   },
+   "missing-file": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  This verifier refuses arguments it does not understand rather than /   ignoring them and reporting a verdict for something you did not ask for."
+   }
+  }
+ },
+ {
+  "script": "gate_d_common_support.py",
+  "modes": {
+   "no-args": {
+    "rc": 0,
+    "claims_success": false,
+    "silent": false,
+    "head": " / wrote /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/plugin_gates/gate_d/common_support_results.json"
+   },
+   "empty-input": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  This verifier refuses arguments it does not understand rather than /   ignoring them and reporting a verdict for something you did not ask for."
+   },
+   "missing-file": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  This verifier refuses arguments it does not understand rather than /   ignoring them and reporting a verdict for something you did not ask for."
+   }
+  }
+ },
+ {
+  "script": "gate_d_generate.py",
+  "modes": {
+   "no-args": {
+    "rc": 0,
+    "claims_success": true,
+    "silent": false,
+    "head": " / stage 1 complete"
+   },
+   "empty-input": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  This verifier refuses arguments it does not understand rather than /   ignoring them and reporting a verdict for something you did not ask for."
+   },
+   "missing-file": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  This verifier refuses arguments it does not understand rather than /   ignoring them and reporting a verdict for something you did not ask for."
+   }
+  }
+ },
+ {
+  "script": "gate_d_karios.py",
+  "modes": {
+   "no-args": {
+    "rc": 0,
+    "claims_success": false,
+    "silent": false,
+    "head": "evalbn_C2    30       0  1.475182 / evalbn_C3    30       0  1.629154"
+   },
+   "empty-input": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  This verifier refuses arguments it does not understand rather than /   ignoring them and reporting a verdict for something you did not ask for."
+   },
+   "missing-file": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  This verifier refuses arguments it does not understand rather than /   ignoring them and reporting a verdict for something you did not ask for."
+   }
+  }
+ },
+ {
+  "script": "gate_g.py",
+  "modes": {
+   "no-args": {
+    "rc": 0,
+    "claims_success": true,
+    "silent": false,
+    "head": "GATE G: PASS (12/12 assertions) / ======================================================================"
+   },
+   "empty-input": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  This verifier refuses arguments it does not understand rather than /   ignoring them and reporting a verdict for something you did not ask for."
+   },
+   "missing-file": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  This verifier refuses arguments it does not understand rather than /   ignoring them and reporting a verdict for something you did not ask for."
+   }
+  }
+ },
+ {
+  "script": "gate_o.py",
+  "modes": {
+   "no-args": {
+    "rc": 0,
+    "claims_success": false,
+    "silent": false,
+    "head": "GATE O (fp32, the deployed model): PASS / =============================================================================="
+   },
+   "empty-input": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  This verifier refuses arguments it does not understand rather than /   ignoring them and reporting a verdict for something you did not ask for."
+   },
+   "missing-file": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  This verifier refuses arguments it does not understand rather than /   ignoring them and reporting a verdict for something you did not ask for."
+   }
+  }
+ },
+ {
+  "script": "gate_r.py",
+  "modes": {
+   "no-args": {
+    "rc": 0,
+    "claims_success": true,
+    "silent": false,
+    "head": "GATE R: PASS  (3/3 tiles byte-identical to stored originals) / =================================================================="
+   },
+   "empty-input": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  This verifier refuses arguments it does not understand rather than /   ignoring them and reporting a verdict for something you did not ask for."
+   },
+   "missing-file": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  This verifier refuses arguments it does not understand rather than /   ignoring them and reporting a verdict for something you did not ask for."
+   }
+  }
+ },
+ {
+  "script": "gate_s.py",
+  "modes": {
+   "no-args": {
+    "rc": 0,
+    "claims_success": false,
+    "silent": false,
+    "head": "Note: CLC+ Backbone covers Europe only; the CLC+ row is the size of a CLIP for the area, /       not of the 8.2 GB continental source, which the plugi"
+   },
+   "empty-input": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  This verifier refuses arguments it does not understand rather than /   ignoring them and reporting a verdict for something you did not ask for."
+   },
+   "missing-file": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  This verifier refuses arguments it does not understand rather than /   ignoring them and reporting a verdict for something you did not ask for."
+   }
+  }
+ },
+ {
+  "script": "overlap_constraints.py",
+  "modes": {
+   "no-args": {
+    "rc": 0,
+    "claims_success": false,
+    "silent": false,
+    "head": "20/20 checks passed / ========================================================================"
+   },
+   "empty-input": {
+    "rc": 0,
+    "claims_success": false,
+    "silent": false,
+    "head": "20/20 checks passed / ========================================================================"
+   },
+   "missing-file": {
+    "rc": 0,
+    "claims_success": false,
+    "silent": false,
+    "head": "20/20 checks passed / ========================================================================"
+   }
+  }
+ },
+ {
+  "script": "plugin_cache_probe.py",
+  "modes": {
+   "no-args": {
+    "rc": 0,
+    "claims_success": true,
+    "silent": false,
+    "head": "  [PASS] no new render was made for a repeat extent /   [PASS] repeat of A reproduces A byte for byte"
+   },
+   "empty-input": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  This verifier refuses arguments it does not understand rather than /   ignoring them and reporting a verdict for something you did not ask for."
+   },
+   "missing-file": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  This verifier refuses arguments it does not understand rather than /   ignoring them and reporting a verdict for something you did not ask for."
+   }
+  }
+ },
+ {
+  "script": "plugin_e2e_run.py",
+  "modes": {
+   "no-args": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  File \"<string>\", line 310, in phase_b / AttributeError: 'NoneType' object has no attribute 'group'"
+   },
+   "empty-input": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  File \"<string>\", line 310, in phase_b / AttributeError: 'NoneType' object has no attribute 'group'"
+   },
+   "missing-file": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  File \"<string>\", line 310, in phase_b / AttributeError: 'NoneType' object has no attribute 'group'"
+   }
+  }
+ },
+ {
+  "script": "plugin_failure_paths.py",
+  "modes": {
+   "no-args": {
+    "rc": 0,
+    "claims_success": false,
+    "silent": false,
+    "head": "  CLEAN                              exceptions raised inside Qt slots during all of the above / ====================================================="
+   },
+   "empty-input": {
+    "rc": 0,
+    "claims_success": false,
+    "silent": false,
+    "head": "  CLEAN                              exceptions raised inside Qt slots during all of the above / ====================================================="
+   },
+   "missing-file": {
+    "rc": 0,
+    "claims_success": false,
+    "silent": false,
+    "head": "  CLEAN                              exceptions raised inside Qt slots during all of the above / ====================================================="
+   }
+  }
+ },
+ {
+  "script": "plugin_zip_install.py",
+  "modes": {
+   "no-args": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ / FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/my/zq5vn6hj0"
+   },
+   "empty-input": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ / FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/my/zq5vn6hj0"
+   },
+   "missing-file": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ / FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/my/zq5vn6hj0"
+   }
+  }
+ },
+ {
+  "script": "qml_sidecar.py",
+  "modes": {
+   "no-args": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "0/1 checks passed / ========================================================================"
+   },
+   "empty-input": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "0/1 checks passed / ========================================================================"
+   },
+   "missing-file": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "0/1 checks passed / ========================================================================"
+   }
+  }
+ },
+ {
+  "script": "test_no_qgis_imports.py",
+  "modes": {
+   "no-args": {
+    "rc": 0,
+    "claims_success": true,
+    "silent": false,
+    "head": "checked 10 files under gencp_core/ for qgis/Qt imports / PASS \u2014 gencp_core is free of qgis and Qt imports"
+   },
+   "empty-input": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  This verifier refuses arguments it does not understand rather than /   ignoring them and reporting a verdict for something you did not ask for."
+   },
+   "missing-file": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  This verifier refuses arguments it does not understand rather than /   ignoring them and reporting a verdict for something you did not ask for."
+   }
+  }
+ },
+ {
+  "script": "test_plugin_headless.py",
+  "modes": {
+   "no-args": {
+    "rc": 1,
+    "claims_success": false,
+    "silent": false,
+    "head": "FAILED: reference layer loads, section 1 shows the CRS, section 1 shows tiles + estimate, section 2 unblocks once resolved, section 4 shows model name"
+   },
+   "empty-input": {
+    "rc": 1,
+    "claims_success": false,
+    "silent": false,
+    "head": "FAILED: reference layer loads, section 1 shows the CRS, section 1 shows tiles + estimate, section 2 unblocks once resolved, section 4 shows model name"
+   },
+   "missing-file": {
+    "rc": 1,
+    "claims_success": false,
+    "silent": false,
+    "head": "FAILED: reference layer loads, section 1 shows the CRS, section 1 shows tiles + estimate, section 2 unblocks once resolved, section 4 shows model name"
+   }
+  }
+ },
+ {
+  "script": "verify_kaggle_backup.py",
+  "modes": {
+   "no-args": {
+    "rc": 1,
+    "claims_success": false,
+    "silent": false,
+    "head": "    from kaggle.api.kaggle_api_extended import KaggleApi / ModuleNotFoundError: No module named 'kaggle'"
+   },
+   "empty-input": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  This verifier refuses arguments it does not understand rather than /   ignoring them and reporting a verdict for something you did not ask for."
+   },
+   "missing-file": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  This verifier refuses arguments it does not understand rather than /   ignoring them and reporting a verdict for something you did not ask for."
+   }
+  }
+ },
+ {
+  "script": "verify_georeferencing.py",
+  "modes": {
+   "no-args": {
+    "rc": 0,
+    "claims_success": false,
+    "silent": false,
+    "head": "OVERALL: PASS / =============================================================================="
+   },
+   "empty-input": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  This verifier refuses arguments it does not understand rather than /   ignoring them and reporting a verdict for something you did not ask for."
+   },
+   "missing-file": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  This verifier refuses arguments it does not understand rather than /   ignoring them and reporting a verdict for something you did not ask for."
+   }
+  }
+ },
+ {
+  "script": "acceptance_test.py",
+  "modes": {
+   "no-args": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "usage: acceptance_test.py [-h] --phase {graded,list,prep,score,warp} / acceptance_test.py: error: the following arguments are required: --phase"
+   },
+   "empty-input": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  This verifier refuses arguments it does not understand rather than /   ignoring them and reporting a verdict for something you did not ask for."
+   },
+   "missing-file": {
+    "rc": 2,
+    "claims_success": false,
+    "silent": false,
+    "head": "  This verifier refuses arguments it does not understand rather than /   ignoring them and reporting a verdict for something you did not ask for."
+   }
+  }
+ }
+]

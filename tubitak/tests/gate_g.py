@@ -32,6 +32,16 @@ warnings.filterwarnings("ignore")
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tubitak"))
 
+# Unknown arguments are refused, not ignored: a verifier that runs its default
+# and prints PASS when you asked for something else is reporting on the wrong run.
+import os.path as _op  # noqa: E402
+sys.path.insert(0, _op.join(_op.dirname(_op.abspath(__file__)),
+                            *(['..', 'tests'] if _op.basename(
+                                _op.dirname(_op.abspath(__file__))) != 'tests'
+                              else [])))
+from _guard import strict_argv  # noqa: E402
+strict_argv(known=('--overlap=',), positional=0)
+
 import numpy as np
 import rasterio
 from rasterio.transform import Affine
@@ -186,6 +196,24 @@ def main():
     m &= exclusive
     print(f"  tiles in this run: {len(tiles)}; comparing the "
           f"{int(m.sum())} px where tile 0 is the only contributor")
+    # Part B compares ONE tile against the mosaic, so it needs pixels that only that tile
+    # wrote. The width of that strip is the stride, TILE_M - overlap. Past a certain
+    # overlap the strip is narrower than the 10 px margin and vanishes: at 2560 m the
+    # stride is 10 m and tile 0 has ZERO exclusive pixels. The comparison is then not
+    # failing, it is UNDEFINED - and it used to crash on the empty array, which at least
+    # was loud. What it must never do is report a pass for a measurement it did not make.
+    if m.sum() == 0:
+        print(f"  NOT MEASURED: at {overlap:.0f} m overlap the stride is "
+              f"{gext.TILE_M - overlap:.0f} m, so no pixel is written by tile 0 alone and "
+              f"content placement cannot be checked by this method.")
+        print(f"  Part A (grid alignment) above is unaffected and its result stands.")
+        print()
+        print("=" * 70)
+        print(f"GATE G: PART B NOT MEASURED at overlap {overlap:.0f} m "
+              f"({sum(1 for _,o,_ in CHECKS if o)}/{len(CHECKS)} part-A assertions passed)")
+        print("=" * 70)
+        return 3
+
     check("independent warp overlaps the output", m.sum() > 1000, f"{int(m.sum())} px compared")
     maxdiff = float(np.abs(a[m] - b_[m]).max())
     check("single-tile mosaic equals the independent corrected-affine warp",

@@ -35,6 +35,10 @@ Gösterilecek üç şey:
 - **Girdi ile çıktıyı karşılaştırın.** `gencp_reference_osm` katmanını açıp kapatın.
   Biri modelin gördüğü harita, öteki onun ürettiği görüntü. Nereyi tutturduğu, nereyi
   uydurduğu görünür.
+
+  Karşılaştırma yaparken üretilen katmanın **en üstte** olmasına dikkat edin. Katman
+  panelinde referans görüntü üstte kalırsa karşılaştırdığınız şey üretim değil, referansın
+  kendisidir. Üretilen katman artık tam opak çizilir; alttaki katmanla karışmaz.
 - **Güveni gösterin.** Çıktının 4. bandı alfa kanalıdır ve sürekli güven değerini taşır.
   Katman özelliklerinden 4. bandı tek bant gri olarak açarsanız güven haritası ortaya
   çıkar: açık bölgeler girdiye dayanır, koyu bölgeler uydurmadır.

@@ -76,6 +76,19 @@ restore, and report the count.
    numerics (at minimum: torch, numpy, and the ONNX runtime if used) in its option dump.
    Registration A's stochastic arm cannot be reproduced byte-for-byte because neither
    was recorded.
+10. Every verifier is run against a known-true and a known-false case before its verdict
+    is trusted — and also against its degenerate invocations: no arguments, empty input,
+    a missing file, a path that does not exist. A tool that reports success when given
+    nothing to check is not a check.
+
+    The count, measured rather than estimated: an audit of all 23 verifiers under three
+    degenerate invocations found **18 that exited 0**. One — the link checker — genuinely
+    examined nothing and reported "0 dead". The other 17 ignored the argument entirely and
+    re-ran their real work, which prints PASS for a configuration nobody asked for:
+    `gate_g.py --overlp=2560` is a typo that passes at 0 m. Both are the same failure
+    wearing different clothes, and neither was caught by the plant-a-dead-link discipline,
+    which covered only the normal invocation. Verifiers now refuse arguments they do not
+    understand (`tubitak/tests/_guard.py`).
 
 ## Reporting format
 

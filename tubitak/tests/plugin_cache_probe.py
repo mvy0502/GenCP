@@ -25,6 +25,16 @@ except NameError:                                    # pragma: no cover - --code
     ROOT = Path(os.environ.get("GENCP_REPO_ROOT", os.getcwd())).resolve()
 sys.path.insert(0, str(ROOT / "tubitak"))
 
+# Unknown arguments are refused, not ignored: a verifier that runs its default
+# and prints PASS when you asked for something else is reporting on the wrong run.
+import os.path as _op  # noqa: E402
+sys.path.insert(0, _op.join(_op.dirname(_op.abspath(__file__)),
+                            *(['..', 'tests'] if _op.basename(
+                                _op.dirname(_op.abspath(__file__))) != 'tests'
+                              else [])))
+from _guard import strict_argv  # noqa: E402
+strict_argv(known=(), positional=0)
+
 _OUT = open(os.environ.get("GENCP_TEST_OUT", "/tmp/gencp_cache_probe.txt"), "w")
 
 

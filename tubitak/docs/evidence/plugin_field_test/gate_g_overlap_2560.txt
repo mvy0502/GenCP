@@ -1,0 +1,33 @@
+Gate G — georeferencing contract
+  reference layer : ank_0_30.tif
+  reference CRS   : EPSG:32636
+  reference extent: (399960.0, 4420330.0, 402530.0, 4422900.0)
+  snapping rule   : grid anchored at the reference NW corner exactly; w/h = ceil(span/10.0); E and S edges may extend up to one pixel
+
+  tile overlap    : 2560 m (stride 10 m of a 2570 m tile)
+
+--- A. grid alignment ---
+  [PASS] output CRS == reference CRS
+         output EPSG:32636  ==  reference EPSG:32636
+  [PASS] output pixel size == 10.0 m exactly, both axes
+         x = 10.0 m, y = 10.0 m  (exact float equality against 10.0)
+  [PASS] output NW corner == reference NW corner (snapping rule)
+         origin offset  x 0.0 m, y 0.0 m  (= 0.0 px, 0.0 px)
+  [PASS] output size == ceil(span / GSD)
+         got 257 x 257, expected 257 x 257  (span 2570.0 x 2570.0 m)
+  [PASS] E/S overhang within one pixel, as the rule allows
+         east overhang 0.000000 m, south overhang 0.000000 m (rule permits [0, 10.0))
+  [PASS] transform == the registered affine, term by term
+         got (10.0, 0.0, 399960.0, 0.0, -10.0, 4422900.0)
+         expected (10.0, 0.0, 399960.0, 0.0, -10.0, 4422900.0)
+  [PASS] output pixel grid is an integer offset of the reference grid
+         offset in reference pixels: x 0.0, y 0.0 (fractional part x 0.0, y 0.0)
+
+--- B. content placement (sub-pixel) ---
+  tiles in this run: 257; comparing the 0 px where tile 0 is the only contributor
+  NOT MEASURED: at 2560 m overlap the stride is 10 m, so no pixel is written by tile 0 alone and content placement cannot be checked by this method.
+  Part A (grid alignment) above is unaffected and its result stands.
+
+======================================================================
+GATE G: PART B NOT MEASURED at overlap 2560 m (7/7 part-A assertions passed)
+======================================================================

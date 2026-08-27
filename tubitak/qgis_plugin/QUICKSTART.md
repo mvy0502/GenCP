@@ -78,6 +78,9 @@ Güven, çıktı GeoTIFF'inin **4. bandına (alfa)** sürekli değer olarak yaz�
 
     alfa = clip((z + 4) / 8, 0, 1) × 255          z = alfa / 255 × 8 − 4
 
+4. bant güvendir; onu saydamlık sayan yazılım görüntüyü altındaki katmanla harmanlar.
+Çıktının yanına yazılan `.qml` dosyası QGIS'te bunu kapatır.
+
 255 en yüksek güven demektir. Bu eşleme dosyanın künyesine de yazılır. **RGB bantları değişmez**:
 alfa kanalını yok sayan bir uygulama, alfa eklenmeden önceki görüntüyle birebir aynı
 baytları okur.

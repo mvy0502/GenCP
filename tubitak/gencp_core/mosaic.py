@@ -81,6 +81,68 @@ def build(tiles, fakes, work_crs, extent, overlap_m, progress=None):
     return out, valid, target
 
 
+QML_TEMPLATE = """<!DOCTYPE qgis PUBLIC 'http://mrcc.com/qgis.dtd' 'SYSTEM'>
+<qgis version="3.28.0" styleCategories="AllStyleCategories">
+  <pipe>
+    <rasterrenderer type="multibandcolor" opacity="1" alphaBand="-1"
+                    redBand="1" greenBand="2" blueBand="3" nodataColor="">
+      <redContrastEnhancement><minValue>0</minValue><maxValue>255</maxValue>\
+<algorithm>NoEnhancement</algorithm></redContrastEnhancement>
+      <greenContrastEnhancement><minValue>0</minValue><maxValue>255</maxValue>\
+<algorithm>NoEnhancement</algorithm></greenContrastEnhancement>
+      <blueContrastEnhancement><minValue>0</minValue><maxValue>255</maxValue>\
+<algorithm>NoEnhancement</algorithm></blueContrastEnhancement>
+    </rasterrenderer>
+    <brightnesscontrast brightness="0" contrast="0" gamma="1"/>
+    <huesaturation saturation="0" grayscaleMode="0" colorizeOn="0"/>
+    <rasterresampler maxOversampling="2"/>
+  </pipe>
+  <blendMode>0</blendMode>
+</qgis>
+"""
+
+
+def write_qml_sidecar(tif_path):
+    """Write `<output>.qml` next to a 4-band output so QGIS draws RGB, not a blend.
+
+    Band 4 is CONFIDENCE, tagged ColorInterp.alpha because that is where the supervisor
+    asked for it. Every viewer that honours alpha therefore composites the output over
+    whatever sits beneath it. On the demo tile that measured as pulling the rendered image
+    2.3x closer to the real reference than the generation actually is - a comparison tool
+    silently flattering the thing it exists to compare.
+
+    Forcing opaque rendering inside our own dialog fixes only our own case. QGIS auto-loads
+    a `.qml` beside the raster when the layer is added by ANY route - drag and drop, Add
+    Raster Layer, another person's project - so the sidecar carries the fix to everyone who
+    opens the file, not just to users of this plugin.
+
+    `alphaBand="-1"` is the whole mechanism: it tells QGIS no band supplies transparency.
+    The file is untouched; only its default styling is specified.
+    """
+    qml = Path(tif_path).with_suffix(".qml")
+    qml.write_text(QML_TEMPLATE, encoding="utf-8")
+    return qml
+
+
+def write_qml_if_alpha(tif_path):
+    """Write the sidecar only if the file actually carries an alpha band.
+
+    Used for outputs whose band layout is inherited rather than chosen here - the
+    reprojected copy takes its colorinterp from its source, and the OSM mosaic takes its
+    profile from the renders. Asserting "this one has alpha" from the calling context would
+    be a guess; asking the file is not.
+    """
+    import rasterio
+    from rasterio.enums import ColorInterp
+    try:
+        with rasterio.open(tif_path) as s:
+            if s.count >= 4 and ColorInterp.alpha in s.colorinterp:
+                return write_qml_sidecar(tif_path)
+    except Exception:                              # noqa: BLE001
+        return None
+    return None
+
+
 def write_geotiff(path, rgb, crs, transform, provenance=None, alpha=None):
     """Write the mosaic in its NATIVE metric CRS. Never reprojects.
 
@@ -108,7 +170,14 @@ def write_geotiff(path, rgb, crs, transform, provenance=None, alpha=None):
     # about the validated output changes.
     if alpha is None:
         prof["nodata"] = 0
-    tags = {"GENCP_PROVENANCE": json.dumps(provenance or {}, sort_keys=True)}
+    prov = dict(provenance or {})
+    if alpha is not None:
+        # Say it in the file, not only in the documentation a reader may never open.
+        prov["band_4"] = ("confidence, NOT transparency. Software that honours "
+                          "ColorInterp.alpha will blend this image over whatever is "
+                          "beneath it; the accompanying .qml disables that in QGIS.")
+        prov["rgb_unchanged_from_3band"] = True
+    tags = {"GENCP_PROVENANCE": json.dumps(prov, sort_keys=True)}
     with rasterio.open(path, "w", **prof) as d:
         # indexes=[1,2,3] explicitly: a bare write() of a 3-band array into a 4-band
         # dataset is a shape error, and letting it default would have been a silent
@@ -119,6 +188,8 @@ def write_geotiff(path, rgb, crs, transform, provenance=None, alpha=None):
             d.colorinterp = [ColorInterp.red, ColorInterp.green, ColorInterp.blue,
                              ColorInterp.alpha]
         d.update_tags(**tags)
+    if alpha is not None:
+        write_qml_sidecar(path)
     return path
 
 
@@ -156,6 +227,7 @@ def reproject_geotiff(src_path, out_path, dst_crs, provenance=None):
                           resampling=Resampling.bilinear)
             d.colorinterp = s.colorinterp
             d.update_tags(GENCP_PROVENANCE=json.dumps(prov, sort_keys=True))
+    write_qml_if_alpha(out_path)
     return out_path
 
 
@@ -183,6 +255,7 @@ def write_osm_mosaic(path, render_paths, provenance=None):
     finally:
         for s in srcs:
             s.close()
+    write_qml_if_alpha(path)
     return path
 
 

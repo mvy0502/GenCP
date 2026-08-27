@@ -22,6 +22,16 @@ from __future__ import annotations
 
 import re
 import sys
+
+# Unknown arguments are refused, not ignored: a verifier that runs its default
+# and prints PASS when you asked for something else is reporting on the wrong run.
+import os.path as _op  # noqa: E402
+sys.path.insert(0, _op.join(_op.dirname(_op.abspath(__file__)),
+                            *(['..', 'tests'] if _op.basename(
+                                _op.dirname(_op.abspath(__file__))) != 'tests'
+                              else [])))
+from _guard import strict_argv  # noqa: E402
+strict_argv(known=('--no-net', '--self-test-only'), positional=999)
 import tempfile
 from pathlib import Path
 from urllib.request import Request, urlopen
@@ -237,6 +247,13 @@ def main(argv):
             all_bad.append((f, t, why))
     print()
     print(f"  {total} links checked across {len(args)} files; {len(all_bad)} dead")
+    if total == 0:
+        # Files were found and none of them contained a link. Either the corpus is the
+        # wrong one or the extractor is broken - both have happened here. "0 dead out of
+        # 0" is not a clean bill of health, it is the absence of an examination.
+        print("  NOTHING TO CHECK: files were read but not one link was found. That is a "
+              "broken extractor or the wrong corpus, not a pass.")
+        return 2
     return 1 if all_bad else 0
 
 

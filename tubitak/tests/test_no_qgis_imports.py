@@ -10,6 +10,16 @@ Static check by AST, so it catches imports on code paths that never execute here
 """
 from __future__ import annotations
 import ast, sys
+
+# Unknown arguments are refused, not ignored: a verifier that runs its default
+# and prints PASS when you asked for something else is reporting on the wrong run.
+import os.path as _op  # noqa: E402
+sys.path.insert(0, _op.join(_op.dirname(_op.abspath(__file__)),
+                            *(['..', 'tests'] if _op.basename(
+                                _op.dirname(_op.abspath(__file__))) != 'tests'
+                              else [])))
+from _guard import strict_argv  # noqa: E402
+strict_argv(known=(), positional=0)
 from pathlib import Path
 
 CORE = Path(__file__).resolve().parents[1] / "gencp_core"

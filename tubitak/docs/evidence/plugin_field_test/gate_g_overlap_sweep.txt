@@ -1,0 +1,18 @@
+########## overlap = 2000 m ##########
+         origin offset  x 0.0 m, y 0.0 m  (= 0.0 px, 0.0 px)
+  tiles in this run: 5; comparing the 11139 px where tile 0 is the only contributor
+         max abs difference 0.644424 DN (uint8 rounding allows 1)
+         integer peak at lag (dy, dx) = (np.int64(0), np.int64(0))
+         sub-pixel offset dy = -0.000381 px, dx = -0.005740 px (= -0.0038 m, -0.0574 m)
+GATE G: PASS (12/12 assertions)
+########## overlap = 2400 m ##########
+         origin offset  x 0.0 m, y 0.0 m  (= 0.0 px, 0.0 px)
+  tiles in this run: 16; comparing the 1659 px where tile 0 is the only contributor
+         max abs difference 0.644424 DN (uint8 rounding allows 1)
+         integer peak at lag (dy, dx) = (np.int64(0), np.int64(0))
+         sub-pixel offset dy = -0.003331 px, dx = -0.002555 px (= -0.0333 m, -0.0256 m)
+GATE G: PASS (12/12 assertions)
+########## overlap = 2560 m ##########
+         origin offset  x 0.0 m, y 0.0 m  (= 0.0 px, 0.0 px)
+  tiles in this run: 257; comparing the 0 px where tile 0 is the only contributor
+ALLDONE
