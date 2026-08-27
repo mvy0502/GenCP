@@ -273,7 +273,7 @@ def phase_b(plugin):
     dlg.pbf_w.setFilePath(str(PBF))
     dlg.model_w.setFilePath(str(MODEL))
     dlg._describe_model()
-    dlg.overlap_box.setCurrentIndex(0)          # 0 m overlap -> single tile, small run
+    dlg.overlap_box.setValue(0)          # 0 m overlap -> single tile, small run
     QApplication.processEvents()
     time.sleep(0.2)
     QApplication.processEvents()
@@ -502,7 +502,7 @@ def phase_c(plugin, layer):
     import numpy as _np
     from gencp_core import confidence as _conf, pipeline as _pl
     _e, _work, _ = _pl._extent.resolve(dlg._extent, dlg._crs)
-    _tile = _pl._extent.tile_grid(_e, dlg.overlap_box.currentData())[0][0]
+    _tile = _pl._extent.tile_grid(_e, dlg.overlap_box.value())[0][0]
     _img = _pl.preview_image(list(_pl.render_inputs(
         [_tile], _work, _pl.default_work_dir() / "render",
         pbf=dlg._pbf_or_none()).values())[0])
@@ -843,7 +843,7 @@ def phase_d(plugin):
         dlg.pbf_w.setFilePath(str(PBF))
         dlg.model_w.setFilePath(str(ROOT / "tubitak/data/plugin_models/gencp_C2_fp32.onnx"))
         dlg._describe_model()
-        dlg.overlap_box.setCurrentIndex(0)
+        dlg.overlap_box.setValue(0)
         QApplication.processEvents()
         dlg._render_preview()
         QApplication.processEvents()

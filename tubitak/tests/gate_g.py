@@ -73,6 +73,13 @@ def subpixel_peak(c):
 
 
 def main():
+    # The overlap became a free numeric input, so the contract has to hold at more than the
+    # one value the gate used to hardcode. Default stays 0.0: existing invocations, and the
+    # registered result, are unchanged.
+    overlap = 0.0
+    for a in sys.argv[1:]:
+        if a.startswith("--overlap="):
+            overlap = float(a.split("=", 1)[1])
     OUT.mkdir(parents=True, exist_ok=True)
     with rasterio.open(REF) as s:
         rb = s.bounds
@@ -86,10 +93,12 @@ def main():
     print(f"  snapping rule   : grid anchored at the reference NW corner exactly; "
           f"w/h = ceil(span/{NOMINAL}); E and S edges may extend up to one pixel\n")
 
-    out_tif = OUT / "gate_g_output.tif"
+    out_tif = OUT / f"gate_g_output_ov{int(overlap)}.tif"
+    print(f"  tile overlap    : {overlap:.0f} m "
+          f"(stride {gext.TILE_M - overlap:.0f} m of a {gext.TILE_M:.0f} m tile)\n")
     res = pipeline.generate(ref_extent, ref_crs.to_string(), MODEL, out_tif,
-                            pbf=str(PBF), base_product="clcplus", overlap_m=0.0,
-                            work_dir=OUT / "work", seam=False)
+                            pbf=str(PBF), base_product="clcplus", overlap_m=overlap,
+                            work_dir=OUT / f"work_ov{int(overlap)}", seam=False)
 
     with rasterio.open(out_tif) as s:
         o_crs, o_T, o_w, o_h = s.crs, s.transform, s.width, s.height
@@ -155,6 +164,28 @@ def main():
     inner = np.zeros_like(m)
     inner[10:-10, 10:-10] = True
     m &= inner
+
+    # This compares ONE tile's independent warp against the mosaic, so it may only look
+    # where that tile is the sole contributor. At overlap 0 that is the whole footprint and
+    # nothing changes. At overlap > 0 the mosaic blends neighbours, and comparing there
+    # would report a difference that is the blend working correctly - a failure that means
+    # the opposite of what it says. The unstated precondition was "this run made one tile";
+    # it is now stated, and enforced by masking rather than by skipping the check.
+    def _window(tx_, ty_):
+        c0 = int(round((tx_ - o_T.c) / o_T.a))
+        r0 = int(round((o_T.f - ty_) / (-o_T.e)))
+        n = int(round(gext.TILE_M / NOMINAL))
+        return r0, r0 + n, c0, c0 + n
+
+    exclusive = np.zeros_like(m)
+    r0, r1, c0_, c1 = _window(tx, ty)
+    exclusive[max(r0, 0):max(r1, 0), max(c0_, 0):max(c1, 0)] = True
+    for (_i, _j, otx, oty) in tiles[1:]:
+        rr0, rr1, cc0, cc1 = _window(otx, oty)
+        exclusive[max(rr0, 0):max(rr1, 0), max(cc0, 0):max(cc1, 0)] = False
+    m &= exclusive
+    print(f"  tiles in this run: {len(tiles)}; comparing the "
+          f"{int(m.sum())} px where tile 0 is the only contributor")
     check("independent warp overlaps the output", m.sum() > 1000, f"{int(m.sum())} px compared")
     maxdiff = float(np.abs(a[m] - b_[m]).max())
     check("single-tile mosaic equals the independent corrected-affine warp",

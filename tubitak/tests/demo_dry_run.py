@@ -72,7 +72,7 @@ def main():
         check(f"{label} pre-filled from the project", bool(v) and
               (Path(v).exists() or Path(v).parent.exists()), v[-60:] if v else "EMPTY")
     check("the extent was read", "→" in dlg.lbl_extent.text(), dlg.lbl_extent.text()[:52])
-    dlg.overlap_box.setCurrentIndex(0)
+    dlg.overlap_box.setValue(0)
     QApplication.processEvents()
 
     say("\n  --- the default path: preview never opened ---")

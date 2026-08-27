@@ -92,14 +92,14 @@ def fresh_dialog(plugin):
     return plugin.dialog
 
 
-def fill(dlg, layer, clc=str(CLC), pbf=str(PBF), model=str(MODEL), overlap_index=0):
+def fill(dlg, layer, clc=str(CLC), pbf=str(PBF), model=str(MODEL), overlap_m=0):
     dlg.layer_box.setLayer(layer)
     dlg.clc_w.setFilePath(clc)
     dlg.rb_local.setChecked(True)
     dlg.pbf_w.setFilePath(pbf)
     dlg.model_w.setFilePath(model)
     dlg._describe_model()
-    dlg.overlap_box.setCurrentIndex(overlap_index)
+    dlg.overlap_box.setValue(overlap_m)
     QApplication.processEvents()
 
 
@@ -294,7 +294,7 @@ def case_cancel_midrun(plugin, layer):
         shutil.rmtree(wd)                # cold cache, so there is time to press Cancel
     dlg = fresh_dialog(plugin)
     # 160 m overlap over this extent gives 4 tiles; a cold render is seconds per tile.
-    fill(dlg, layer, overlap_index=1)
+    fill(dlg, layer, overlap_m=160)
     n = dlg.lbl_tiles.text()
     dlg._render_preview()
     QApplication.processEvents()

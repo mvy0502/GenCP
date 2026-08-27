@@ -47,6 +47,17 @@ KRS'sidir; başka bir sistem seçerseniz özgün dosya yerinde kalır, yanına y
 yol da hatırlanır; sonraki açılışlarda bu bölüme dokunmanız gerekmez. Karo bindirmesi ve
 güven katmanı seçenekleri de buradadır.
 
+**Karo bindirmesi.** Serbestçe yazılır. İki kısıt vardır ve ikisi de yazılıp geçilmiş değil,
+uygulanır: değer 10 m'lik piksel ızgarasının tam katı olmalı ve bir karodan (2570 m) küçük
+kalmalı. Ara bir değer karoları kesirli piksele oturtur, mozaikte alt piksel kayması yaratır
+ve georeferans sözleşmesini sessizce bozar; bu yüzden eklenti böyle bir değeri kabul etmez,
+en yakın kata çeker ve çektiğini söyler. En büyük geçerli değer 2560 m'dir.
+
+640 m ölçülmüş varsayılandır: dikiş enerjisi oranı bu değerde 1,008 çıktı. Başka bir değer
+seçebilirsiniz, ama o değeri biz ölçmedik. Bindirme büyüdükçe karo sayısı hızla artar —
+2560 m'de adım 10 m'ye iner ve süre kullanılamaz hâle gelir. Girdi bölümündeki karo sayısı
+ile süre tahmini bunu seçmeden önce gösterir.
+
 **Üret.** Düğme pencerenin altındadır ve her boyutta görünür. İş arka planda çalışır,
 QGIS donmaz. İlerleme çubuğunun yanındaki satır hangi adımda olduğunu yazar.
 **Vazgeç** işi durdurur; diske eksik dosya yazılmaz.

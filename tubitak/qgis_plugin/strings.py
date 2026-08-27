@@ -78,8 +78,11 @@ S = {
     "pbf_file": "OSM çıkarımı",
     "clc_file": "CLC+ rasterı",
     "tile_overlap": "Karo bindirmesi",
-    "overlap_item": "{m} m",
-    "overlap_default_item": "{m} m (varsayılan)",
+    "overlap_suffix": " m",
+    "overlap_too_large": ("Karo bindirmesi bir karodan küçük olmalı. Bir karo {limit:.0f} m, "
+                          "en büyük geçerli değer {max} m. Girilen: {m} m."),
+    "overlap_snapped": ("Karo bindirmesi {m} m'ye çekildi. Değer {step} m'lik piksel "
+                        "ızgarasının tam katı olmak zorunda; {typed} m değil."),
     "confidence_alpha": "Güveni alfa kanalına yaz",
     "confidence_band_layer": "Renkli güven katmanı da üret",
     "add_osm_layer": "OSM girdisini katman olarak ekle",
@@ -155,8 +158,13 @@ TIP = {
                  "alan gibi görünür, hata gibi görünmez."),
     "clc_file": ("CLC+ Backbone 2021 rasterı (Copernicus). Arazi örtüsü tabanı. Bir kez "
                  "seçilir, sonraki açılışlarda hatırlanır."),
-    "tile_overlap": ("Komşu karoların üst üste binme miktarı. Ölçülmüş varsayılan 640 m "
-                     "(dikiş enerjisi oranı 1,008). Tek karoluk denemelerde 0 m."),
+    "tile_overlap": ("Komşu karoların üst üste binme miktarı. Serbestçe yazılabilir, iki "
+                     "kısıtla: değer 10 m'lik piksel ızgarasının tam katı olmalı ve bir "
+                     "karodan (2570 m) küçük kalmalı. Ara değerler karoları kesirli piksele "
+                     "oturtur ve mozaikte alt piksel kayması yaratır; bu yüzden kabul "
+                     "edilmez. 640 m ölçülmüş varsayılandır: dikiş enerjisi oranı bu değerde "
+                     "1,008 çıktı. Başka bir değer seçmek serbesttir ama o değeri biz "
+                     "ölçmedik, sorumluluk kullanıcıdadır."),
     "confidence_alpha": ("Güven, çıktı GeoTIFF'inin 4. bandına sürekli değer olarak "
                          "yazılır: alfa = clip((z+4)/8, 0, 1) × 255, 255 en güvenli. RGB "
                          "bantları değişmez, alfayı yok sayan bir uygulama eskisiyle "

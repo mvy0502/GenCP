@@ -1,0 +1,24 @@
+  [PASS] the limit is read from the pipeline, not restated  - tile 2570 m (257 px), max legal 2560 m
+  [PASS] the default is the value we measured  - 640 m
+  [PASS] 0 m is accepted  - State.Acceptable
+  [PASS] 10 m is accepted  - State.Acceptable
+  [PASS] 640 m is accepted  - State.Acceptable
+  [PASS] 1280 m is accepted  - State.Acceptable
+  [PASS] 2560 m is accepted  - State.Acceptable
+  [PASS] 645 m is not committable (not a whole pixel)  - State.Intermediate
+  [PASS] 641 m is not committable (not a whole pixel)  - State.Intermediate
+  [PASS] 1 m is not committable (not a whole pixel)  - State.Intermediate
+  [PASS] 1285 m is not committable (not a whole pixel)  - State.Intermediate
+  [PASS] 2570 m is rejected (at or above one tile)  - State.Invalid
+  [PASS] 2600 m is rejected (at or above one tile)  - State.Invalid
+  [PASS] 3000 m is rejected (at or above one tile)  - State.Invalid
+  [PASS] rejecting an oversized value names the limit  - Karo bindirmesi bir karodan küçük olmalı. Bir karo 2570 m, en büyük geçerli değer 2560 m. Girilen: 3000 m.
+  [PASS] a non-multiple snaps to the grid  - 640 m
+  [PASS] and the snap is announced, not silent  - Karo bindirmesi 640 m'ye çekildi. Değer 10 m'lik piksel ızgarasının tam katı olmak zorunda; 645 m değil.
+  [PASS] setValue cannot exceed the legal maximum either  - 2560 m
+  [PASS] tile_grid terminates at the largest legal overlap  - 397065 tiles at 2560 m
+  [PASS] the core still rejects an overlap of exactly one tile
+
+========================================================================
+20/20 checks passed
+========================================================================

@@ -1,3 +1,5 @@
+cleared the render cache at /var/folders/my/zq5vn6hj0ys8xb2fwt0f7mlm0000gn/T/gencp_work so the timing below is a cold one
+
 ========================================================================
 PHASE A - is the plugin actually INSTALLED in this profile?
 ========================================================================
@@ -6,7 +8,7 @@ PHASE A - is the plugin actually INSTALLED in this profile?
   executable     : /Applications/QGIS-final-4_2_1.app/Contents/MacOS/QGIS-final-4_2_1
   loaded plugins : ['MetaSearch', 'db_manager', 'gencp_synthetic_reference', 'grassprovider', 'processing', 'sentinel_stac_loader', 'stac_browser']
   [PASS] plugin is loaded by QGIS from the user profile  - gencp_synthetic_reference in qgis.utils.plugins
-  plugin object  : <gencp_synthetic_reference.plugin.GenCPPlugin object at 0x158b56450>
+  plugin object  : <gencp_synthetic_reference.plugin.GenCPPlugin object at 0x1568b8e00>
   plugin module  : /Users/vedat/Library/Application Support/QGIS/QGIS4/profiles/default/python/plugins/gencp_synthetic_reference/__init__.py
   [PASS] initGui() completed - the QAction exists  - GenCP Synthetic Reference...
   [PASS] the action is registered on the main window (menu/toolbar)  - GenCP Synthetic Reference...
@@ -31,7 +33,7 @@ PHASE B - drive the dialog the way the toolbar button does
     parsed estimate: None min for 1 tile(s)
 
   --- preview ---
-  [PASS] preview renders a real rasterised input  - 320x320 px in 5.2s
+  [PASS] preview renders a real rasterised input  - 320x320 px in 5.1s
     [shot] 03_preview_rendered.png  780x1180  ok
   [PASS] shot 3: preview section with the render in it
     [shot] 03b_preview_tile_only.png (the preview pixmap alone)
@@ -41,13 +43,13 @@ PHASE B - drive the dialog the way the toolbar button does
   [PASS] clicking Generate created a QgsTask  - QgsTask
     [shot] 04_run_in_progress.png  780x1180  ok
   [PASS] shot 4: run in progress, progress bar advancing  - captured at 80%
-    stage first seen at (s): {'render': 0.1, 'mosaic': 0.29}
+    stage first seen at (s): {'render': 0.09, 'mosaic': 0.28}
   [PASS] generation completed  - Hazır
-  [PASS] inference ran OFF the main thread  - <PyQt6.QtCore.QThread object at 0x164b1e030>
+  [PASS] inference ran OFF the main thread  - <PyQt6.QtCore.QThread object at 0x162b7a2b0>
   [PASS] progress bar advanced through distinct values  - 3 distinct values, max 100%
-    wall clock (Generate click -> done): 0.45s (0.007 min)
-    preview render before it:            5.16s
-    what the user actually waits for:    5.61s
+    wall clock (Generate click -> done): 0.44s (0.007 min)
+    preview render before it:            5.12s
+    what the user actually waits for:    5.56s
     what the dialog PREDICTED:           0.00s (None min for 1 tile(s))
     [shot] 05_after_completion.png  780x1180  ok
   [PASS] shot 5: final state after the output layer was added

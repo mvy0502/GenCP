@@ -47,8 +47,10 @@ from qgis.PyQt.QtGui import QImage, QPixmap, QFont
 from qgis.PyQt.QtWidgets import (
     QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFormLayout, QGroupBox,
     QHBoxLayout, QLabel, QMessageBox, QProgressBar, QPushButton, QRadioButton,
-    QScrollArea, QVBoxLayout, QWidget,
+    QScrollArea, QSpinBox, QVBoxLayout, QWidget,
 )
+from qgis.PyQt.QtCore import pyqtSignal
+from qgis.PyQt.QtGui import QValidator
 from qgis.core import (
     Qgis, QgsApplication, QgsCoordinateReferenceSystem, QgsMapLayerProxyModel,
     QgsMessageLog, QgsProject, QgsRasterLayer, QgsSettings,
@@ -75,6 +77,82 @@ def _log(msg, level=member(Qgis, 'Info')):
 def _enum(cls, name):
     """Nested-scoped enum member where Qt6 has one, flat where Qt5 does."""
     return getattr(getattr(cls, "StorageMode", cls), name, None) or getattr(cls, name)
+
+
+#: The only overlap we have characterised. 640 m was measured, not chosen: it is where the
+#: seam energy ratio sits at 1.008 across the reference set. Every other value the spin box
+#: now accepts is legal and untested, which the tooltip says.
+DEFAULT_OVERLAP_M = 640
+
+class OverlapSpinBox(QSpinBox):
+    """Tile overlap in metres, constrained to whole pixels of the output grid.
+
+    Two constraints, both ENFORCED here rather than written down and hoped for:
+
+    * **A whole multiple of the grid spacing.** An overlap of, say, 645 m steps the tile
+      origin by a non-integer number of pixels. Every tile after the first then lands on a
+      fractional pixel, the mosaic carries a sub-pixel shear, and the Gate G transform
+      contract stops describing the file - silently, because the output still opens and
+      still looks right. Qt's own validation is the enforcement point: a non-multiple never
+      becomes this widget's value in the first place.
+    * **Strictly smaller than one tile.** At or above ``TILE_M`` the stride is zero or
+      negative and tiling does not terminate. ``extent.tile_grid`` already raises for this;
+      the widget refuses earlier, where the user can see why.
+
+    Both limits are read from ``gencp_core.extent`` rather than restated. The tile is
+    2570 m, not 2560: the upstream chips are 257 px, which is the whole reason the
+    Option-A GSD correction exists. A literal here would drift from the pipeline the first
+    time that constant moved.
+    """
+
+    #: emitted with a ready-to-show sentence when the user's input was refused or snapped
+    constraintViolated = pyqtSignal(str)
+
+    def __init__(self, step_m, limit_m, parent=None):
+        super().__init__(parent)
+        self._step_m = int(step_m)
+        self._limit_m = float(limit_m)
+        # Largest whole multiple of the grid strictly below one tile.
+        self._max_m = int((self._limit_m - 1e-9) // self._step_m) * self._step_m
+        self.setRange(0, self._max_m)
+        self.setSingleStep(self._step_m)
+        self.setSuffix(t("overlap_suffix"))
+        self.setAccelerated(True)
+
+    def maximum_legal(self):
+        return self._max_m
+
+    def validate(self, text, pos):
+        state, text, pos = super().validate(text, pos)
+        stripped = text.replace(self.suffix(), "").strip()
+        if not stripped:
+            return state, text, pos
+        try:
+            v = int(stripped)
+        except ValueError:
+            return state, text, pos
+        if v > self._max_m:
+            self.constraintViolated.emit(
+                t("overlap_too_large", m=v, limit=self._limit_m, max=self._max_m))
+            return QValidator.State.Invalid, text, pos
+        if state == QValidator.State.Acceptable and v % self._step_m:
+            # Intermediate, not Invalid: the user may still be typing "64" on the way to
+            # "640". It cannot be committed, which is what matters.
+            return QValidator.State.Intermediate, text, pos
+        return state, text, pos
+
+    def fixup(self, text):
+        """Called when focus leaves on a value Qt would not accept. Snap, and SAY SO."""
+        stripped = text.replace(self.suffix(), "").strip()
+        try:
+            v = int(stripped)
+        except ValueError:
+            return text
+        snapped = min(max(int(round(v / self._step_m)) * self._step_m, 0), self._max_m)
+        if snapped != v:
+            self.constraintViolated.emit(
+                t("overlap_snapped", typed=v, m=snapped, step=self._step_m))
+        return f"{snapped}{self.suffix()}"
 
 
 class GenCPDialog(QDialog):
@@ -283,12 +361,13 @@ class GenCPDialog(QDialog):
         self.clc_w = self._file_widget("GetFile", "GeoTIFF (*.tif *.tiff)", "clc_file",
                                        self._on_clc_changed)
         self._row(fa, "clc_file", self.clc_w, "clc_file")
-        self.overlap_box = QComboBox()
-        for m in (0, 160, 320, 640, 960):
-            self.overlap_box.addItem(
-                t("overlap_default_item" if m == 640 else "overlap_item", m=m), m)
-        self.overlap_box.setCurrentIndex(3)
-        self.overlap_box.currentIndexChanged.connect(self._refresh_extent)
+        from .plugin import ensure_core_importable as _eci
+        _eci()
+        from gencp_core import extent as _ext
+        self.overlap_box = OverlapSpinBox(int(_ext.NOMINAL), _ext.TILE_M)
+        self.overlap_box.setValue(DEFAULT_OVERLAP_M)
+        self.overlap_box.valueChanged.connect(self._refresh_extent)
+        self.overlap_box.constraintViolated.connect(self._on_overlap_refused)
         self._row(fa, "tile_overlap", self.overlap_box, "tile_overlap")
         self.cb_alpha = QCheckBox(t("confidence_alpha"))
         self.cb_alpha.setChecked(True)
@@ -447,6 +526,10 @@ class GenCPDialog(QDialog):
             self.lbl_model_calib.setStyleSheet("color:#b26a00;")
         self.lbl_model_calib.setVisible(True)
 
+    def _on_overlap_refused(self, text):
+        """The overlap widget refused or snapped a typed value. Never silent."""
+        self._msg(text, member(Qgis, 'Warning'))
+
     def _msg(self, text, level=None):
         """One line in the message bar. Replaces the coloured paragraph blocks."""
         self.msgbar.clearWidgets()
@@ -479,7 +562,7 @@ class GenCPDialog(QDialog):
         try:
             from gencp_core import extent as ext
             e, work, _ = ext.resolve(self._extent, self._crs)
-            est = ext.estimate(e, self.overlap_box.currentData())
+            est = ext.estimate(e, self.overlap_box.value())
             self.lbl_tiles.setText(t("tiles_value", n=est["n_tiles"], w=est["width"],
                                      h=est["height"], mins=est["seconds"] / 60.0))
             self._extent_ok = True
@@ -534,7 +617,7 @@ class GenCPDialog(QDialog):
             import numpy as np
             from gencp_core import extent as ext, pipeline, confidence as conf
             e, work, _ = ext.resolve(self._extent, self._crs)
-            tiles, _ = ext.tile_grid(e, self.overlap_box.currentData())
+            tiles, _ = ext.tile_grid(e, self.overlap_box.value())
             tile = tiles[min(self._preview_index, len(tiles) - 1)]
             # The SAME cache directory pipeline.generate reads from, so the run consumes
             # the very file the user looked at rather than re-rendering and hoping.
@@ -664,7 +747,7 @@ class GenCPDialog(QDialog):
             extent_bbox=self._extent, crs=self._crs, model_path=model,
             out_tif=self.out_w.filePath().strip(),
             pbf=self._pbf_or_none(), base_product="clcplus",
-            overlap_m=float(self.overlap_box.currentData()),
+            overlap_m=float(self.overlap_box.value()),
             dst_crs=dst,
             confidence=bool(conf_on),
             alpha_confidence=bool(conf_on and self.cb_alpha.isChecked()),

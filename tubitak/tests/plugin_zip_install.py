@@ -144,7 +144,7 @@ def main():
     dlg.pbf_w.setFilePath(str(PBF))
     dlg.model_w.setFilePath(str(MODEL))
     dlg._describe_model()
-    dlg.overlap_box.setCurrentIndex(0)
+    dlg.overlap_box.setValue(0)
     QApplication.processEvents()
     check("section 1 reads the extent from the layer", "→" in dlg.lbl_extent.text(),
           dlg.lbl_extent.text()[:60])

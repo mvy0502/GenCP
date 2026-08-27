@@ -147,7 +147,7 @@ def main():
           "the confirmation gate was removed; nothing may gate on the preview")
 
     say("\n=== section 3: preview actually renders on screen ===")
-    dlg.overlap_box.setCurrentIndex(0)   # 0 m overlap -> 1 tile over this small extent
+    dlg.overlap_box.setValue(0)   # 0 m overlap -> 1 tile over this small extent
     QApplication.processEvents()
     t0 = time.time()
     dlg._render_preview()
