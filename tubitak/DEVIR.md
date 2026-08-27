@@ -7,7 +7,7 @@
 > | Ne | Nerede |
 > |---|---|
 > | Ön kayıtlar, sonuçlar, denetimler, kanıt artefaktları, düzeltme kaydı | **gencp-validation** — https://github.com/mvy0502/gencp-validation (dal: `main`) |
-> | Makale (GRSL letter ve arXiv uzun sürümü) | **gencp-letter** — https://github.com/mvy0502/gencp-letter |
+> | Makale (GRSL letter ve arXiv uzun sürümü) | **gencp-letter** — depo özeldir, bağlantı verilmedi: erişimi olmayan herkese 404 döner |
 > | pix2pix fork'u, QGIS eklenti iş paketi, OSM rasterizer ve korpus zinciri | **bu depo** (GenCP), dal `tubitak-tr` |
 >
 > Bu rehberdeki `docs/...` bağlantılarının çoğu artık bu depoda çözülmez; hedefleri

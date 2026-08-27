@@ -2,6 +2,12 @@
 
 **OpenStreetMap verisinden sentetik uydu görüntüsü üretimi · 20 Ağustos 2026**
 
+> **Görseller depoda yok.** `gorseller/` klasörü, `tubitak/outputs/` ile aynı ilkeyle
+> `.gitignore` içindedir: üretilebilen ikili dosyalar sürümlenmez. Bu yüzden raporu GitHub
+> üzerinde okuyan biri on bir görselin tamamını kırık görür. Metin görsellere bakmadan da
+> okunacak biçimde yazıldı; görsellerle okumak isterseniz PDF sürümünü kullanın ya da
+> `tubitak/scripts/visualize.py` ile yeniden üretin.
+
 Rapor 1'de hazır olduğunu bildirdiğim üretim ve doğrulama altyapısını Türkiye sahasında uçtan
 uca çalıştırdım. Ankara üzerinde 130 chip üretip ölçtüm; ardından modeli Türkiye verisiyle iki
 ayrı reçeteyle ince ayara tabi tuttum ve sonucu üç bağımsız genelleme testinden geçirdim. Bu

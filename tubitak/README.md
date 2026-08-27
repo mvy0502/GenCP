@@ -4,7 +4,8 @@
 >
 > The measurement and validation study moved to
 > **https://github.com/mvy0502/gencp-validation**, and the manuscript to
-> **https://github.com/mvy0502/gencp-letter**. This workspace keeps the fork, the QGIS
+> **mvy0502/gencp-letter**, which is private - the URL is omitted because it 404s for
+> anyone without access. This workspace keeps the fork, the QGIS
 > plugin work package (`gencp_core/`, `tests/`, `tool/`), the OSM rasteriser and the
 > corpus chain.
 >
