@@ -8,6 +8,7 @@ cancel without gencp_core knowing what a QgsTask is.
 """
 from __future__ import annotations
 import datetime, hashlib, json, os, tempfile
+import os
 from pathlib import Path
 
 import numpy as np
@@ -118,8 +119,75 @@ def tile_cache_name(i, j, tx, ty, work_crs, base_product="clcplus", pbf=None,
     return f"t_{i}_{j}_{hashlib.sha256(key.encode()).hexdigest()[:16]}.tif"
 
 
+def _render_block(job):
+    """Render one contiguous block of tiles in a worker process.
+
+    Each worker parses the .osm.pbf ONCE for its own block. That repeats the parse K times
+    across K workers, but the parses run concurrently, so the run pays about one parse of
+    wall-clock instead of K - and it avoids shipping a 1.1 GB GeoDataFrame through pickle,
+    which costs more than the parse it would save.
+    """
+    import json as _json
+    from . import rasterize, vectors
+    from . import extent as _ex
+    (block, work_crs, work_dir, pbf, base_product, names) = job
+    work_dir = Path(work_dir)
+    index = None
+    if pbf is not None:
+        xs = [t[2] for t in block]
+        ys = [t[3] for t in block]
+        bounds = (min(xs), min(ys) - _ex.TILE_M, max(xs) + _ex.TILE_M, max(ys))
+        index = vectors.PbfIndex(pbf, bounds, work_crs)
+    out = []
+    for (i, j, tx, ty) in block:
+        p = work_dir / names[(i, j)]
+        st = {}
+        if not p.exists():
+            b = (tx, ty - _ex.TILE_M, tx + _ex.TILE_M, ty)
+            _render_one(p, b, work_crs, index, pbf, base_product, st)
+        else:
+            side = p.with_suffix(".stats.json")
+            if side.is_file():
+                try:
+                    st = _json.loads(side.read_text())
+                except (OSError, ValueError):
+                    st = {}
+        out.append(((i, j), str(p), st))
+    return out
+
+
+def _render_one(p, bounds, work_crs, index, pbf, base_product, st):
+    """Render one tile to `p` ATOMICALLY, and write its stats sidecar.
+
+    The rename matters under parallelism and cancellation both. A worker killed mid-write
+    would otherwise leave a truncated .tif in the cache directory, and the next run's
+    `p.exists()` check would treat it as a hit - a corrupt tile silently baked into a later
+    mosaic. Rendering to a unique temporary name and renaming makes a cache entry either
+    absent or complete, never half-written.
+    """
+    import json as _json
+    import os as _os
+    from . import rasterize
+    tmp = p.with_name(f".{p.name}.{_os.getpid()}.tmp")
+    try:
+        rasterize.make_chip(bounds, work_crs, tmp,
+                            gdf=(index.query(bounds, work_crs)
+                                 if index is not None else None),
+                            pbf=pbf, base_product=base_product, stats=st)
+        _os.replace(tmp, p)
+    finally:
+        try:
+            tmp.unlink(missing_ok=True)
+        except OSError:
+            pass
+    try:
+        p.with_suffix(".stats.json").write_text(_json.dumps(st))
+    except OSError:                     # a read-only temp dir must not fail a run
+        pass
+
+
 def render_inputs(tiles, work_crs, work_dir, pbf=None, base_product="clcplus",
-                  progress=None, cancelled=None, stats_out=None):
+                  progress=None, cancelled=None, stats_out=None, workers=None):
     """Render every tile's input. Returns {(i, j): path to the 257 px GeoTIFF}.
 
     `stats_out`, if a dict is passed, receives {(i, j): {"n_osm_features": ...}}. The
@@ -128,37 +196,181 @@ def render_inputs(tiles, work_crs, work_dir, pbf=None, base_product="clcplus",
     no OSM coverage" warning would appear on the first run and silently vanish on the
     second. The sidecar is a separate file, never a tag inside the GeoTIFF, because
     gate_r.py compares those bytes.
+
+    `workers` splits the tiles across processes. Threads were measured first and capped at
+    1.28x on ten cores - the work is GIL-bound - so processes it is. Tiles are independent
+    and each is written to its own file, so the output cannot depend on the order they
+    finish; `gate_r_parallel.py` asserts that against a serial run rather than assuming it.
     """
-    from . import rasterize
     work_dir = Path(work_dir)
     work_dir.mkdir(parents=True, exist_ok=True)
-    out = {}
+    tiles = list(tiles)
     total = len(tiles)
-    for n, (i, j, tx, ty) in enumerate(tiles, 1):
-        if cancelled is not None and cancelled():
-            raise Cancelled()
-        p = work_dir / tile_cache_name(i, j, tx, ty, work_crs, base_product, pbf)
-        side = p.with_suffix(".stats.json")
-        st = {}
-        if not p.exists():
-            bounds = (tx, ty - _extent.TILE_M, tx + _extent.TILE_M, ty)
-            rasterize.make_chip(bounds, work_crs, p, pbf=pbf, base_product=base_product,
-                                stats=st)
-            try:
-                side.write_text(json.dumps(st))
-            except OSError:                          # a read-only temp dir must not fail a run
-                pass
-        elif side.is_file():
-            try:
-                st = json.loads(side.read_text())
-            except (OSError, ValueError):
-                st = {}
-        if stats_out is not None:
-            stats_out[(i, j)] = st
-        out[(i, j)] = p
-        if progress is not None:
-            progress(n, total)
-    return out
+    names = {(i, j): tile_cache_name(i, j, tx, ty, work_crs, base_product, pbf)
+             for (i, j, tx, ty) in tiles}
+
+    if workers is None:
+        workers = default_workers()
+    todo = [t for t in tiles if not (work_dir / names[(t[0], t[1])]).exists()]
+    # One process is not worth its start-up, and neither is a pool for a handful of tiles.
+    workers = 1 if (len(todo) < 2 * max(workers, 1) or workers <= 1) else min(workers, len(todo))
+
+    out = {}
+    if workers <= 1:
+        index = None
+        for n, (i, j, tx, ty) in enumerate(tiles, 1):
+            if cancelled is not None and cancelled():
+                raise Cancelled()
+            p = work_dir / names[(i, j)]
+            side = p.with_suffix(".stats.json")
+            st = {}
+            if not p.exists():
+                if index is None and pbf is not None:
+                    from . import vectors
+                    xs = [t[2] for t in tiles]
+                    ys = [t[3] for t in tiles]
+                    index = vectors.PbfIndex(
+                        pbf, (min(xs), min(ys) - _extent.TILE_M,
+                              max(xs) + _extent.TILE_M, max(ys)), work_crs)
+                bounds = (tx, ty - _extent.TILE_M, tx + _extent.TILE_M, ty)
+                _render_one(p, bounds, work_crs, index, pbf, base_product, st)
+            elif side.is_file():
+                try:
+                    st = json.loads(side.read_text())
+                except (OSError, ValueError):
+                    st = {}
+            if stats_out is not None:
+                stats_out[(i, j)] = st
+            out[(i, j)] = p
+            if progress is not None:
+                progress(n, total)
+        return out
+
+    # --- parallel ------------------------------------------------------------------
+    import concurrent.futures as _cf
+    import multiprocessing as _mp
+
+    # Contiguous blocks, not round-robin: neighbouring tiles share OSM features, so a
+    # block's index covers a compact area and stays small.
+    k = workers
+    blocks = [tiles[a * len(tiles) // k:(a + 1) * len(tiles) // k] for a in range(k)]
+    blocks = [b for b in blocks if b]
+    jobs = [(b, work_crs, str(work_dir), pbf, base_product,
+             {(i, j): names[(i, j)] for (i, j, _, _) in b}) for b in blocks]
+
+    ctx = _mp.get_context("spawn")
+    exe, wenv = worker_python()
+    usable, why = (False, "no interpreter found") if exe is None else workers_usable(exe, wenv)
+    if not usable:
+        # Refuse to guess. Spawning the host application instead of an interpreter, or
+        # building a pool that will die halfway, are both worse than running serially.
+        import logging
+        logging.getLogger("gencp").info(
+            "rendering serially: worker processes are unavailable (%s)", why)
+        return render_inputs(tiles, work_crs, work_dir, pbf=pbf,
+                             base_product=base_product, progress=progress,
+                             cancelled=cancelled, stats_out=stats_out, workers=1)
+    ctx.set_executable(exe)
+    # Children inherit the parent environment at spawn. Set the override only around the
+    # pool's life and put it back: PYTHONHOME is read at interpreter start-up, so this
+    # cannot disturb the already-running parent.
+    _saved = {k: os.environ.get(k) for k in wenv}
+    os.environ.update(wenv)
+    done_n = 0
+    ex = _cf.ProcessPoolExecutor(max_workers=len(jobs), mp_context=ctx)
+    try:
+        futs = {ex.submit(_render_block, j): j for j in jobs}
+        for fut in _cf.as_completed(futs):
+            if cancelled is not None and cancelled():
+                for f in futs:
+                    f.cancel()
+                raise Cancelled()
+            rows = fut.result()
+            for (ij, path, st) in rows:
+                out[ij] = Path(path)
+                if stats_out is not None:
+                    stats_out[ij] = st
+            # Honest progress: count tiles actually finished, never extrapolate. Blocks
+            # finish unevenly because OSM density is uneven, so this advances in jumps -
+            # but it never claims work that has not happened.
+            done_n += len(rows)
+            if progress is not None:
+                progress(min(done_n, total), total)
+    finally:
+        ex.shutdown(wait=True, cancel_futures=True)
+        for k, v in _saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+    if progress is not None:
+        progress(total, total)
+    return {ij: out[ij] for ij in [(t[0], t[1]) for t in tiles] if ij in out}
+
+
+def worker_python():
+    """(interpreter, env overrides) safe to spawn workers with, or (None, {}).
+
+    This is the difference between a speed-up and a catastrophe. `spawn` re-executes
+    `sys.executable`, and inside QGIS that is the QGIS APPLICATION binary - so a pool
+    would launch N copies of QGIS rather than N Python workers.
+
+    QGIS ships a real interpreter beside its binary, but it cannot bootstrap on its own:
+    it needs PYTHONHOME pointing at the prefix whose lib/pythonX.Y holds the stdlib. That
+    is derived here rather than hard-coded, and if it cannot be derived the caller stays
+    serial rather than guessing.
+    """
+    import sys as _sys
+    exe = Path(_sys.executable)
+    if exe.name.startswith("python"):
+        return str(exe), {}
+    cands = sorted((exe.parent / "bin").glob("python3*")) + sorted(exe.parent.glob("python3*"))
+    tag = f"python{_sys.version_info.major}.{_sys.version_info.minor}"
+    for cand in cands:
+        if not (cand.is_file() and os.access(cand, os.X_OK)):
+            continue
+        for up in list(cand.parents)[:5]:
+            if (up / "lib" / tag / "os.py").exists():
+                return str(cand), {"PYTHONHOME": str(up)}
+        return str(cand), {}
+    return None, {}
+
+
+_WORKERS_USABLE = {}
+
+
+def workers_usable(exe, env):
+    """Can a spawned worker actually import what it needs? Probed once, then cached.
+
+    Asking is not paranoia. Inside QGIS on macOS the spawnable interpreter can import
+    numpy, rasterio, shapely and geopandas but NOT osmium - the same code-signing split
+    this project already documented for onnxruntime, where a native extension loads inside
+    the signed application binary and refuses to load under the bundled python3.12. A pool
+    built on that interpreter does not run slowly, it dies with BrokenProcessPool partway
+    through a run. Better to find out in 200 ms and stay serial.
+    """
+    key = (exe, tuple(sorted(env.items())))
+    if key in _WORKERS_USABLE:
+        return _WORKERS_USABLE[key]
+    import subprocess as _sp
+    e = dict(os.environ)
+    e.update(env)
+    code = ("import numpy, rasterio, shapely, geopandas, osmium; print('ok')")
+    try:
+        r = _sp.run([exe, "-c", code], capture_output=True, timeout=120, env=e)
+        ok = r.returncode == 0 and b"ok" in r.stdout
+        why = "" if ok else (r.stderr.decode("utf-8", "replace").strip().splitlines() or [""])[-1]
+    except Exception as exc:                       # noqa: BLE001
+        ok, why = False, f"{type(exc).__name__}: {exc}"
+    _WORKERS_USABLE[key] = (ok, why)
+    return _WORKERS_USABLE[key]
+
+
+def default_workers():
+    """Physical-ish core count, leaving one for the UI thread."""
+    import os as _os
+    n = _os.cpu_count() or 4
+    return max(1, min(10, n - 2))
 
 
 def coverage_warnings(stats_by_tile, pbf=None):
@@ -218,7 +430,7 @@ def generate(extent_bbox, crs, model_path, out_tif=None, *, pbf=None,
              work_dir=None, progress=None, cancelled=None, seam=True,
              confidence=False, stochastic_model=None, n_confidence_passes=16,
              confidence_seed=0, alpha_confidence=True, band_layer=False,
-             write_osm=True):
+             write_osm=True, workers=None):
     """Run the whole chain. Returns a dict describing what was produced.
 
     progress(stage, done, total) where stage is 'render' | 'infer' | 'mosaic'.
@@ -236,7 +448,7 @@ def generate(extent_bbox, crs, model_path, out_tif=None, *, pbf=None,
     renders = render_inputs(tiles, work_crs, work_dir / "render", pbf=pbf,
                             base_product=base_product,
                             progress=sub("render"), cancelled=cancelled,
-                            stats_out=tile_stats)
+                            stats_out=tile_stats, workers=workers)
 
     model = _infer.OnnxGenerator(model_path)
     fakes = {}

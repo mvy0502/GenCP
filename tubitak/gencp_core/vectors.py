@@ -127,12 +127,15 @@ def _margin_bbox(bounds_utm, crs):
     return (min(xs), min(ys), max(xs), max(ys))
 
 
-def fetch_pbf(bounds_utm, crs, pbf_path):
-    """Read OSM features for a UTM footprint from a LOCAL .osm.pbf extract."""
+def _pbf_rows(pbf_path):
+    """Every KEEP-tagged feature in the extract, in file order, as dict rows.
+
+    Split out of fetch_pbf so the single-tile path and the whole-run index share ONE
+    implementation. If these ever diverge, Gate R's byte-identity claim quietly stops
+    covering the fast path.
+    """
     import osmium
     import shapely.wkb as swkb
-    import geopandas as gpd
-    W, S, E, N = _margin_bbox(bounds_utm, crs)
 
     fab = osmium.geom.WKBFactory()
     rows = []
@@ -170,6 +173,59 @@ def fetch_pbf(bounds_utm, crs, pbf_path):
             rows.append(t)
 
     H().apply_file(str(pbf_path), locations=True)
+    return rows
+
+
+class PbfIndex:
+    """Read an .osm.pbf ONCE for a whole run, then answer per-tile queries from memory.
+
+    The measured reason. Profiling 24 consecutive Istanbul tiles put 98.7% of the render
+    cost - 7.83 s of 7.94 s per tile - inside `fetch_pbf`, which walked the entire extract
+    for every single tile. Drawing was 1.0% and the CLC+ window 0.3%. A 567-tile scene
+    therefore parsed the same 39 MB file 567 times.
+
+    Byte-identity is the binding constraint, so this deliberately does NOT get clever. It
+    runs the same handler over the same file, keeps the rows in the same file order, and
+    then applies exactly the same `.cx` clip and `.to_crs` that `fetch_pbf` applies. The
+    only addition is a one-off pre-clip to the union of every tile's footprint, which
+    cannot change any per-tile answer: `.cx` selects on bounding-box intersection, so a
+    feature that survives a tile's box necessarily survives a box containing it.
+    """
+
+    def __init__(self, pbf_path, run_bounds_utm=None, crs=None):
+        import geopandas as gpd
+        rows = _pbf_rows(pbf_path)
+        self._empty = not rows
+        if self._empty:
+            self._gdf = gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
+            return
+        g = gpd.GeoDataFrame(rows, crs="EPSG:4326")
+        if run_bounds_utm is not None and crs is not None:
+            W, S, E, N = _margin_bbox(run_bounds_utm, crs)
+            g = g.cx[W:E, S:N]
+        self._gdf = g
+
+    def __len__(self):
+        return len(self._gdf)
+
+    def query(self, bounds_utm, crs):
+        """The same GeoDataFrame `fetch_pbf` would have returned for this footprint."""
+        import geopandas as gpd
+        if self._empty:
+            return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326").to_crs(crs)
+        W, S, E, N = _margin_bbox(bounds_utm, crs)
+        return self._gdf.cx[W:E, S:N].to_crs(crs)
+
+
+def fetch_pbf(bounds_utm, crs, pbf_path):
+    """Read OSM features for a UTM footprint from a LOCAL .osm.pbf extract.
+
+    Single-tile path. A whole run should use `PbfIndex`, which reads the file once instead
+    of once per tile; both go through `_pbf_rows`, so they cannot drift apart.
+    """
+    import geopandas as gpd
+    W, S, E, N = _margin_bbox(bounds_utm, crs)
+    rows = _pbf_rows(pbf_path)
     if not rows:
         return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326").to_crs(crs)
     g = gpd.GeoDataFrame(rows, crs="EPSG:4326")
