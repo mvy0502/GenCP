@@ -119,6 +119,46 @@ def tile_cache_name(i, j, tx, ty, work_crs, base_product="clcplus", pbf=None,
     return f"t_{i}_{j}_{hashlib.sha256(key.encode()).hexdigest()[:16]}.tif"
 
 
+class ExtentNotCovered(RuntimeError):
+    """The chosen .osm.pbf yields NO features anywhere in the requested extent.
+
+    Not a sparse-input warning. A sparse tile is a real condition with a real output, and
+    the confidence layer already carries it. Zero features across the WHOLE extent means
+    something different in kind: the file does not cover the area asked for, and every tile
+    would be drawn from land cover alone. That produces a clean, plausible, entirely
+    fictional mosaic - which is worse than an error, because it looks like a result.
+
+    It happened. An Istanbul run of 567 tiles was generated against an Ankara test extract;
+    `coverage_warnings` fired for 567 of 567 tiles and had no authority to stop anything,
+    and a day of analysis was spent on the output before the provenance was read.
+
+    Carries both bounding boxes so the message can show the mismatch rather than assert it.
+    """
+
+    def __init__(self, pbf_path, pbf_bounds, want_bounds, n_file):
+        self.pbf_path = pbf_path
+        self.pbf_bounds = pbf_bounds
+        self.want_bounds = want_bounds
+        self.n_file = n_file
+        super().__init__(self.describe())
+
+    @staticmethod
+    def _fmt(b):
+        if not b:
+            return "unknown"
+        return ("%.4f, %.4f  ->  %.4f, %.4f" % tuple(b))
+
+    def describe(self):
+        return (
+            f"The selected .osm.pbf does not cover this extent.\n"
+            f"  file      : {Path(self.pbf_path).name}  ({self.n_file:,} features)\n"
+            f"  it covers : {self._fmt(self.pbf_bounds)}\n"
+            f"  requested : {self._fmt(self.want_bounds)}\n"
+            f"Every tile would be drawn from land cover alone, with no roads, buildings or "
+            f"water. Choose an extract that covers the requested area, or switch to "
+            f"Overpass.")
+
+
 def _render_block(job):
     """Render one contiguous block of tiles in a worker process.
 
@@ -187,7 +227,8 @@ def _render_one(p, bounds, work_crs, index, pbf, base_product, st):
 
 
 def render_inputs(tiles, work_crs, work_dir, pbf=None, base_product="clcplus",
-                  progress=None, cancelled=None, stats_out=None, workers=None):
+                  progress=None, cancelled=None, stats_out=None, workers=None,
+                  index=None):
     """Render every tile's input. Returns {(i, j): path to the 257 px GeoTIFF}.
 
     `stats_out`, if a dict is passed, receives {(i, j): {"n_osm_features": ...}}. The
@@ -217,7 +258,6 @@ def render_inputs(tiles, work_crs, work_dir, pbf=None, base_product="clcplus",
 
     out = {}
     if workers <= 1:
-        index = None
         for n, (i, j, tx, ty) in enumerate(tiles, 1):
             if cancelled is not None and cancelled():
                 raise Cancelled()
@@ -260,7 +300,15 @@ def render_inputs(tiles, work_crs, work_dir, pbf=None, base_product="clcplus",
 
     ctx = _mp.get_context("spawn")
     exe, wenv = worker_python()
-    usable, why = (False, "no interpreter found") if exe is None else workers_usable(exe, wenv)
+    # spawn re-imports __main__ in every child. A caller with no __main__ FILE - a heredoc,
+    # `python -c`, an embedded interpreter - cannot be re-imported, and the children die on
+    # a missing path. Cheap to detect, and the fallback is simply serial.
+    import sys as _sys
+    _mainfile = getattr(_sys.modules.get("__main__"), "__file__", None)
+    if _mainfile is None:
+        exe, wenv = None, {}
+    usable, why = ((False, "the caller has no __main__ file to re-import")
+                   if exe is None else workers_usable(exe, wenv))
     if not usable:
         # Refuse to guess. Spawning the host application instead of an interpreter, or
         # building a pool that will die halfway, are both worse than running serially.
@@ -443,6 +491,20 @@ def generate(extent_bbox, crs, model_path, out_tif=None, *, pbf=None,
     ext, work_crs, src_crs = _extent.resolve(extent_bbox, crs)
     tiles, stride = _extent.tile_grid(ext, overlap_m)
     work_dir = Path(work_dir or default_work_dir())
+
+    # Coverage is checked BEFORE the first tile is rendered. The cost is one parse of the
+    # extract, which the run pays anyway to build its index, so refusing takes seconds
+    # rather than the three minutes a full generation would have taken before failing.
+    if pbf is not None:
+        from . import vectors as _v
+        xs = [t[2] for t in tiles]
+        ys = [t[3] for t in tiles]
+        run_bounds = (min(xs), min(ys) - _extent.TILE_M,
+                      max(xs) + _extent.TILE_M, max(ys))
+        want4326 = _v._margin_bbox(run_bounds, work_crs)
+        n_in, n_file, file_bounds = _v.pbf_coverage(pbf, want4326)
+        if n_in == 0:
+            raise ExtentNotCovered(pbf, file_bounds, want4326, n_file)
 
     tile_stats = {}
     renders = render_inputs(tiles, work_crs, work_dir / "render", pbf=pbf,

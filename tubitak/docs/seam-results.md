@@ -4,6 +4,16 @@ Registered in [seam-registration.md](seam-registration.md) (`3acbe61`) before an
 measured. Corpus: the İstanbul scene, 567 tiles at 640 m overlap, C2 arm. No institutional
 imagery is reproduced here; only summary numbers.
 
+> **Provenance note, added 2026-08-28.** A separate İstanbul run made the same day was
+> generated against the Ankara test extract `extent.osm.pbf` and contains **zero OSM
+> features in all 567 tiles**. None of the numbers in this document come from it. Every
+> figure below was measured on the run whose embedded provenance reads
+> `vector_source = local pbf: istanbul_scene.osm.pbf` (748,960 features over the scene,
+> generated 07:27:52 UTC); the zero-OSM run was generated at 08:10:07 UTC, after this
+> analysis was complete. The two are distinguished by reading `GENCP_PROVENANCE` from the
+> GeoTIFF, which is why that field exists. The wrong-extract case now blocks before
+> generation (`ExtentNotCovered`).
+
 ## Part 1 — buildings
 
 **Buildings reach the model. Part 1 is closed.** Measured by rendering each tile twice,

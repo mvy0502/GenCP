@@ -61,3 +61,15 @@ same image for the same input; that change was measured against the stochastic b
 found indistinguishable within the project's 0.05 px band (Registration A).
 
 If the manuscript quotes a number, it must state which of these two regimes produced it.
+
+## Rendering difference from upstream, for the manuscript
+
+Our HR rendering adds a **building** class (`#a52a2a`) that upstream GenCP's HR palette does
+not contain — 22 colours, no building entry, and no mention of buildings in the upstream HR
+demo. The VHR palette has one; the HR one does not.
+
+The pretrained base therefore never saw buildings; the fine-tuned arms did, because training
+inputs go through the same `make_chip`. Gate R proves our renderer matches our own research
+pipeline byte for byte and was never scoped to compare against upstream, which is the gap
+this entered through. On a dense İstanbul tile the building class covers about half the
+area, so this is not a marginal difference in built-up scenes.

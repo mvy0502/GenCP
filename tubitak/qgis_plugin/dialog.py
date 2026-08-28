@@ -630,7 +630,7 @@ class GenCPDialog(QDialog):
 
             rgb = np.asarray(img.convert("RGB"))
             idx, names = conf.class_map(rgb)
-            b = conf.osm_class_breakdown(idx, names)
+            b = conf.osm_class_breakdown(idx, names, rgb)
             self.lbl_osm.setText(t("osm_counts", roads=b["roads"],
                                    buildings=b["buildings"], water=b["water"],
                                    landuse=b["landuse"]))
@@ -889,8 +889,19 @@ class GenCPDialog(QDialog):
         task, self._task = self._task, None
         self.btn_cancel.setEnabled(False)
         if task is not None and task.exception is not None:
-            self.lbl_status.setText(t("failed", err=task.exception))
-            QMessageBox.critical(self, t("failed_title"), str(task.exception))
+            exc = task.exception
+            # The wrong-extract case gets its own title and its own text. It is not a
+            # crash: nothing went wrong mechanically, the inputs simply do not describe
+            # the same place, and the message shows both boxes so the user can see that
+            # rather than be told it.
+            ensure_core_importable()
+            from gencp_core.pipeline import ExtentNotCovered
+            if isinstance(exc, ExtentNotCovered):
+                self.lbl_status.setText(t("err_pbf_no_cover_short"))
+                QMessageBox.critical(self, t("err_pbf_no_cover_title"), str(exc))
+            else:
+                self.lbl_status.setText(t("failed", err=exc))
+                QMessageBox.critical(self, t("failed_title"), str(exc))
         else:
             self.lbl_status.setText(t("cancelled"))
         self._validate()

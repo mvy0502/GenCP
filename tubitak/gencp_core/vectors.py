@@ -176,6 +176,39 @@ def _pbf_rows(pbf_path):
     return rows
 
 
+def pbf_coverage(pbf_path, bbox_4326):
+    """(features intersecting bbox, total features, file bounds) - WITHOUT geopandas.
+
+    Deliberately built from `_pbf_rows` and plain shapely bounds. Constructing a
+    GeoDataFrame with a CRS makes pyproj build a CRS object, and this project has already
+    recorded that doing that on a QgsTask worker thread SEGFAULTS QGIS - the first version
+    of this coverage check crashed the end-to-end harness in exactly that way. A pre-flight
+    check has no business touching the CRS machinery: bounding boxes in degrees are all it
+    needs, and the extract is in EPSG:4326 already.
+    """
+    rows = _pbf_rows(pbf_path)
+    W, S, E, N = bbox_4326
+    n_in = 0
+    minx = miny = float("inf")
+    maxx = maxy = float("-inf")
+    for r in rows:
+        g = r.get("geometry")
+        if g is None:
+            continue
+        try:
+            x0, y0, x1, y1 = g.bounds
+        except Exception:                          # noqa: BLE001
+            continue
+        if x0 < minx: minx = x0
+        if y0 < miny: miny = y0
+        if x1 > maxx: maxx = x1
+        if y1 > maxy: maxy = y1
+        if x0 <= E and x1 >= W and y0 <= N and y1 >= S:
+            n_in += 1
+    bounds = None if minx == float("inf") else (minx, miny, maxx, maxy)
+    return n_in, len(rows), bounds
+
+
 class PbfIndex:
     """Read an .osm.pbf ONCE for a whole run, then answer per-tile queries from memory.
 
@@ -195,15 +228,28 @@ class PbfIndex:
     def __init__(self, pbf_path, run_bounds_utm=None, crs=None):
         import geopandas as gpd
         rows = _pbf_rows(pbf_path)
+        self.path = str(pbf_path)
+        self.n_file = len(rows)
+        # Coverage of the FEATURES, computed before the run clip and therefore free. Node
+        # bounds would be the cheaper answer and the wrong one: `osmium extract -s smart`
+        # pulls in member nodes of ways that cross the cut, so a city-sized extract reports
+        # a node bbox spanning half a continent. What a caller needs to know is where this
+        # file can actually draw something.
+        self.file_bounds = None
         self._empty = not rows
         if self._empty:
             self._gdf = gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
             return
         g = gpd.GeoDataFrame(rows, crs="EPSG:4326")
+        try:
+            self.file_bounds = tuple(float(v) for v in g.total_bounds)
+        except Exception:                          # noqa: BLE001
+            self.file_bounds = None
         if run_bounds_utm is not None and crs is not None:
             W, S, E, N = _margin_bbox(run_bounds_utm, crs)
             g = g.cx[W:E, S:N]
         self._gdf = g
+        self._empty = len(g) == 0
 
     def __len__(self):
         return len(self._gdf)

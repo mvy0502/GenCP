@@ -100,6 +100,8 @@ S = {
     "stage_confidence": "Güven hesaplanıyor ({done}/{total})",
     "stage_mosaic": "Birleştiriliyor",
     "stage_unknown": "Çalışıyor ({done}/{total})",
+    "err_pbf_no_cover_title": "Seçilen OSM çıkarımı bu alanı kapsamıyor",
+    "err_pbf_no_cover_short": ("Seçilen .osm.pbf bu alanı kapsamıyor. Üretim başlatılmadı."),
     "failed_title": "Üretim tamamlanamadı",
     "failed": "Üretim tamamlanamadı: {err}",
     "done_wrote": "{name} yazıldı",

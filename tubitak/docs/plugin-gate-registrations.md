@@ -225,3 +225,46 @@ Measured, real, on-disk sizes; no estimates. Rows: ONNX model fp32; ONNX model f
 plugin actually consumes**; CLC+ clip for the same area. The two data rows are normalised to
 **MB per 1000 km2** so the figure scales to any coverage area. The test area is defined and
 its area in km2 stated alongside, so the normalisation is checkable.
+
+### What Gate R does NOT prove
+
+Gate R establishes that `gencp_core.rasterize` is byte-identical to
+`tubitak/scripts/osm_to_raster.py`, this project's own research renderer. It says nothing
+about whether that renderer matches **upstream GenCP**, and the two differ in a way that
+entered through exactly this gap.
+
+**Our HR rendering adds a building class that upstream's HR palette does not contain.**
+`GenCP_HR_demo/genCP_HR_osm_colors.py` has 22 colours, none equal to `#a52a2a`, and the
+string "building" appears nowhere in it or in the upstream HR demo notebook. The VHR
+palette has `building_colors`; the HR one, which the deployed 10 m model uses, does not.
+`rasterize.py` adds `RGB["building"] = (165, 42, 42)` on top of the loaded palette.
+
+Consequence, stated precisely because the distinction matters:
+
+* The **pretrained base** was trained on renders with no buildings at all. Roughly 50% of a
+  dense İstanbul tile is painted in a colour it never saw.
+* The **fine-tuned arms** (C1, C2, C3, C4, C5) did see buildings: training inputs are built
+  by `tubitak/scripts/tile_pipeline.py`, which calls the same `make_chip`.
+
+So this is not a clean train/serve mismatch for the deployed model, and it is not nothing
+either. Whether fine-tuning on Ankara adequately teaches an unseen colour covering half a
+tile is not settled.
+
+Gate R remains correct and remains the foundation for reproducibility. It is a
+*self*-consistency gate, and it was never scoped to compare against upstream.
+
+### Known limitation: `class_map` cannot see buildings
+
+`confidence.class_map` classifies against the same 22-colour upstream palette, so a building
+pixel is assigned to its nearest neighbour — `red_road`, 104.8 DN away. `conf_D` therefore
+cannot distinguish built-up from road-dense.
+
+**The confidence bands remain valid.** Calibration ran through the identical mapping on the
+150 held-out European chips, so the score is internally consistent end to end; the band
+boundaries describe the quantity actually being computed. Changing `class_map` would move
+`conf_D` and invalidate that calibration, so it is deliberately left alone and recorded here
+instead.
+
+The user-facing building count does **not** go through `class_map`: since `f94d1fc` it is
+computed by `confidence.building_mask`, which judges pixels against the building colour
+directly.

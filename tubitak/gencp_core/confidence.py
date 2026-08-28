@@ -146,23 +146,67 @@ def signals(rgb_image, window=WINDOW):
     }
 
 
-def osm_class_breakdown(idx, names):
+def building_mask(rgb_image):
+    """Pixels whose nearest colour is the BUILDING colour, judged independently of class_map.
+
+    `class_map` classifies against the 22-colour upstream HR palette, which has no building
+    entry - the rasteriser adds `building` = (165, 42, 42) on top of it. A building pixel is
+    therefore assigned to its nearest palette neighbour, which is `red_road`, 104.8 DN away.
+    The interface counted class `light_gray` for "buildings", which is neither buildings nor
+    what buildings are classified as, so it reported roughly zero over the densest city in
+    Europe. That wrong number cost a day.
+
+    This counts buildings by their own colour and touches nothing else. `class_map` is
+    deliberately NOT changed: it feeds `conf_D`, and the confidence bands were calibrated
+    through exactly this mapping, so altering it would invalidate them. The
+    building/road conflation inside the score is recorded as a known limitation instead.
+    """
+    names, pal = palette_rgb()
+    a = np.asarray(rgb_image, dtype=np.float64)[:, :, :3]
+    b = np.asarray(_BUILDING_RGB, dtype=np.float64)
+    d_pal = ((a[:, :, None, :] - pal[None, None, :, :]) ** 2).sum(axis=-1).min(axis=-1)
+    d_bld = ((a - b[None, None, :]) ** 2).sum(axis=-1)
+    return d_bld < d_pal
+
+
+#: The rasteriser's building colour. Duplicated as a literal rather than imported from
+#: `rasterize`, which would make this module depend on the render path it is meant to audit.
+_BUILDING_RGB = (165, 42, 42)
+
+
+def osm_class_breakdown(idx, names, rgb_image=None):
     """Pixel counts per OSM-only class, grouped the way a user would read them.
 
     "4 OSM feature(s) in this tile" is not a number a user can judge. Which four, and of
     what kind, is.
+
+    Pass `rgb_image` to count buildings correctly. Without it the building count is
+    reported as None rather than as a wrong number, because a plausible wrong count is
+    worse than an absent one.
     """
     groups = {
         "roads": ("red_road", "orange_road", "medium_orange_road", "light_orange_road",
                   "residential_road", "tertiary_road", "unclassified_road", "track",
                   "foot_path"),
-        "buildings": ("light_gray",),
+        # NOT a class list: buildings are counted from rgb_image below. Left empty so a
+        # future edit cannot quietly reintroduce a palette class that is not buildings.
+        "buildings": (),
         "water": ("salt_pond", "light_purple"),
         "landuse": ("yellow_farm", "sand", "rock"),
     }
-    by_name = {n: int((idx == i).sum()) for i, n in enumerate(names)}
-    out = {g: int(sum(by_name.get(n, 0) for n in members)) for g, members in groups.items()}
-    out["total_osm_px"] = int(sum(out.values()))
+    bmask = None
+    if rgb_image is not None:
+        bmask = building_mask(rgb_image)
+    keep = ~bmask if bmask is not None else np.ones(idx.shape, bool)
+
+    # Road classes are counted OUTSIDE the building mask. A building pixel classifies as
+    # red_road, so counting both without excluding one would report every building twice:
+    # once as a building and once as a road.
+    by_name = {n: int(((idx == i) & keep).sum()) for i, n in enumerate(names)}
+    out = {g: int(sum(by_name.get(n, 0) for n in members))
+           for g, members in groups.items() if g != "buildings"}
+    out["buildings"] = int(bmask.sum()) if bmask is not None else None
+    out["total_osm_px"] = int(sum(v for v in out.values() if v is not None))
     return out
 
 
