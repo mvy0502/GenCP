@@ -95,8 +95,9 @@ S = {
     "pbf_dl_unverifiable": ("Yayımlanmış MD5 okunamadı, var olan dosya doğrulanamıyor. "
                            "İndirmeye devam edilebilir."),
     "pbf_dl_failed_short": "OSM dosyası indirilemedi.",
-    "pbf_no_cover_layer": ("Seçili OSM çıkarımı bu katmanı kapsamıyor. "
-                           "Çıkarım: {have}. Katman: {want}."),
+    "pbf_no_cover_layer": ("Seçili OSM çıkarımı bu katmanı kapsamıyor — çıkarım {have}, "
+                           "katman {want}. Gelişmiş bölümündeki \"Türkiye verisini indir\" "
+                           "düğmesi bunu çözer."),
     "clc_file": "CLC+ rasterı",
     "tile_overlap": "Karo bindirmesi",
     "overlap_suffix": " m",
@@ -122,6 +123,16 @@ S = {
     "stage_mosaic": "Birleştiriliyor",
     "stage_unknown": "Çalışıyor ({done}/{total})",
     "err_pbf_no_cover_title": "Seçilen OSM çıkarımı bu alanı kapsamıyor",
+    "err_pbf_no_cover_body": (
+        "Seçili .osm.pbf bu alanı kapsamıyor, bu yüzden üretim başlatılmadı.\n\n"
+        "  Dosya    : {name}\n"
+        "  Kapsadığı: {have}\n"
+        "  İstenen  : {want}\n\n"
+        "Kapsamasaydı her karo yalnızca arazi örtüsünden çizilirdi: yol, bina ve su "
+        "olmadan. Görüntü gerçekçi görünür ama içinde OSM'den gelen hiçbir şey olmaz.\n\n"
+        "Çözüm: Gelişmiş bölümündeki \"Türkiye verisini indir\" düğmesine basın. "
+        "Türkiye'nin tamamını kapsayan tek dosya kullanılır; dosya zaten indirilmişse "
+        "yeniden indirilmez, yalnızca doğrulanıp yolu ayarlanır."),
     "err_pbf_no_cover_short": ("Seçilen .osm.pbf bu alanı kapsamıyor. Üretim başlatılmadı."),
     "failed_title": "Üretim tamamlanamadı",
     "failed": "Üretim tamamlanamadı: {err}",

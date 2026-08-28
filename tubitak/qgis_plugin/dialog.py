@@ -663,19 +663,17 @@ class GenCPDialog(QDialog):
 
     # --------------------------------------------------------------- extent ---
     def _check_pbf_covers_layer(self):
-        """Tell the user the extract does not cover this layer NOW, not after Generate.
+        """Say the extract does not cover this layer NOW, not after Generate.
 
-        The block added earlier fires when generation starts, which is the right last line
-        of defence and the wrong first one: by then the user has chosen a layer, filled in
-        an output path and pressed a button. The coverage answer is available as soon as
-        both the layer and the extract are known, so it is given then.
+        The block raised by generate() is the right last line of defence and the wrong
+        first one: by then the user has chosen a layer, set an output path and pressed a
+        button.
 
-        This must never parse the extract. The first version did, and parsing the 640 MB
-        country file on the GUI thread froze the dialog for close to two minutes every time
-        a layer was chosen - a check that makes the tool feel broken is not worth the
-        warning it gives. It now reads only the header bounding box, which Geofabrik's
-        country files carry and which costs nothing. Extracts without one are simply not
-        checked here; the block at generation time still covers them.
+        Cost discipline, because the first version of this froze the dialog for two minutes:
+        a file that declares a header bounding box is judged from that, in 23 ms - which
+        covers every Geofabrik country file. Files without one are osmium-cut extracts,
+        the class that caused the Istanbul run, so they are parsed rather than skipped -
+        but only when small enough for that to be quick.
         """
         if not getattr(self, "_ui_ready", False):
             return
@@ -690,22 +688,38 @@ class GenCPDialog(QDialog):
         if getattr(self, "_cover_key", None) == key:
             return
         self._cover_key = key
+
         ensure_core_importable()
         from gencp_core import vectors as _v
+        from gencp_core import extent as _ex
         try:
+            # Resolve to the METRIC working CRS first, exactly as generate() does.
+            # _margin_bbox adds a 300 METRE margin; handed a geographic extent it adds 300
+            # DEGREES, and the resulting box covers the planet - so every extract looked
+            # like it covered every layer and this check silently never fired. The
+            # reference image that started all of this is EPSG:4326.
+            e, work_crs, _src = _ex.resolve(self._extent, self._crs)
+            want = _v._margin_bbox(e, work_crs)
             have = _v.pbf_header_bounds(pbf)
-            if have is None:
-                return                               # no declared bbox: do not parse here
-            want = _v._margin_bbox(self._extent, self._crs)
+            if have is not None:
+                covered = (have[0] < want[2] and have[2] > want[0]
+                           and have[1] < want[3] and have[3] > want[1])
+            elif os.path.getsize(pbf) > 150 * 1024 * 1024:
+                return                               # too big to parse on the GUI thread
+            else:
+                n_in, _n, have = _v.pbf_coverage(pbf, want)
+                covered = n_in > 0
         except Exception:                            # noqa: BLE001 - never block the UI
             return
-        overlaps = (have[0] < want[2] and have[2] > want[0]
-                    and have[1] < want[3] and have[3] > want[1])
-        if not overlaps:
-            def f(b):
-                return ("%.3f, %.3f -> %.3f, %.3f" % tuple(b)) if b else "?"
-            self._msg(t("pbf_no_cover_layer", have=f(have), want=f(want)),
-                      member(Qgis, 'Critical'))
+
+        if covered:
+            return
+
+        def f(b):
+            return ("%.3f, %.3f -> %.3f, %.3f" % tuple(b)) if b else "?"
+
+        self._msg(t("pbf_no_cover_layer", have=f(have), want=f(want)),
+                  member(Qgis, 'Critical'))
 
     def _refresh_extent(self):
         layer = self.layer_box.currentLayer()
@@ -1067,7 +1081,12 @@ class GenCPDialog(QDialog):
             from gencp_core.pipeline import ExtentNotCovered
             if isinstance(exc, ExtentNotCovered):
                 self.lbl_status.setText(t("err_pbf_no_cover_short"))
-                QMessageBox.critical(self, t("err_pbf_no_cover_title"), str(exc))
+                QMessageBox.critical(
+                    self, t("err_pbf_no_cover_title"),
+                    t("err_pbf_no_cover_body",
+                      name=Path(exc.pbf_path).name,
+                      have=exc._fmt(exc.pbf_bounds),
+                      want=exc._fmt(exc.want_bounds)))
             else:
                 self.lbl_status.setText(t("failed", err=exc))
                 QMessageBox.critical(self, t("failed_title"), str(exc))
