@@ -36,6 +36,23 @@ REGIONS = {
     "turkey": "europe/turkey",
 }
 
+#: Where else the same file can be fetched when Geofabrik will not serve it. Geofabrik
+#: answered 502 and 503 for the .pbf for a sustained period while the .md5 stayed up, and a
+#: user in front of a supervisor cannot be told "try again later". The mirror is a pinned
+#: snapshot published on our own release, so it is a fixed date rather than "latest" - which
+#: is stated in the UI, because which file you got changes what you can reproduce.
+MIRRORS = {
+    "turkey": ("https://github.com/mvy0502/gencp-validation/releases/download/"
+               "osm-turkey-2026-08-19/turkey-2026-08-19.osm.pbf"),
+}
+
+#: MD5 of each pinned mirror. The mirror is a fixed file, so unlike Geofabrik's moving
+#: "latest" checksum this one can be pinned here and checked - a mirror that is not
+#: verified is just a second way to get a corrupt file.
+MIRROR_MD5 = {
+    "turkey": "76af5efb51c5ef9fcb738795753a402a",
+}
+
 #: Only used when the server refuses to state a size, and labelled as approximate wherever
 #: it is shown. Geofabrik answers HEAD and Range on the .pbf with 502/503 under load, so
 #: "unknown" is a normal outcome, not an error - but showing nothing before starting a
@@ -149,28 +166,63 @@ def local_status(path, region="turkey", want_md5=None, progress=None):
         return {"state": "missing", "path": str(path)}
     size = path.stat().st_size
     remote = want_md5 if want_md5 is not None else remote_md5(region)
-    if remote is None:
+    if remote is None and MIRROR_MD5.get(region) is None:
         return {"state": "unverifiable", "path": str(path), "size": size,
                 "reason": "the published checksum could not be fetched"}
     have = file_md5(path, progress=progress)
-    return {"state": "current" if have == remote else "stale",
+    # The pinned mirror is a DATED file, so it never matches Geofabrik's moving "latest"
+    # checksum. Calling that stale would re-download 642 MB on every click for anyone whose
+    # copy came from the mirror - which is everyone, whenever Geofabrik is down.
+    src = None
+    if have == remote:
+        src = "Geofabrik"
+    elif have == MIRROR_MD5.get(region):
+        src = "pinned mirror"
+    return {"state": "current" if src else "stale", "source": src,
             "path": str(path), "size": size, "local_md5": have, "remote_md5": remote}
 
 
-def download(dest, region="turkey", progress=None, cancel=None, expect_md5=None):
+def download(dest, region="turkey", progress=None, cancel=None, expect_md5=None,
+             url=None, allow_mirror=True):
     """Download the extract to `dest`, verify it, and only then put it in place.
 
     `progress(done, total_or_None)` is called about once per megabyte. `cancel()` is polled
     at the same rate; returning True aborts, removes the partial file, and raises nothing -
     the caller gets None.
 
-    Returns a dict describing the verified file, or None if cancelled.
+    Tries Geofabrik, then the pinned mirror. Returns a dict describing the verified file
+    (including which source served it), or None if cancelled.
     """
+    primary, _ = urls(region)
+    candidates = [url] if url else [primary]
+    if allow_mirror and not url and region in MIRRORS:
+        candidates.append(MIRRORS[region])
+    # Every attempt is reported, not just the last. The first version kept only the final
+    # error, so a Geofabrik outage followed by a missing mirror surfaced as a bare 404 for
+    # the mirror and said nothing at all about the source that actually mattered.
+    failures = []
+    for i, u in enumerate(candidates):
+        try:
+            return _download_one(dest, region, u, progress, cancel, expect_md5,
+                                 mirror=(i > 0))
+        except GeofabrikError as e:
+            failures.append(f"{'mirror' if i else 'Geofabrik'} ({u}): {e}")
+            if progress is not None and i + 1 < len(candidates):
+                progress(0, None)                  # reset the bar for the next attempt
+    raise GeofabrikError(
+        "no source could supply the extract.\n  " + "\n  ".join(failures))
+
+
+def _download_one(dest, region, pbf_url, progress, cancel, expect_md5, mirror=False):
     dest = Path(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
     part = dest.with_suffix(dest.suffix + ".part")
-    pbf_url, _ = urls(region)
-    want = expect_md5 if expect_md5 is not None else remote_md5(region)
+    # The mirror is a pinned snapshot, so Geofabrik's "latest" checksum does not describe
+    # it. Verifying a dated file against a moving checksum would fail every time the
+    # upstream file changed, which is the opposite of a useful check.
+    want = expect_md5
+    if want is None:
+        want = MIRROR_MD5.get(region) if mirror else remote_md5(region)
 
     h = hashlib.md5()
     done = 0
@@ -217,7 +269,7 @@ def download(dest, region="turkey", progress=None, cancel=None, expect_md5=None)
 
     os.replace(part, dest)
     return {"path": str(dest), "size": size, "md5": got,
-            "verified": want is not None, "url": pbf_url}
+            "verified": want is not None, "url": pbf_url, "mirror": bool(mirror)}
 
 
 class _Cancelled(Exception):

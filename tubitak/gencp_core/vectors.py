@@ -127,18 +127,39 @@ def _margin_bbox(bounds_utm, crs):
     return (min(xs), min(ys), max(xs), max(ys))
 
 
-def _pbf_rows(pbf_path):
+def _pbf_rows(pbf_path, bbox=None):
     """Every KEEP-tagged feature in the extract, in file order, as dict rows.
 
     Split out of fetch_pbf so the single-tile path and the whole-run index share ONE
     implementation. If these ever diverge, Gate R's byte-identity claim quietly stops
     covering the fast path.
+
+    `bbox` = (W, S, E, N) in degrees drops features whose bounds miss it AS THEY ARE READ.
+    This is not an optimisation, it is what makes a country-sized extract usable at all:
+    all of Turkey is 9,121,746 features and 11.3 GB as a plain row list, before geopandas
+    touches it. Filtering to an Istanbul-sized run leaves about 750k.
+
+    The test is bounding-box intersection, which is exactly what the `.cx` clip downstream
+    applies, so filtering here cannot change which features survive - it only changes when
+    the ones that never would have survived are discarded. `gate_r_index.py` holds that
+    claim to byte-identity.
     """
     import osmium
     import shapely.wkb as swkb
 
     fab = osmium.geom.WKBFactory()
     rows = []
+    if bbox is None:
+        _keep = lambda g: True                      # noqa: E731
+    else:
+        W, S, E, N = bbox
+
+        def _keep(g):
+            try:
+                x0, y0, x1, y1 = g.bounds
+            except Exception:                       # noqa: BLE001
+                return True                         # never drop what we cannot judge
+            return x0 <= E and x1 >= W and y0 <= N and y1 >= S
 
     class H(osmium.SimpleHandler):
         def area(self, a):
@@ -151,6 +172,8 @@ def _pbf_rows(pbf_path):
             try:
                 g = swkb.loads(fab.create_multipolygon(a), hex=True)
             except Exception:
+                return
+            if not _keep(g):
                 return
             t["geometry"] = g
             rows.append(t)
@@ -169,11 +192,35 @@ def _pbf_rows(pbf_path):
                 g = swkb.loads(fab.create_linestring(w), hex=True)
             except Exception:
                 return
+            if not _keep(g):
+                return
             t["geometry"] = g
             rows.append(t)
 
     H().apply_file(str(pbf_path), locations=True)
     return rows
+
+
+def pbf_header_bounds(pbf_path):
+    """The extract's declared bounding box, or None. INSTANT - no parse.
+
+    Geofabrik's country files carry a header bbox; files cut with `osmium extract` do not.
+    So this answers immediately for exactly the case that matters for a responsive UI - the
+    640 MB country file - and returns None for small extracts, where the caller can afford
+    to parse or can simply wait for the check at generation time.
+    """
+    try:
+        import osmium
+        r = osmium.io.Reader(str(pbf_path), osmium.osm.osm_entity_bits.NOTHING)
+        try:
+            b = r.header().box()
+        finally:
+            r.close()
+        if not b.valid():
+            return None
+        return (b.bottom_left.lon, b.bottom_left.lat, b.top_right.lon, b.top_right.lat)
+    except Exception:                              # noqa: BLE001
+        return None
 
 
 def pbf_coverage(pbf_path, bbox_4326):
@@ -186,7 +233,7 @@ def pbf_coverage(pbf_path, bbox_4326):
     check has no business touching the CRS machinery: bounding boxes in degrees are all it
     needs, and the extract is in EPSG:4326 already.
     """
-    rows = _pbf_rows(pbf_path)
+    rows = _pbf_rows(pbf_path)          # unfiltered: the file bounds are part of the answer
     W, S, E, N = bbox_4326
     n_in = 0
     minx = miny = float("inf")
@@ -227,7 +274,10 @@ class PbfIndex:
 
     def __init__(self, pbf_path, run_bounds_utm=None, crs=None):
         import geopandas as gpd
-        rows = _pbf_rows(pbf_path)
+        clip = None
+        if run_bounds_utm is not None and crs is not None:
+            clip = _margin_bbox(run_bounds_utm, crs)
+        rows = _pbf_rows(pbf_path, bbox=clip)
         self.path = str(pbf_path)
         self.n_file = len(rows)
         # Coverage of the FEATURES, computed before the run clip and therefore free. Node
@@ -245,8 +295,8 @@ class PbfIndex:
             self.file_bounds = tuple(float(v) for v in g.total_bounds)
         except Exception:                          # noqa: BLE001
             self.file_bounds = None
-        if run_bounds_utm is not None and crs is not None:
-            W, S, E, N = _margin_bbox(run_bounds_utm, crs)
+        if clip is not None:
+            W, S, E, N = clip
             g = g.cx[W:E, S:N]
         self._gdf = g
         self._empty = len(g) == 0

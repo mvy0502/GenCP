@@ -42,10 +42,11 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from qgis.PyQt.QtCore import Qt, QSize
+from qgis.PyQt.QtCore import Qt, QSize, QTimer
 from qgis.PyQt.QtGui import QImage, QPixmap, QFont
 from qgis.PyQt.QtWidgets import (
-    QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFormLayout, QGroupBox,
+    QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFormLayout,
+    QGroupBox,
     QHBoxLayout, QLabel, QMessageBox, QProgressBar, QPushButton, QRadioButton,
     QScrollArea, QSpinBox, QVBoxLayout, QWidget,
 )
@@ -357,7 +358,15 @@ class GenCPDialog(QDialog):
         self._row(fa, "source", sw, "source")
         self.pbf_w = self._file_widget("GetFile", "OSM PBF (*.pbf *.osm.pbf)", "pbf_file",
                                        self._on_pbf_changed)
-        self._row(fa, "pbf_file", self.pbf_w, "pbf_file")
+        self.btn_pbf_dl = QPushButton(t("pbf_download"))
+        self.btn_pbf_dl.setToolTip(tip("pbf_download"))
+        self.btn_pbf_dl.clicked.connect(self._start_pbf_download)
+        pbf_row = QWidget()
+        pl = QHBoxLayout(pbf_row)
+        pl.setContentsMargins(0, 0, 0, 0)
+        pl.addWidget(self.pbf_w, 1)
+        pl.addWidget(self.btn_pbf_dl)
+        self._row(fa, "pbf_file", pbf_row, "pbf_file")
         self.clc_w = self._file_widget("GetFile", "GeoTIFF (*.tif *.tiff)", "clc_file",
                                        self._on_clc_changed)
         self._row(fa, "clc_file", self.clc_w, "clc_file")
@@ -477,13 +486,127 @@ class GenCPDialog(QDialog):
                 pass
 
     # ------------------------------------------------------------- handlers ---
+    def _pbf_download_dir(self):
+        """Where the country file goes. Inside the QGIS profile, so it survives and is
+        found again without the user recording a path anywhere."""
+        from qgis.core import QgsApplication
+        d = Path(QgsApplication.qgisSettingsDirPath()) / "gencp"
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+
+    def _start_pbf_download(self):
+        """Offer the country extract, with its size, and fetch it on a task."""
+        ensure_core_importable()
+        from gencp_core import geofabrik as gf
+        dest = self._pbf_download_dir() / "turkey-latest.osm.pbf"
+
+        # Already here and current? Say so rather than spending 640 MB of someone's
+        # bandwidth to arrive at the same file.
+        if dest.exists():
+            self.lbl_status.setText(t("pbf_dl_checking"))
+            QApplication.processEvents()
+            st = gf.local_status(dest, "turkey")
+            if st["state"] == "current":
+                # Set the path and say so on the status line, not in a banner. Nothing
+                # happened that the user needs told about in a box they must dismiss.
+                self.pbf_w.setFilePath(str(dest))
+                self.lbl_status.setText(t("pbf_dl_already", mb=st["size"] / 1e6,
+                                          src=st.get("source") or "?"))
+                return
+            if st["state"] == "unverifiable":
+                self._msg(t("pbf_dl_unverifiable"), member(Qgis, 'Warning'))
+
+        size = gf.remote_size("turkey")
+        approx = size is None
+        mb = (gf.APPROX_SIZE_BYTES.get("turkey", 0) if approx else size) / 1e6
+        if QMessageBox.question(
+                self, t("pbf_download"),
+                t("pbf_dl_confirm_approx" if approx else "pbf_dl_confirm",
+                  mb=mb, dest=str(dest))) != QMessageBox.StandardButton.Yes:
+            return
+
+        from .download_task import DownloadTask
+        self._dl = DownloadTask("GenCP: OSM", dest, "turkey")
+        self._dl.taskCompleted.connect(self._pbf_download_done)
+        self._dl.taskTerminated.connect(self._pbf_download_failed)
+        self.btn_pbf_dl.setEnabled(False)
+        self.btn_cancel.setEnabled(True)
+        self.btn_cancel.clicked.connect(self._dl.cancel)
+        self.progress.setValue(0)
+        self._dl_timer = QTimer(self)
+        self._dl_timer.timeout.connect(self._pbf_download_tick)
+        self._dl_timer.start(400)
+        QgsApplication.taskManager().addTask(self._dl)
+
+    def _pbf_download_tick(self):
+        d = getattr(self, "_dl", None)
+        if d is None:
+            return
+        self.progress.setValue(int(d.progress()))
+        if d.total:
+            self.lbl_status.setText(t("pbf_dl_progress", done=d.done / 1e6,
+                                      total=d.total / 1e6))
+        else:
+            self.lbl_status.setText(t("pbf_dl_progress_unknown", done=d.done / 1e6))
+
+    def _pbf_download_end(self, task):
+        """Tear down the download UI. Takes the task explicitly.
+
+        It used to read `self._dl`, which the callers had already set to None - so the
+        disconnect raised AttributeError inside a Qt slot, and the path was never set even
+        though 642 MB had arrived intact. Passing the object removes the ordering trap
+        rather than documenting it.
+        """
+        if getattr(self, "_dl_timer", None) is not None:
+            self._dl_timer.stop()
+            self._dl_timer = None
+        self.btn_pbf_dl.setEnabled(True)
+        self.btn_cancel.setEnabled(False)
+        if task is not None:
+            try:
+                self.btn_cancel.clicked.disconnect(task.cancel)
+            except (TypeError, RuntimeError):
+                pass
+
+    def _pbf_download_done(self):
+        d, self._dl = getattr(self, "_dl", None), None
+        try:
+            self._pbf_download_end(d)
+            if d is None or d.result is None:
+                return
+            r = d.result
+            self.pbf_w.setFilePath(r["path"])
+            self.progress.setValue(100)
+            self.lbl_status.setText(t("idle"))
+            key = "pbf_dl_ok_mirror" if r.get("mirror") else "pbf_dl_ok"
+            self._msg(t(key, mb=r["size"] / 1e6, md5=r["md5"][:12]),
+                      member(Qgis, 'Success'))
+        except Exception as e:                       # noqa: BLE001
+            # A slip in the completion slot must not cost the user the file they just
+            # waited five minutes for.
+            _log(f"download completion handler failed: {e}", member(Qgis, 'Warning'))
+            if d is not None and getattr(d, "result", None):
+                self.pbf_w.setFilePath(d.result["path"])
+
+    def _pbf_download_failed(self):
+        d, self._dl = getattr(self, "_dl", None), None
+        self._pbf_download_end(d)
+        self.progress.setValue(0)
+        if d is not None and d.exception is not None:
+            self.lbl_status.setText(t("pbf_dl_failed_short"))
+            QMessageBox.critical(self, t("pbf_download"), str(d.exception))
+        else:
+            self.lbl_status.setText(t("cancelled"))
+
     def _on_pbf_changed(self, p):
+        self._cover_key = None
         # 2.3: set once, then remembered. It lives in the collapsed Advanced group so it
         # is never on the path of a routine run.
         self._remember("pbf_path", p)
         if p:
             self.rb_local.setChecked(True)
         self._validate()
+        self._check_pbf_covers_layer()
 
     def _on_clc_changed(self, p):
         self._remember("clc_path", p)
@@ -539,6 +662,51 @@ class GenCPDialog(QDialog):
                                     duration=0)
 
     # --------------------------------------------------------------- extent ---
+    def _check_pbf_covers_layer(self):
+        """Tell the user the extract does not cover this layer NOW, not after Generate.
+
+        The block added earlier fires when generation starts, which is the right last line
+        of defence and the wrong first one: by then the user has chosen a layer, filled in
+        an output path and pressed a button. The coverage answer is available as soon as
+        both the layer and the extract are known, so it is given then.
+
+        This must never parse the extract. The first version did, and parsing the 640 MB
+        country file on the GUI thread froze the dialog for close to two minutes every time
+        a layer was chosen - a check that makes the tool feel broken is not worth the
+        warning it gives. It now reads only the header bounding box, which Geofabrik's
+        country files carry and which costs nothing. Extracts without one are simply not
+        checked here; the block at generation time still covers them.
+        """
+        if not getattr(self, "_ui_ready", False):
+            return
+        pbf = self._pbf_or_none()
+        if not pbf or self._extent is None or self._crs is None:
+            return
+        try:
+            key = (pbf, os.path.getmtime(pbf), tuple(round(v, 1) for v in self._extent),
+                   str(self._crs))
+        except OSError:
+            return
+        if getattr(self, "_cover_key", None) == key:
+            return
+        self._cover_key = key
+        ensure_core_importable()
+        from gencp_core import vectors as _v
+        try:
+            have = _v.pbf_header_bounds(pbf)
+            if have is None:
+                return                               # no declared bbox: do not parse here
+            want = _v._margin_bbox(self._extent, self._crs)
+        except Exception:                            # noqa: BLE001 - never block the UI
+            return
+        overlaps = (have[0] < want[2] and have[2] > want[0]
+                    and have[1] < want[3] and have[3] > want[1])
+        if not overlaps:
+            def f(b):
+                return ("%.3f, %.3f -> %.3f, %.3f" % tuple(b)) if b else "?"
+            self._msg(t("pbf_no_cover_layer", have=f(have), want=f(want)),
+                      member(Qgis, 'Critical'))
+
     def _refresh_extent(self):
         layer = self.layer_box.currentLayer()
         if layer is None:
@@ -573,6 +741,7 @@ class GenCPDialog(QDialog):
             self._msg(str(e), member(Qgis, 'Critical'))
         self._invalidate_preview()
         self._validate()
+        self._check_pbf_covers_layer()
 
     def _invalidate_preview(self):
         """Close the preview. It is off by default and returns to off when inputs change."""

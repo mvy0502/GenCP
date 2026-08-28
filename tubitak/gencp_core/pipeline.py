@@ -135,7 +135,7 @@ class ExtentNotCovered(RuntimeError):
     Carries both bounding boxes so the message can show the mismatch rather than assert it.
     """
 
-    def __init__(self, pbf_path, pbf_bounds, want_bounds, n_file):
+    def __init__(self, pbf_path, pbf_bounds, want_bounds, n_file=None):
         self.pbf_path = pbf_path
         self.pbf_bounds = pbf_bounds
         self.want_bounds = want_bounds
@@ -149,14 +149,15 @@ class ExtentNotCovered(RuntimeError):
         return ("%.4f, %.4f  ->  %.4f, %.4f" % tuple(b))
 
     def describe(self):
+        count = f"  ({self.n_file:,} features)" if self.n_file is not None else ""
         return (
-            f"The selected .osm.pbf does not cover this extent.\n"
-            f"  file      : {Path(self.pbf_path).name}  ({self.n_file:,} features)\n"
+            "The selected .osm.pbf does not cover this extent.\n"
+            f"  file      : {Path(self.pbf_path).name}{count}\n"
             f"  it covers : {self._fmt(self.pbf_bounds)}\n"
             f"  requested : {self._fmt(self.want_bounds)}\n"
-            f"Every tile would be drawn from land cover alone, with no roads, buildings or "
-            f"water. Choose an extract that covers the requested area, or switch to "
-            f"Overpass.")
+            "Every tile would be drawn from land cover alone, with no roads, buildings or "
+            "water. Choose an extract that covers the requested area, or switch to "
+            "Overpass.")
 
 
 def _render_block(job):
@@ -502,9 +503,24 @@ def generate(extent_bbox, crs, model_path, out_tif=None, *, pbf=None,
         run_bounds = (min(xs), min(ys) - _extent.TILE_M,
                       max(xs) + _extent.TILE_M, max(ys))
         want4326 = _v._margin_bbox(run_bounds, work_crs)
-        n_in, n_file, file_bounds = _v.pbf_coverage(pbf, want4326)
-        if n_in == 0:
-            raise ExtentNotCovered(pbf, file_bounds, want4326, n_file)
+        # Decide from the DECLARED bounds when the file has them. Geofabrik country files
+        # do; osmium-cut extracts do not. This matters more than it looks: counting
+        # features in the country file means parsing 9.1 M of them, 108 s and 11 GB, on
+        # every single run - to answer a question its 23 ms header already answers.
+        head = _v.pbf_header_bounds(pbf)
+        if head is not None:
+            disjoint = not (head[0] < want4326[2] and head[2] > want4326[0]
+                            and head[1] < want4326[3] and head[3] > want4326[1])
+            if disjoint:
+                raise ExtentNotCovered(pbf, head, want4326, None)
+            # Overlapping declared bounds: proceed. A file can still be empty over this
+            # particular extent (a country file over open sea), and that case remains a
+            # non-blocking per-tile warning rather than a block, because it is genuinely
+            # ambiguous - the extract does cover the area, there is simply nothing in it.
+        else:
+            n_in, n_file, file_bounds = _v.pbf_coverage(pbf, want4326)
+            if n_in == 0:
+                raise ExtentNotCovered(pbf, file_bounds, want4326, n_file)
 
     tile_stats = {}
     renders = render_inputs(tiles, work_crs, work_dir / "render", pbf=pbf,

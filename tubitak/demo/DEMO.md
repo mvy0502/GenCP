@@ -3,8 +3,17 @@
 `gencp_demo.qgz` gösterim için hazırlandı. Açıldığında referans katman yüklü gelir,
 eklentinin bütün dosya yolları projenin içinden dolar. Klavyeye dokunmadan çıktı alınır.
 
-Ölçülen süre: proje açılışından çıktı katmanına **1,2 saniye**, önbellek boşken, QGIS
-4.2.1 / macOS. İki tıklama: eklentiyi aç, **Üret**.
+Ölçülen süre: proje açılışından çıktı katmanına **1,2 saniye**, karo önbelleği doluyken,
+QGIS 4.2.1 / macOS. İki tıklama: eklentiyi aç, **Üret**.
+
+Gösterim, ülkenin tamamını kapsayan tek OSM dosyasını kullanır — Ankara'ya özel bir çıkarım
+değil. Bu bilinçli: eklentinin her yerde kullandığı kaynağın aynısıdır, ve hatırlanan
+Ankara yolunun bir yerde unutulup kalması İstanbul'da tam olarak buna yol açtı. Önbellek
+boşsa ilk çalıştırma ülke dosyasını bir kez ayrıştırır ve yaklaşık iki dakika sürer;
+sonraki çalıştırmalar önbellekten gelir. **Gösterimden önce bir kez çalıştırıp önbelleği
+doldurun.**
+
+Seçilen alan yine `ank_4_23`: üç güven bandının da göründüğü karo budur.
 
 Seçilen alan Ankara `ank_4_23`. Bilerek seçildi: güven katmanında her üç bant da
 görünür — yaklaşık %30 yeşil, %29 turuncu, %41 kırmızı. Tek renk çıkan bir örnek hiçbir
@@ -91,7 +100,7 @@ Bu makinedeki yerler:
 | Ne | Yol |
 |---|---|
 | Referans raster | `tubitak/data/ankara/run/ref/ank_4_23.tif` |
-| OSM çıkarımı | `tubitak/data/geofabrik/ankara_chips/ank_4_23.osm.pbf` |
+| OSM çıkarımı | QGIS profilindeki `gencp/turkey-latest.osm.pbf` (ülke dosyası) |
 | CLC+ Backbone | `tubitak/data/clcplus/CLMS_CLCplus_RASTER_2021_010m_eu_03035_V1_1.tif` |
 | Model | `tubitak/data/plugin_models/gencp_C2_fp32.onnx` |
 | Çıktı klasörü | `tubitak/data/demo_out/` |

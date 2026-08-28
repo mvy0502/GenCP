@@ -76,6 +76,27 @@ S = {
     "source_local": "Yerel .osm.pbf",
     "source": "Veri kaynağı",
     "pbf_file": "OSM çıkarımı",
+    "pbf_download": "Türkiye verisini indir",
+    "pbf_dl_checking": "Var olan dosya denetleniyor…",
+    "pbf_dl_confirm": ("Türkiye'nin tamamını kapsayan OSM dosyası indirilecek.\n\n"
+                       "Boyut: {mb:.0f} MB\nHedef: {dest}\n\nİndirilsin mi?"),
+    "pbf_dl_confirm_approx": ("Türkiye'nin tamamını kapsayan OSM dosyası indirilecek.\n\n"
+                              "Boyut: yaklaşık {mb:.0f} MB (sunucu kesin boyutu vermedi)\n"
+                              "Hedef: {dest}\n\nİndirilsin mi?"),
+    "pbf_dl_progress": "İndiriliyor… {done:.0f} / {total:.0f} MB",
+    "pbf_dl_progress_unknown": "İndiriliyor… {done:.0f} MB",
+    "pbf_dl_ok": ("Türkiye OSM dosyası indirildi ve doğrulandı: {mb:.0f} MB, "
+                  "MD5 {md5}… Kaynak: Geofabrik."),
+    "pbf_dl_ok_mirror": ("Türkiye OSM dosyası indirildi: {mb:.0f} MB, MD5 {md5}… "
+                         "Geofabrik yanıt vermediği için sabitlenmiş kopya kullanıldı; "
+                         "bu belirli bir tarihin dosyasıdır."),
+    "pbf_dl_already": ("Türkiye OSM dosyası zaten var ve doğrulandı ({mb:.0f} MB, kaynak: "
+                       "{src}). Yeniden indirilmedi."),
+    "pbf_dl_unverifiable": ("Yayımlanmış MD5 okunamadı, var olan dosya doğrulanamıyor. "
+                           "İndirmeye devam edilebilir."),
+    "pbf_dl_failed_short": "OSM dosyası indirilemedi.",
+    "pbf_no_cover_layer": ("Seçili OSM çıkarımı bu katmanı kapsamıyor. "
+                           "Çıkarım: {have}. Katman: {want}."),
     "clc_file": "CLC+ rasterı",
     "tile_overlap": "Karo bindirmesi",
     "overlap_suffix": " m",
@@ -155,6 +176,10 @@ TIP = {
     "add_layers": "Üretilen dosyaları iş bitince haritaya ekler.",
     "source": ("OSM verisinin okunacağı yer. Yerel .osm.pbf çevrimdışı çalışır ve "
                "hızlıdır. Overpass çevrimiçidir, dosya gerektirmez."),
+    "pbf_download": ("Türkiye'nin tamamını kapsayan tek dosyayı indirir ve yolunu ayarlar. "
+                     "Bir kez indirilir; ülke içinde başka bir çıkarım aramanız gerekmez. "
+                     "İndirme arka planda çalışır, durdurulabilir, ve dosya yayımlanmış "
+                     "MD5 özetiyle doğrulanmadan kullanılmaz."),
     "pbf_file": ("Geofabrik'ten indirilen .osm.pbf. Bir kez seçilir, sonraki açılışlarda "
                  "hatırlanır. Çalışılan alanı kapsamalıdır: kapsamazsa çıktı boş kırsal "
                  "alan gibi görünür, hata gibi görünmez."),
