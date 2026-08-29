@@ -221,15 +221,52 @@ def tile_grid(extent, overlap_m=DEFAULT_OVERLAP_M, align_origin=None):
     return tiles, stride
 
 
-def estimate(extent, overlap_m=DEFAULT_OVERLAP_M, sec_per_tile=None):
-    """Tile count, output size and a rough wall-clock estimate, for the dialog.
+#: Measured per-tile cost, serial, after the read-once index landed: render 0.343 s
+#: (query + make_chip on an Istanbul-density extract), inference 0.016 s, confidence
+#: 0.031 s, mosaic 0.087 s. The old constant was 6.0 s/tile - a figure from before the
+#: 21x speed-up that predicted 56.7 minutes for a scene that takes 4.7.
+SEC_PER_TILE = 0.48
 
-    sec_per_tile defaults to a measured CPU figure; it is a display estimate, and the
-    dialog labels it as such rather than presenting it as a guarantee.
+#: One-time vector index cost, which does NOT scale with tile count. Two numbers because
+#: they differ by two orders of magnitude and a single estimate cannot be honest for both:
+#: parsing the Turkey country extract, versus loading the cache built from it.
+INDEX_PARSE_SEC = {"country": 124.0, "region": 8.0}
+INDEX_CACHE_SEC = 3.4
+
+#: Above this the extract is treated as country-sized for estimation purposes.
+COUNTRY_BYTES = 150 * 1024 * 1024
+
+
+def index_cost(pbf_path=None, cached=False):
+    """Seconds for the one-time vector index step, and which case it is."""
+    if pbf_path is None:
+        return 0.0, "none"
+    if cached:
+        return INDEX_CACHE_SEC, "cache"
+    try:
+        import os
+        big = os.path.getsize(pbf_path) > COUNTRY_BYTES
+    except OSError:
+        big = False
+    return (INDEX_PARSE_SEC["country" if big else "region"],
+            "country" if big else "region")
+
+
+def estimate(extent, overlap_m=DEFAULT_OVERLAP_M, sec_per_tile=None,
+             pbf_path=None, index_cached=False):
+    """Tile count, output size and a wall-clock estimate SPLIT INTO ITS TWO TERMS.
+
+    The one-time index step and the per-tile cost behave differently: the first is paid
+    once whatever the extent, the second scales with tiles. Collapsing them into one
+    number makes the estimate wrong for a first run and wrong again for a cached one, in
+    opposite directions. So both are returned and the dialog shows both.
     """
     tiles, stride = tile_grid(extent, overlap_m)
     width, height, _ = output_grid(extent)
     n = len(tiles)
-    spt = 6.0 if sec_per_tile is None else float(sec_per_tile)
+    spt = SEC_PER_TILE if sec_per_tile is None else float(sec_per_tile)
+    idx_s, idx_kind = index_cost(pbf_path, index_cached)
+    tile_s = n * spt
     return dict(n_tiles=n, stride_m=stride, width=width, height=height,
-                seconds=n * spt, megapixels=width * height / 1e6)
+                index_seconds=idx_s, index_kind=idx_kind, tile_seconds=tile_s,
+                seconds=idx_s + tile_s, megapixels=width * height / 1e6)

@@ -32,8 +32,20 @@ S = {
     "tiles_estimate": "Karo / süre",
     "unset": "—",
     "waiting": "<span style='color:gray'>katman seçilmedi</span>",
-    "extent_value": "{xmin:.0f}, {ymin:.0f} → {xmax:.0f}, {ymax:.0f}  ({w:.0f} × {h:.0f} m)",
-    "tiles_value": "<b>{n} karo</b> · {w} × {h} piksel · yaklaşık {mins:.1f} dk",
+    # Projected layer: coordinates are metres, so metres are what is shown.
+    "extent_value_m": "{xmin:.0f}, {ymin:.0f} → {xmax:.0f}, {ymax:.0f}  ({w:.0f} × {h:.0f} m)",
+    # Geographic layer: degrees, at a precision that distinguishes places, and the ground
+    # size converted rather than pretended. Printing a 0,46° span as "0 m" is what the
+    # metre formatter did here.
+    "extent_value_deg": ("{xmin:.4f}, {ymin:.4f} → {xmax:.4f}, {ymax:.4f}  "
+                         "({w:.1f} × {h:.1f} km)"),
+    "tiles_value": ("<b>{n} karo</b> · {w} × {h} piksel · "
+                    "yaklaşık {idx_s:.0f} sn {idx_what} + {tile_min:.1f} dk üretim "
+                    "= <b>{total_min:.1f} dk</b>"),
+    "idx_country": "ülke dosyasını okuma",
+    "idx_region": "OSM çıkarımını okuma",
+    "idx_cache": "önbellekten okuma",
+    "idx_none": "hazırlık",
 
     # ------------------------------------------------------------------- model ----
     "sec_model": "Model",
@@ -121,6 +133,9 @@ S = {
     "stage_infer": "Üretiliyor ({done}/{total})",
     "stage_confidence": "Güven hesaplanıyor ({done}/{total})",
     "stage_mosaic": "Birleştiriliyor",
+    "stage_index_country": "OSM ülke dosyası okunuyor — yaklaşık 2 dk, yalnızca ilk çalıştırmada",
+    "stage_index_region": "OSM çıkarımı okunuyor…",
+    "stage_index_write": "OSM verisi önbelleğe yazılıyor…",
     "stage_unknown": "Çalışıyor ({done}/{total})",
     "err_pbf_no_cover_title": "Seçilen OSM çıkarımı bu alanı kapsamıyor",
     "err_pbf_no_cover_body": (

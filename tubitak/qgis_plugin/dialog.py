@@ -606,6 +606,11 @@ class GenCPDialog(QDialog):
         if p:
             self.rb_local.setChecked(True)
         self._validate()
+        # The estimate's one-time term depends on WHICH extract is selected - a country
+        # file, a small region, or a warm cache differ by two orders of magnitude - so the
+        # line has to be recomputed when the path changes. It showed "0 sn hazırlık" for a
+        # run that then spent two minutes reading the country file.
+        self._refresh_extent()
         self._check_pbf_covers_layer()
 
     def _on_clc_changed(self, p):
@@ -662,6 +667,31 @@ class GenCPDialog(QDialog):
                                     duration=0)
 
     # --------------------------------------------------------------- extent ---
+    def _index_is_cached(self, pbf, resolved_extent, work_crs):
+        """Is a built index already on disk for this file and area? Cheap: a stat, no read.
+
+        Only the fingerprint costs anything, and that is a hash of the extract - 1 s for
+        640 MB - so it is memoised per path+mtime.
+        """
+        if not pbf:
+            return False
+        try:
+            from gencp_core import vectors as _v, index_cache as _ic, extent as _ex
+            import os as _os
+            st = _os.stat(pbf)
+            memo = getattr(self, "_fp_memo", None)
+            if memo is None or memo[0] != (pbf, st.st_mtime):
+                self._fp_memo = ((pbf, st.st_mtime), _ic.file_fingerprint(pbf))
+            tiles, _s = _ex.tile_grid(resolved_extent, self.overlap_box.value())
+            xs = [t[2] for t in tiles]
+            ys = [t[3] for t in tiles]
+            rb = (min(xs), min(ys) - _ex.TILE_M, max(xs) + _ex.TILE_M, max(ys))
+            key = _ic.cache_key(pbf, _v._margin_bbox(rb, work_crs),
+                                fingerprint=self._fp_memo[1])
+            return _ic.cache_path(key).exists()
+        except Exception:                            # noqa: BLE001
+            return False
+
     def _check_pbf_covers_layer(self):
         """Say the extract does not cover this layer NOW, not after Generate.
 
@@ -737,16 +767,35 @@ class GenCPDialog(QDialog):
         authid = crs.authid() or ""
         # pyproj/rasterio cannot resolve a QGIS-local "USER:100001" authid; the WKT works.
         self._crs = crs.toWkt() if (not authid or authid.startswith("USER:")) else authid
-        self.lbl_extent.setText(t("extent_value", xmin=r.xMinimum(), ymin=r.yMinimum(),
-                                  xmax=r.xMaximum(), ymax=r.yMaximum(),
-                                  w=r.width(), h=r.height()))
+        # A geographic layer's extent is in DEGREES. The metre formatter rounded a 0.46
+        # degree span to "0 m" and showed "29, 41 -> 29, 41", which reads as a broken tool
+        # next to a correct tile count.
+        if crs.isGeographic():
+            import math
+            mid = math.radians((r.yMinimum() + r.yMaximum()) / 2.0)
+            km_w = r.width() * 111.320 * math.cos(mid)
+            km_h = r.height() * 110.574
+            self.lbl_extent.setText(t("extent_value_deg",
+                                      xmin=r.xMinimum(), ymin=r.yMinimum(),
+                                      xmax=r.xMaximum(), ymax=r.yMaximum(),
+                                      w=km_w, h=km_h))
+        else:
+            self.lbl_extent.setText(t("extent_value_m",
+                                      xmin=r.xMinimum(), ymin=r.yMinimum(),
+                                      xmax=r.xMaximum(), ymax=r.yMaximum(),
+                                      w=r.width(), h=r.height()))
         self.lbl_crs.setText(crs.authid() or crs.description())
         try:
             from gencp_core import extent as ext
             e, work, _ = ext.resolve(self._extent, self._crs)
-            est = ext.estimate(e, self.overlap_box.value())
-            self.lbl_tiles.setText(t("tiles_value", n=est["n_tiles"], w=est["width"],
-                                     h=est["height"], mins=est["seconds"] / 60.0))
+            pbf = self._pbf_or_none()
+            est = ext.estimate(e, self.overlap_box.value(), pbf_path=pbf,
+                               index_cached=self._index_is_cached(pbf, e, work))
+            self.lbl_tiles.setText(t(
+                "tiles_value", n=est["n_tiles"], w=est["width"], h=est["height"],
+                idx_s=est["index_seconds"], idx_what=t("idx_" + est["index_kind"]),
+                tile_min=est["tile_seconds"] / 60.0,
+                total_min=est["seconds"] / 60.0))
             self._extent_ok = True
             self._msg("")
         except Exception as e:                       # noqa: BLE001 - shown to the user
@@ -964,9 +1013,20 @@ class GenCPDialog(QDialog):
         self.progress.setValue(int(self._task.progress()))
         stage, _, counts = (self._task.message or "").partition(":")
         done, _, total = counts.strip().partition("/")
+        stage = stage.strip()
+        # The index stages carry no counts - they are a name, not a fraction. Formatting
+        # them through the counted template would print "Çalışıyor (?/?)", which is the
+        # uninformative text this exists to replace.
+        if stage.startswith("index"):
+            self.lbl_status.setText(t({
+                "index_country": "stage_index_country",
+                "index_region": "stage_index_region",
+                "index_write": "stage_index_write",
+            }.get(stage, "stage_index_region")))
+            return
         key = {"render": "stage_render", "infer": "stage_infer",
                "confidence": "stage_confidence", "mosaic": "stage_mosaic"}.get(
-                   stage.strip(), "stage_unknown")
+                   stage, "stage_unknown")
         self.lbl_status.setText(t(key, done=done or "?", total=total or "?"))
 
     def _cancel(self):

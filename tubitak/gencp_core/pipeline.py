@@ -227,9 +227,33 @@ def _render_one(p, bounds, work_crs, index, pbf, base_product, st):
         pass
 
 
+def _index_reporter(progress, pbf):
+    """Turn PbfIndex's stage names into pipeline progress events the UI can label.
+
+    Emitted with done=0, total=0 so the bar does not jump: this stage has no measurable
+    fraction, only a name. Saying WHICH stage is the point - "reading the country file,
+    about two minutes, first run only" is a different user experience from a bar frozen
+    at 0% saying "working".
+    """
+    if progress is None:
+        return None
+    import os as _os
+    try:
+        big = pbf is not None and _os.path.getsize(pbf) > 150 * 1024 * 1024
+    except OSError:
+        big = False
+
+    def report(stage, _detail):
+        if stage == "parse":
+            progress("index_country" if big else "index_region", 0, 0)
+        elif stage == "cache_write":
+            progress("index_write", 0, 0)
+    return report
+
+
 def render_inputs(tiles, work_crs, work_dir, pbf=None, base_product="clcplus",
                   progress=None, cancelled=None, stats_out=None, workers=None,
-                  index=None):
+                  index=None, index_progress=None):
     """Render every tile's input. Returns {(i, j): path to the 257 px GeoTIFF}.
 
     `stats_out`, if a dict is passed, receives {(i, j): {"n_osm_features": ...}}. The
@@ -270,9 +294,17 @@ def render_inputs(tiles, work_crs, work_dir, pbf=None, base_product="clcplus",
                     from . import vectors
                     xs = [t[2] for t in tiles]
                     ys = [t[3] for t in tiles]
+                    # Announce the index step. It is the longest single thing a run does
+                    # on a country extract and it used to happen in complete silence, with
+                    # the bar at 0% - which is indistinguishable from a hang and was read
+                    # as one.
+                    def _ip(stage, detail):
+                        if index_progress is not None:
+                            index_progress(stage, detail)
                     index = vectors.PbfIndex(
                         pbf, (min(xs), min(ys) - _extent.TILE_M,
-                              max(xs) + _extent.TILE_M, max(ys)), work_crs)
+                              max(xs) + _extent.TILE_M, max(ys)), work_crs,
+                        progress=_ip)
                 bounds = (tx, ty - _extent.TILE_M, tx + _extent.TILE_M, ty)
                 _render_one(p, bounds, work_crs, index, pbf, base_product, st)
             elif side.is_file():
@@ -526,7 +558,8 @@ def generate(extent_bbox, crs, model_path, out_tif=None, *, pbf=None,
     renders = render_inputs(tiles, work_crs, work_dir / "render", pbf=pbf,
                             base_product=base_product,
                             progress=sub("render"), cancelled=cancelled,
-                            stats_out=tile_stats, workers=workers)
+                            stats_out=tile_stats, workers=workers,
+                            index_progress=_index_reporter(progress, pbf))
 
     model = _infer.OnnxGenerator(model_path)
     fakes = {}

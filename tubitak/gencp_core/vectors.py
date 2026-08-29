@@ -28,6 +28,29 @@ from .extent import SIZE, GSD, SUPERSAMPLE
 
 MARGIN_M = 300.0
 
+
+def require_metric(crs, who):
+    """Refuse a CRS whose units are not metres, where metres are about to be assumed.
+
+    This is the fourth instance of one bug: code that adds a distance in METRES to a
+    coordinate, handed a GEOGRAPHIC CRS, where the same number means degrees. The previous
+    three were an fp16 bound, an extent display that printed 0.46 degrees as "0 m", and an
+    EPSG:4258 output that silently became a 1x1 pixel raster. The fourth added a 300 m
+    margin to degrees, produced a box larger than the planet, and made the coverage check
+    pass on everything.
+
+    Every caller in this repository happens to pass a projected CRS today. That is not the
+    same as it being enforced - it was equally true the day before the margin bug shipped -
+    so the assumption is now checked where it is made rather than trusted at each call.
+    """
+    from . import extent as _ex
+    kind, detail = _ex.classify_crs(str(crs))
+    if kind != "metric":
+        raise _ex.ExtentError(
+            f"{who} works in metres and was given a {kind} CRS ({crs}): {detail}. "
+            "Resolve the extent to a metric working CRS first - extent.resolve() does "
+            "this - rather than passing the layer's own CRS.")
+
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # CLC+ Backbone 2021 V1_1 (CLMS delivery, local). The repository location is only a
@@ -58,6 +81,7 @@ def fetch_clcplus(bounds_utm, crs, clc_path_override=None):
     tgt = from_origin(x0, y1, GSD / SUPERSAMPLE, GSD / SUPERSAMPLE)
     dst = np.zeros((n, n), np.uint8)
     with rasterio.open(str(clc_path(clc_path_override))) as src:
+        require_metric(crs, "fetch_clcplus")     # the 200 below is metres
         bb = transform_bounds(crs, src.crs, x0 - 200, y0 - 200, x1 + 200, y1 + 200)
         win = wfb(*bb, src.transform).round_offsets().round_lengths()
         arr = src.read(1, window=win)
@@ -88,6 +112,7 @@ def fetch_worldcover(bounds_utm, crs):
     x0, y0, x1, y1 = bounds_utm
     tgt = from_origin(x0, y1, GSD/SUPERSAMPLE, GSD/SUPERSAMPLE)
     dst = np.zeros((n, n), np.uint8)
+    require_metric(crs, "fetch_worldcover")      # the 200 below is metres
     ll = transform_bounds(crs, "EPSG:4326", x0-200, y0-200, x1+200, y1+200)
     for lat, lon in wc_tiles(ll):
         url = WC_URL.format(lat=lat, lon=lon)
@@ -119,6 +144,7 @@ def _margin_bbox(bounds_utm, crs):
     confirmed by Gate R still rendering byte-identically.
     """
     from . import extent as _extent
+    require_metric(crs, "_margin_bbox")
     x0, y0, x1, y1 = bounds_utm
     xs, ys = _extent._transform_points(
         crs, "EPSG:4326",
@@ -272,12 +298,42 @@ class PbfIndex:
     feature that survives a tile's box necessarily survives a box containing it.
     """
 
-    def __init__(self, pbf_path, run_bounds_utm=None, crs=None):
+    def __init__(self, pbf_path, run_bounds_utm=None, crs=None, use_cache=True,
+                 progress=None):
+        """`progress(stage, detail)` reports what is happening during the slow part.
+
+        The country parse is two minutes of silence otherwise, and a progress bar that sits
+        at 0% saying "working" is read as a hang. It has already been read as one.
+        """
         import geopandas as gpd
+        from . import index_cache as _ic
         clip = None
         if run_bounds_utm is not None and crs is not None:
             clip = _margin_bbox(run_bounds_utm, crs)
-        rows = _pbf_rows(pbf_path, bbox=clip)
+
+        rows = None
+        key = cpath = None
+        if use_cache:
+            try:
+                key = _ic.cache_key(pbf_path, clip)
+                cpath = _ic.cache_path(key)
+                if progress:
+                    progress("cache_probe", str(cpath))
+                rows = _ic.load(cpath, key)
+            except Exception:                      # noqa: BLE001 - cache is optional
+                rows = None
+        self.from_cache = rows is not None
+        if rows is None:
+            if progress:
+                progress("parse", str(pbf_path))
+            rows = _pbf_rows(pbf_path, bbox=clip)
+            if use_cache and cpath is not None:
+                try:
+                    if progress:
+                        progress("cache_write", str(cpath))
+                    _ic.save(cpath, key, rows)
+                except Exception:                  # noqa: BLE001 - never fail a run for it
+                    pass
         self.path = str(pbf_path)
         self.n_file = len(rows)
         # Coverage of the FEATURES, computed before the run clip and therefore free. Node

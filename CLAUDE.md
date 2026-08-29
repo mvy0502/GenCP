@@ -89,6 +89,22 @@ restore, and report the count.
     wearing different clothes, and neither was caught by the plant-a-dead-link discipline,
     which covered only the normal invocation. Verifiers now refuse arguments they do not
     understand (`tubitak/tests/_guard.py`).
+11. A check is born with a failing case. Write the known-false input first, watch the
+    check report it, and only then trust the check. Testing it afterwards is not the same
+    thing: three of the last four checks added to this project could not have caught
+    anything, and each was written by someone who believed it worked.
+
+    The three: the link checker passed with no arguments; the dark-theme check asserted
+    nothing; the coverage check computed a planet-sized box (300 m added to degrees) and
+    was blind to every osmium-cut extract. All three were written last in their package,
+    were small, and were assumed to work.
+
+12. When code assumes a unit, it checks that unit where the assumption is made. Four bugs
+    in this project are the same sentence — *code that assumes metres met a geographic
+    CRS*: the fp16 parity bound, the extent display printing 0.46 degrees as 0 m, the
+    EPSG:4258 output that became a 1x1 raster, and `_margin_bbox`'s 300 m margin becoming
+    300 degrees. Every caller passing a projected CRS today is not enforcement; it was
+    equally true the day before each of those shipped. See `vectors.require_metric`.
 
 ## Reporting format
 

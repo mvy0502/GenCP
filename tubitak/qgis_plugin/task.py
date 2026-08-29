@@ -39,6 +39,10 @@ class GenerateTask(QgsTask):
             from gencp_core import pipeline
 
             def progress(stage, done, total):
+                if stage.startswith("index"):
+                    # No fraction to report - only a name. Leave the bar alone.
+                    self.message = stage
+                    return
                 if total:
                     frac = STAGE_START.get(stage, 0.0) + \
                         STAGE_WEIGHTS.get(stage, 0.0) * (done / total)
