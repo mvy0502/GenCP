@@ -970,6 +970,9 @@ class GenCPDialog(QDialog):
 
     # -------------------------------------------------------------------- run -
     def _start(self):
+        # The download leaves the bar at 100%. Without this, a generation started straight
+        # afterwards opens showing "100%" before it has rendered a tile.
+        self.progress.setValue(0)
         from gencp_core import confidence as conf
         model = self.model_w.filePath().strip()
         conf_on, _ = self._confidence_on()

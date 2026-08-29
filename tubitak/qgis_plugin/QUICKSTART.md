@@ -11,14 +11,28 @@ Terim karşılıkları: [`tubitak/docs/terimler.md`](../docs/terimler.md).
 
 ## Gerekenler
 
+Dört dosya. **Hesap açmanız, veri kırpmanız ya da çıkarım aramanız gerekmez.** Toplam
+1,78 GB.
+
 | Dosya | Boyut | Nereden |
 |---|---|---|
-| `gencp_plugin.zip` | 73 KB | [sürüm sayfası](https://github.com/mvy0502/gencp-validation/releases/latest/download/gencp_plugin.zip) |
-| `gencp_C2_fp32.onnx` | 208 MB | [sürüm sayfası](https://github.com/mvy0502/gencp-validation/releases/latest/download/gencp_C2_fp32.onnx) |
-| CLC+ Backbone 2021 rasterı | 8,2 GB | Copernicus Land Monitoring Service |
-| `.osm.pbf` çıkarımı | değişir | Geofabrik. Overpass seçilirse bu dosya gerekmez |
+| `gencp_plugin.zip` | 89 KB | [sürüm sayfası](https://github.com/mvy0502/gencp-validation/releases/download/plugin-v0.2.0/gencp_plugin.zip) |
+| `gencp_C2_fp32.onnx` | 208 MB | [sürüm sayfası](https://github.com/mvy0502/gencp-validation/releases/download/plugin-v0.2.0/gencp_C2_fp32.onnx) |
+| `clcplus_2021_turkey_10m.tif` | 0,92 GB | [CLC+ Türkiye kırpması](https://github.com/mvy0502/gencp-validation/releases/download/clcplus-turkey-2026-08-30/clcplus_2021_turkey_10m.tif) |
+| Türkiye OSM verisi | 0,64 GB | **Eklentideki düğme indirir** — elle indirmeyin |
 
-Ayrıca bir referans katman gerekir. Üretilecek alan ve KRS o katmandan okunur.
+OSM dosyasını eklenti kendisi indirir: Gelişmiş bölümündeki **Türkiye verisini indir**
+düğmesi. Önce Geofabrik denenir, yanıt vermezse sabitlenmiş kopya kullanılır.
+
+Ayrıca bir referans katman gerekir. Üretilecek alan ve KRS o katmandan okunur — çalışmak
+istediğiniz alanı kapsayan herhangi bir georeferanslı raster olur.
+
+### Neden bu dosyalar
+
+CLC+ arazi örtüsü tabanıdır; OSM yollar, binalar ve su katmanını verir. Model ikisinden
+birleşik bir görüntü üretir. Avrupa geneli CLC+ ürünü 8,82 GB'dir ve Copernicus hesabı
+gerektirir; yukarıdaki bağlantı Türkiye'ye kırpılmış 0,92 GB'lık kopyadır, lisans ve atıf
+bilgisi sürüm notundadır.
 
 ## Kurulum
 
@@ -38,14 +52,22 @@ katmanı **Dışa Aktar > Nesneleri Farklı Kaydet** ile UTM'ye çevirin. EPSG:4
 EPSG:4258 gibi coğrafi sistemler kendiliğinden UTM'ye çevrilir.
 
 **Model.** `gencp_C2_fp32.onnx` dosyasını gösterin. Yol bir kez seçilir, sonra hatırlanır.
+Başka bir model seçerseniz görüntü yine üretilir ama güven katmanı üretilmez: bantlar
+yalnızca bu dosyada ölçüldü.
 
 **Çıktı.** Yazılacak dosyanın yolunu verin. Çıktı KRS varsayılan olarak referans katmanın
 KRS'sidir; başka bir sistem seçerseniz özgün dosya yerinde kalır, yanına yeniden
 örneklenmiş bir kopya yazılır.
 
-**Gelişmiş.** İlk kullanımda açıp OSM çıkarımı ile CLC+ rasterının yolunu verin. Her iki
-yol da hatırlanır; sonraki açılışlarda bu bölüme dokunmanız gerekmez. Karo bindirmesi ve
-güven katmanı seçenekleri de buradadır.
+**Gelişmiş.** İlk kullanımda bir kez açın:
+
+1. **Türkiye verisini indir** düğmesine basın. Ülkenin tamamını kapsayan tek OSM dosyası
+   indirilir, MD5 ile doğrulanır ve yolu kendiliğinden ayarlanır. İkinci kez basarsanız
+   dosya zaten varsa yeniden indirilmez.
+2. **CLC+ rasterı** için indirdiğiniz `clcplus_2021_turkey_10m.tif` dosyasını gösterin.
+
+Her iki yol da hatırlanır; sonraki açılışlarda bu bölüme dokunmanız gerekmez. Karo
+bindirmesi ve güven katmanı seçenekleri de buradadır.
 
 **Karo bindirmesi.** Serbestçe yazılır. İki kısıt vardır ve ikisi de yazılıp geçilmiş değil,
 uygulanır: değer 10 m'lik piksel ızgarasının tam katı olmalı ve bir karodan (2570 m) küçük
