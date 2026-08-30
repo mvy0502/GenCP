@@ -314,3 +314,170 @@ kötüdür: yanlış bir güven verir.
    çözün; hiçbir sayı o noktadan sonra güvenilir değildir.
 3. Bölüm 2'yi bir kez daha okuyun. Projenin en pahalı bilgisi oradadır ve olumsuzdur.
 
+
+---
+
+# Proje 2 — Sentinel-2 süper çözünürlük (`tubitak/sr/`)
+
+*Bu bölüm 31 Ağustos 2026'da eklenmiştir. Yukarıdaki bölümler Proje 1'i (sentetik referans)
+anlatır; burası ayrı bir iş koludur ve `tubitak/sr/` altında durur.*
+
+## P2.1 Bu iş kolu nedir
+
+Sentinel-2 görüntüsünü **süper çözünürlüklendiren (super-resolution)** bir QGIS eklentisi ve
+onun ölçüm zinciri geliştirilmiştir. Eklenti üç yöntem sunar: **bikübik (bicubic)** kontrol,
+bu çalışmada eğitilen **GenCP SR** modeli ve referans olarak alınan **wsx4** modeli
+(Evoland/CESBIO).
+
+İş kolunun asıl sorusu piksel benzerliği değildir. Süper çözünürlüğün **görüntü eşleştirmeyi
+(image matching)** gerçekten iyileştirip iyileştirmediği ölçülmüştür; bir geometrik referansın
+varlık nedeni budur.
+
+## P2.2 `tubitak/sr/` içinde ne var — modül modül
+
+| Dizin | İçerik | Not |
+|---|---|---|
+| `sr_core/` | Kiremitleme (tiling), birleştirme (mosaic), ızgara sözleşmesi (grid contract), bikübik büyütücü | **Dondurulmuştur.** QGIS'ten bağımsızdır; `test_no_qgis_imports.py` bunu sınar |
+| `sr_plugin/` | QGIS eklentisi: diyalog, `QgsTask`, Türkçe metinler, ONNX büyütücü | **Dondurulmuştur.** Zip'e paketlenirken `sr_core` içine gömülür (vendoring) |
+| `sr_data/` | Korpus üretimi, Wald bozundurması (degradation), bulut maskesi, bölünmeler (splits), metrikler | `degrade.py` tek gerçek bozundurma uygulamasıdır; kopyalanmaz, içe aktarılır |
+| `sr_train/` | Eğitim, değerlendirme, ONNX dışa aktarımı, kontrol kolu, varyant yapılandırması | `config.py` `GENCP_SR_VARIANT` ile x2/x4 arasında geçiş yapar |
+| `sr_match/` | WP8 eşleştirme deneyi: dört kol, KLT ölçümü, kırpma kenarlı wsx4 koşusu | `karios` ortamında çalıştırılır (tek `cv2` bulunan ortam) |
+| `tests/` | Gate S, kiremit eşdeğerliği, eklenti koruyucuları (guards), QGIS-içe-aktarma sınaması | Her biri bilinen-doğru ve bilinen-yanlış vakayla koşar |
+| `docs/` | On altı rapor: `00-recon`'dan `09-devir`'e | Her paket önce kayıt (registration), sonra ölçüm |
+
+## P2.3 Depoda bilerek bulunmayanlar ve nasıl elde edilecekleri
+
+Hiçbir veri deposunda tutulmaz; tamamı `.gitignore` kapsamındaki `tubitak/data/` altındadır.
+Aşağıdaki her satır, ilgili varlığın **tam olarak nasıl yeniden üretileceğini** verir.
+
+**1. Yansıtma (reflectance) bantları — B02, B03, B04, beş granül.**
+Kamuya açık `sentinel-cogs` S3 kovasından indirilir; kayıt gerekmez:
+`https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/36/<band>/<square>/<year>/<month>/<item-id>/<BAND>.tif`
+Beş ürünün kimlikleri (`item-id`) `docs/02a-reflectance-corpus.md` §1'de tam olarak
+yazılıdır ve indirilen dosyalar ETag ile doğrulanmıştır. `tubitak/data/s2_reflectance_l2a/`
+altına yerleştirilmelidir.
+
+**2. B08 (NIR) bandı.** Aynı kova, aynı desen, `B08` bandı ile. `tubitak/data/s2_b08/`
+altına yerleştirilmelidir.
+
+**3. Wald korpusu (x2, üç bant).** Şu şekilde üretilir:
+```
+python -m sr_data.build_corpus
+```
+`tubitak/sr/` dizininden çalıştırılmalıdır. Sonuç: `tubitak/data/sr_wald_corpus/`.
+
+**4. Düzeltilmiş bölünme (v2).** Granüller arası sızıntı (leak) giderilmiş bölünme:
+```
+python tubitak/sr/sr_train/split_fix.py
+```
+Sonuç: `tubitak/data/sr_wald_split_v2/`.
+
+**5. Dört bantlı korpus (x4).** B08, mevcut çiplere eklenir:
+```
+python tubitak/sr/sr_train/join_b08.py
+```
+Sonuç: `tubitak/data/sr_wald_corpus_x4/` (5.531 çip, 2,9 GB).
+
+**6. Model ağırlıkları.** Depoda tutulmaz, sürüm sayfasına eklenir. Yeniden eğitim:
+```
+GENCP_SR_VARIANT=x4 python tubitak/sr/sr_train/train.py --steps 20000 --batch 32 \
+    --budget-min 60 --run tubitak/data/sr_train_runs_x4/run1
+GENCP_SR_VARIANT=x4 python tubitak/sr/sr_train/export_onnx.py \
+    --ckpt tubitak/data/sr_train_runs_x4/run1/best.pt \
+    --out tubitak/data/plugin_models/gencp_sr_x4_b4.onnx --schedule 20000
+```
+x2 modeli için `GENCP_SR_VARIANT` değişkeni verilmez; öntanımlı değer WP3B'nin
+yapılandırmasıdır.
+
+**7. wsx4 ağırlıkları.** Bu çalışmanın ürünü değildir ve **hiçbir sürüme eklenmez.**
+Üst kaynaktan alınmalıdır: `https://github.com/IGNF/sentinel2_superresolution`.
+`wsx4_spatrad.onnx` ve yanındaki `wsx4_spatrad.yaml` birlikte indirilmeli ve aynı dizine
+konulmalıdır; eklenti `.yaml` dosyasını modelin yanında arar ve ölçek, normalleştirme ile
+kırpma kenarını oradan okur.
+
+**8. Gösterim (demo) girdileri.** Şu şekilde üretilir:
+```
+python tubitak/sr/sr_train/make_model_input.py
+```
+Sonuç: `tubitak/data/sr_model_input/`.
+
+## P2.4 Dondurulmuş dizin uzlaşımı ve gerekçesi
+
+**`tubitak/sr/sr_plugin/`, `tubitak/sr/sr_core/`, `tubitak/qgis_plugin/` ve
+`tubitak/gencp_core/` dondurulmuştur.**
+
+Gerekçe, kod kalitesi değildir: **4 Eylül 2026 gösterimi, öntanımlı (default) QGIS profiline
+kurulu eklenti üzerinden yapılacaktır.** Bu dört dizindeki bir değişiklik, gösterimin
+dayandığı davranışı sınanmamış biçimde değiştirir. Paketleme kusuru veya mutlak yol (absolute
+path) bulunsa dahi düzeltilmez; **bulgu olarak raporlanır.** Zip'in kurulmaması gösterimi
+etkilemez, çünkü gösterim zip'ten değil kurulu eklentiden çalışır.
+
+Bir dosyanın silinmesi veya taşınması söz konusu olduğunda `CLAUDE.md`'deki kural geçerlidir:
+**bu depoda o dosyayı okuyan bir şey var mı?** Varsa kalır.
+
+## P2.5 Bu projenin tekrar ürettiği iki hata biçimi
+
+Devralan kişi bu ikisiyle karşılaşacaktır. İkisi de tavsiye değil, ölçülmüş vakadır.
+
+### P2.5.1 Öntanımlı değeri bir modül sabitine bağlı parametre
+
+Bir fonksiyon `scale=SCALE` biçiminde bir öntanımlı değer alır; `SCALE` modül düzeyinde
+`params.SCALE`'dir ve değeri 2'dir. Ölçek 4 ile çalışan bir çağrı parametreyi geçmezse,
+**hata vermeden 2 ile çalışır.**
+
+Bu tek cümle bu projede **yedi kez** gerçekleşmiştir. Belgelenmiş örnekler:
+
+| Nerede | Ne yaptı | Nasıl yakalandı |
+|---|---|---|
+| `train.py`, `evaluate.py` | `degrade_chip` ölçeksiz çağrıldı; ölçek 4 modeline 128 piksel girdi verildi | kayıp fonksiyonunda boyut çakışması |
+| `corpus_checks.c4` | `mtf_at` ölçeksiz çağrıldı; ölçek 2 süzgeci ölçek 4 Nyquist frekansında değerlendirildi, kayıtlı 0,3 yerine 0,7401 çıktı | C4 denetimi düştü |
+| `gaussian_decimation_kernel` | Aday pencere blok merkezi yerine sıfır etrafında kuruldu; ölçek 4'te her bozundurulmuş girdiye **−0,0011 piksel** kayma gömüldü | X3 denetimi düştü |
+| `evaluate.CAVEAT`, ONNX `caveat`, `output_layout` | Ölçek 4 modelinin içinde "ikiye bölme", "5 m" ve "2x spatial" metinleri taşındı | çıktı okunarak |
+
+Sonuncusu en pahalısıdır: kapsam uyarısının sayıyla birlikte taşınması **kural olarak
+konulmuştu**, uyarı da taşındı — ancak sabit yazılmış (hard-coded) biçimde. O metin
+`metadata_props` içinde, yani **eklentinin kullanıcıya gösterdiği yerde** durur.
+**Yalan söyleyen künye (provenance), künyesizlikten kötüdür.**
+
+Korunma yolu: birim veya ölçek varsayan kod, varsaydığı yeri sınamalıdır. `vectors.require_metric`
+ve `sr_train/data.assert_band_order` bu amaçla yazılmıştır.
+
+### P2.5.2 Düşemeyen doğrulayıcı
+
+Hiçbir şeye bakmadan "geçti" diyen bir denetim, denetimsizlikten kötüdür: yanlış güven verir.
+
+| Vaka | Ölçüm |
+|---|---|
+| Proje 1 doğrulayıcı denetimi | 23 doğrulayıcının **18'i** bozuk çağrılarda 0 ile çıktı |
+| X5 bant sırası denetimi | `assert_band_order` **tanımlanmış ama hiçbir yerden çağrılmamıştı** |
+| WP9 mutlak yol denetimi | `zsh` değişken bölmesi (word splitting) nedeniyle `grep` tek bir dosya adı aldı; denetim **hiçbir dosyaya bakmadan** "temiz" dedi |
+
+Sonuncusu bu belgeyi yazan oturumda olmuştur ve yalnızca **bilinen-doğru vakasının da
+başarısız olması** sayesinde fark edilmiştir. Kural bu yüzden şudur: **bir denetim, düşen bir
+vakayla birlikte doğar.** Önce bulunması gereken bir şey aranmalı, denetimin onu bulduğu
+görülmeli, ancak ondan sonra "bulamadı" sonucuna güvenilmelidir.
+
+## P2.6 Açık maddeler — her biri kaynağı olan raporla
+
+| # | Madde | Kaynak |
+|---|---|---|
+| 1 | Eğitim süreci son `last.pt` yazımında **iki koşuda da** kilitlendi; teşhis edilmedi | `07-x4-model.md` §5.1 |
+| 2 | Sonda (probe) ile koşu arasındaki hız farkının nedeni ölçülmemiştir | `07-x4-model.md` §3 |
+| 3 | wsx4 çıktısının satır ekseninde **çeyrek piksel** kayması atfedilmemiştir | `08-eslestirme.md` §16.3 |
+| 4 | Eşleştirme tek bant (B04), tek dedektör (KLT), tek granül (36SXJ) ile ölçülmüştür | `08-eslestirme.md` §14 |
+| 5 | SSIM yalnızca kendi uç değerlerine karşı doğrulanmıştır | `03b-training.md` §7 |
+| 6 | QGIS 3.x ve Windows hiç çalıştırılmamıştır | `02b-plugin.md` |
+| 7 | wsx4 kendi alanında (10 m → 2,5 m) ölçülememiştir; bu depodaki tek gerçek referans 10 m Sentinel-2'dir | `08-eslestirme.md` §15.3 |
+
+## P2.7 Sayıların kapsamı
+
+**Kapsamı belirtilmemiş bir sayı bu belgeye girmez.** İki temel sonuç, kapsamlarıyla:
+
+- **Piksel benzerliği:** ayrık tutulan (held-out) **36SXJ** granülünde, 1332 çipte, ölçek 4 /
+  dört bant / `DN/10000` alanında, kayıtlı bikübik kontrole karşı eşli (paired) fark
+  **+2,971 dB PSNR**. Ölçek 2 / üç bant / `DN/5000` alanındaki **+5,574 dB** ile
+  **karşılaştırılamaz**: farklı görev, farklı radyometrik alan.
+- **Eşleştirme:** aynı granülde, **40 m → 10 m** dönüşümünde, gerçek Sentinel-2'ye karşı,
+  modelin ürettiği kullanılabilir kontrol noktası sayısı bikübiğin **3,8 katıdır**
+  (çip başına 478,6 / 126,9 RANSAC iç nokta). Bu sayı eklentinin normal kullanımdaki
+  10 m → 2,5 m dönüşümüne ait **değildir**; orada karşılaştırılacak bir gerçek referans yoktur.

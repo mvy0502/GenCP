@@ -51,6 +51,80 @@ See [`tubitak/README.md`](tubitak/README.md) for the workspace guide; its enviro
 weights and pipeline sections still apply, while its findings and analysis-script sections
 describe material that now lives in gencp-validation.
 
+## Project 2 — Sentinel-2 super-resolution, and whether it helps matching (`tubitak/sr/`)
+
+A second work stream on this branch, separate from the synthetic-reference plugin above. It
+adds a **QGIS plugin that super-resolves Sentinel-2 imagery**, and — the part that makes it
+worth reading — it measures whether super-resolution actually improves **image matching**,
+which is what a geometric reference is for.
+
+### What the plugin does
+
+One dialog, one output raster, three methods:
+
+| method | what it is | scale | bands |
+|---|---|---|---|
+| **bicubic** | a control, no model, no `onnxruntime` needed | 2x | any |
+| **GenCP SR** | our trained model | 2x (3-band) or 4x (4-band) | B02,B03,B04 (+B08 at 4x) |
+| **wsx4** | the Evoland/CESBIO reference model, hosted in our plugin | 4x | B02,B03,B04,B08 |
+
+Output geometry is asserted, not assumed: **Gate S** requires the output CRS to equal the
+input's, the pixel size to be exactly the input's divided by the scale, the origin to be
+unchanged, and the source pixel centre to fall at the centre of its output block.
+
+### What has been measured
+
+**Pixel fidelity.** On the held-out granule **36SXJ** (1332 chips, never trained on), against
+a registered bicubic control, **at scale 4, four bands, in normalised reflectance `DN/10000`**:
+the model gains **+2.971 dB PSNR** (paired per chip, worse on 1 chip in 1332). The scale-2
+three-band model gains **+5.574 dB** on the same granule **in `DN/5000`** — the two are *not*
+comparable, because they are different tasks in different radiometric domains.
+
+**Matching — the reason the project exists.** Real 10 m Sentinel-2 was degraded to 40 m and
+brought back by four routes, then matched against the real 10 m with the KLT detector and
+parameters this project already uses for georeferencing:
+
+> **On the held-out granule 36SXJ, measured 40 m → 10 m against real Sentinel-2, our model
+> yields 3.8 times bicubic's usable control points** (478.6 against 126.9 RANSAC inliers per
+> chip, mean over 1332 chips), and halves the correspondence error (0.605 px against 0.972 px).
+
+That sentence carries its scope on purpose. It is one granule, one band (B04), one detector,
+and one transformation — **40 m → 10 m, not the 10 m → 2.5 m the plugin performs in normal
+use, where there is no ground truth to measure against at all.**
+
+### What has NOT been measured
+
+- **Nothing at the resolution the tool is actually used at.** Every number above comes from a
+  degrade-and-restore experiment, because real 2.5 m ground truth for these scenes does not
+  exist here. Beating bicubic at inverting a blur we ourselves applied is not the same claim
+  as super-resolving real imagery.
+- **wsx4 in its own domain.** The comparison runs wsx4 at **40 m → 10 m when it was trained
+  for 10 m → 2.5 m** — outside the domain it was built for. **This is unavoidable:** the only
+  ground truth in this repository is real Sentinel-2 at 10 m, so any experiment with a real
+  reference must degrade to 40 m first. The asymmetry favours our model and every wsx4 number
+  here must be read with it. wsx4 was also given its declared 130-pixel crop margin in a second
+  run; it improved and the ranking did not change.
+- **Any environment other than QGIS 4.2.1 on macOS.** QGIS 3.x is written for and never run.
+  Windows is untested.
+
+### Requirements
+
+QGIS 4.2.1 (macOS verified). `rasterio` and `numpy` come with QGIS. The model methods need
+**`onnxruntime`** in QGIS's Python; the **bicubic path deliberately does not import it**, so
+the plugin loads and completes a job without it. `PyYAML` is needed only to read a `.yaml`
+sidecar next to a model that carries no embedded provenance — checked lazily, so its absence
+never blocks the bicubic path.
+
+### Reports
+
+Every work package registers its predictions before measuring and reports failed predictions
+rather than adjusting them. [`tubitak/sr/docs/`](tubitak/sr/docs/):
+`00-recon` (environment) - `02b-plugin` (the plugin, and
+[`02b-demo-tik-sirasi`](tubitak/sr/docs/02b-demo-tik-sirasi.md), a click-by-click walkthrough)
+- `03a`/`03b` (corpus, split-leak correction, training) - `04` (model in the plugin) -
+`05`/`06` (the reference tool, and hosting wsx4) - `07` (the scale-4 four-band model) -
+**`08-eslestirme`** (the matching experiment) - `09-devir` (handover and packaging).
+
 ## GenCP
 This project is a proof-of-concept prototype that produces Generated Control Point (GenCP) image chips with generative AI techniques. Ground Control Points (GCP) are reference measurements used in the geometric calibration and validation (Cal/Val) of remote sensing images.
 
