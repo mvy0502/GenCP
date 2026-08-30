@@ -154,9 +154,12 @@ class SRDialog(QDialog):
         g_set = QGroupBox(t("sec_settings"))
         f_set = QFormLayout(g_set)
 
-        # The scale factor is SHOWN and FIXED. A disabled spinbox would invite the user to
-        # try to change it; a label states the value and does not pretend to be a control.
-        self.lbl_scale = QLabel(t("scale_fixed"))
+        # The scale is SHOWN, not editable: a disabled spinbox would invite the user to try
+        # to change it, and a label does not pretend to be a control. It is NOT constant,
+        # though - bicubic and our model are 2x, wsx4 is 4x - so it is refreshed by
+        # `_refresh_scale_label()` whenever the method or the model changes. It used to read
+        # "2 x" through an entire 4x run, beside an estimate that said 2,5 m.
+        self.lbl_scale = QLabel(t("scale_value", n=BICUBIC_SCALE))
         self._row(f_set, "scale", self.lbl_scale, "scale")
 
         self.method_cb = QComboBox()
@@ -347,6 +350,10 @@ class SRDialog(QDialog):
         """
         return str(self.method_cb.currentData()) in ("model", "wsx4")
 
+    def _refresh_scale_label(self):
+        """Show the scale the CURRENT method declares. Display only; changes no arithmetic."""
+        self.lbl_scale.setText(t("scale_value", n=self._scale()))
+
     def _scale(self):
         """Scale of the CURRENT method: from the model when there is one, else bicubic's."""
         if self._is_model() and self._model:
@@ -386,6 +393,7 @@ class SRDialog(QDialog):
         self.model_w.setEnabled(m)
         self.lbl_model.setVisible(m)
         self.lbl_caveat.setVisible(m)
+        self._refresh_scale_label()
         if m:
             if not self.model_w.filePath().strip() or \
                     str(self.method_cb.currentData()) != getattr(self, "_last_kind", None):
@@ -398,6 +406,7 @@ class SRDialog(QDialog):
             from sr_core import tiles as _t
             self.tile_sb.setValue(_t.DEFAULT_TILE_PX)
             self.ovl_sb.setValue(_t.DEFAULT_OVERLAP_PX)
+            self._refresh_scale_label()
             # _recheck_input() clears _input_err, because it is a no-op off the model path.
             # Without this the model's refusal stayed on screen after switching to bicubic,
             # while Run was enabled - two contradictory signals at once. Found by driving
@@ -453,6 +462,7 @@ class SRDialog(QDialog):
             self.tile_sb.setValue(int(prov["tile_src"]) if prov["tiling"] == "crop"
                                   else MODEL_INFER_TILE_PX)
             self.ovl_sb.setValue(int(prov["overlap_src"]))
+        self._refresh_scale_label()
         self._suggest_output()
         self._recheck_input()
         self._validate()

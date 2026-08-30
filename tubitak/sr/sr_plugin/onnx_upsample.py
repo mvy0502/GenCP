@@ -73,7 +73,15 @@ def _from_yaml_sidecar(path, model_path):
     which is the file the tool itself reads. We read the same file rather than restating its
     numbers, so a different model of theirs is a different sidecar and not a code change.
     """
-    import yaml
+    try:
+        import yaml
+    except ImportError:
+        # Fires HERE, on the wsx4 path only, and never at plugin load: the bicubic path is
+        # the demonstration's recovery plan and must not depend on a package it never uses.
+        # ModelInputError carries a strings key, so the dialog shows the Turkish message
+        # through the same handler it already uses for every other model-contract failure,
+        # instead of a raw ImportError behind a bare "Başarısız:".
+        raise ModelInputError("err_no_yaml", name=Path(path).name)
     cfg = yaml.safe_load(Path(path).read_text())
     for k in ("bands", "factor", "margin"):
         if k not in cfg:

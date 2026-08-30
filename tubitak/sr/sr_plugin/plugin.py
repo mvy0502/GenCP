@@ -41,6 +41,15 @@ def ensure_core_importable():
 #: each absence in Turkish. WP2B open item 1: rasterio is the dependency most likely to be
 #: missing on another machine, and its absence used to surface as a ModuleNotFoundError
 #: behind a bare "Başarısız:".
+# ONLY what EVERY path needs. rasterio is read by the dialog to describe the source and by
+# sr_core to read and write every raster, so its absence stops everything.
+#
+# `yaml` is deliberately NOT here, although the wsx4 path needs it. Listing it would make
+# the dialog refuse to open without PyYAML - including the BICUBIC path, which never touches
+# yaml and which is the recovery plan if anything else fails during the demonstration. A
+# recovery path must not depend on a package only the failing path needs. yaml is therefore
+# checked where it is used, in `onnx_upsample._from_yaml_sidecar`, which raises the same
+# readable Turkish message (`err_no_yaml`) the dialog already knows how to display.
 REQUIRED_MODULES = (("rasterio", "err_no_rasterio"),)
 
 

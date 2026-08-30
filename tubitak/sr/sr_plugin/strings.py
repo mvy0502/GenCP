@@ -52,7 +52,9 @@ S = {
     # ------------------------------------------------------------------ ayarlar ----
     "sec_settings": "Ayarlar",
     "scale": "Ölçek katsayısı",
-    "scale_fixed": "2 ×  (çözünürlük iki katına çıkar)",
+    # The scale is NOT fixed: bicubic is 2x, our model 2x, wsx4 4x. The label used to
+    # read "2 x" during a 4x run, next to an estimate that said 2,5 m.
+    "scale_value": "{n} ×  (piksel boyu {n} kat küçülür)",
     "method": "Yöntem",
     "method_bicubic": "Bikübik",
     "model_file": "Model dosyası",
@@ -138,16 +140,19 @@ S = {
                   "seçilen dosyanın veri tipi <b>{got}</b>.<br><br>"
                   "TCI dosyası 8 bitlik <i>görsel</i> bir birleşimdir; modelin eğitildiği "
                   "veri bu değildir ve model bu dosyayla anlamsız sonuç üretir.<br><br>"
-                  "Model yolu için adı <b>MODEL_INPUT_</b> ile başlayan, {order} bantlarını "
-                  "içeren yansıtma dosyasını seçin. TCI dosyasını <b>Bikübik</b> yöntemiyle "
-                  "kullanabilirsiniz."),
+                  "Model yolu için {order} bantlarını içeren yansıtma dosyasını seçin: "
+                  "4 bant için adı <b>DEMO_INPUT_WSX4_</b>, 3 bant için "
+                  "<b>DEMO_INPUT_</b> ile başlayan dosya. TCI dosyasını "
+                  "<b>Bikübik</b> yöntemiyle kullanabilirsiniz."),
     "err_bands": ("Model <b>{want} bant</b> bekler ({order}); seçilen dosyada "
-                  "<b>{got} bant</b> var.<br><br>Adı <b>MODEL_INPUT_</b> ile başlayan "
-                  "yansıtma dosyasını seçin."),
+                  "<b>{got} bant</b> var.<br><br>4 bant için adı "
+                  "<b>DEMO_INPUT_WSX4_</b>, 3 bant için <b>DEMO_INPUT_</b> ile "
+                  "başlayan yansıtma dosyasını seçin."),
     "err_range": ("Dosya 16 bit ama değerleri 8 bitlik bir görüntününki gibi "
                   "(%99,9 dilimi <b>{p999:.0f}</b>). Yansıtma verisinde bu değer birkaç "
                   "bindir. Bu dosya büyük olasılıkla dönüştürülmüş bir TCI.<br><br>"
-                  "Adı <b>MODEL_INPUT_</b> ile başlayan dosyayı seçin."),
+                  "Adı <b>DEMO_INPUT_</b> ya da <b>DEMO_INPUT_WSX4_</b> ile başlayan "
+                  "dosyayı seçin."),
     "err_model_meta": ("<b>{name}</b> künye bilgisi taşımıyor: {missing}. Eklenti "
                        "normalleştirme sabitini modelden okur; künyesiz bir modeli "
                        "tahminle çalıştırmaz."),
@@ -156,6 +161,10 @@ S = {
     "err_no_rasterio": ("<b>rasterio</b> paketi bu QGIS kurulumunda yok. Eklenti raster "
                         "okuyup yazmak için onu kullanır ve onsuz çalışamaz.<br><br>"
                         "QGIS'in Python ortamına <code>rasterio</code> kurulmalıdır."),
+    "err_no_yaml": ("<b>PyYAML</b> paketi bu QGIS kurulumunda yok. Eklenti, künye "
+                    "taşımayan modellerin (wsx4 gibi) yapılandırmasını yanındaki "
+                    ".yaml dosyasından okur ve onsuz okuyamaz.<br><br>"
+                    "QGIS'in Python ortamına <code>PyYAML</code> kurulmalıdır."),
     "err_no_onnxruntime": ("<b>onnxruntime</b> paketi bu QGIS kurulumunda yok. "
                            "Eğitilmiş model bu paketle çalışır.<br><br>"
                            "<b>Bikübik</b> yöntemi onsuz da çalışır; model yolu için "
@@ -180,8 +189,9 @@ TIP = {
     "input_file": ("İşlenecek GeoTIFF. Kuzeye dönük ve döndürülmemiş olmalıdır."),
     "src_info": ("Girdinin okunan gerçek özellikleri: boyut, bant sayısı, veri tipi, "
                  "KRS ve piksel boyu. Bunlar dosyadan okunur, tahmin edilmez."),
-    "scale": ("Çıktının girdiye göre kaç kat ince olacağı. Şimdilik 2'ye sabitlenmiştir: "
-              "10 m girdi 5 m çıktı verir. Kaynak ızgarasının tam katı olması gerekir."),
+    "scale": ("Çıktının girdiye göre kaç kat ince olacağı. Seçilen yöntemin kendisi "
+              "belirler: bikübik ve GenCP modeli 2×, wsx4 modeli 4×. Kaynak "
+              "ızgarasının tam katı olmalıdır."),
     "method": ("Ara değer yöntemi. Bikübik bir taban çizgisidir, eğitilmiş model değildir; "
                "yeni bilgi üretmez, var olanı yeniden örnekler."),
     "model_file": ("Eğitilmiş model dosyası. Bikübik yönteminde kullanılmaz ve bu yüzden "

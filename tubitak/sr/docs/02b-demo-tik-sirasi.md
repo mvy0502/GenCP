@@ -174,6 +174,9 @@ değil, 16 bitlik yansıtma verisidir. Görünmüyorsa: katmana sağ tıklayıp 
    **`4 bant` ve `uint16` yazması önemlidir.** `3 bant` yazıyorsa yanlış dosyayı seçtiniz.
 
 9. **Ayarlar** > **Yöntem** kutusundan **Referans model — wsx4 (4×)** seçin.
+
+   **Ölçek katsayısı** satırı bu adımda hâlâ `2 ×` yazar — bu normaldir. Ölçeği yöntem
+   değil **model dosyası** bildirir, ve onu 11. adımda seçeceksiniz.
 10. **Model dosyası** kutusunun sağındaki **…** düğmesine basın, `Command + Shift + G`,
     sonra:
 
@@ -181,7 +184,9 @@ değil, 16 bitlik yansıtma verisidir. Görünmüyorsa: katmana sağ tıklayıp 
     /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/wp5_reference/models
     ```
 
-11. **wsx4_spatrad.onnx** dosyasına çift tıklayın.
+11. **wsx4_spatrad.onnx** dosyasına çift tıklayın. **Şimdi** **Ölçek katsayısı** satırı
+    **`4 ×  (piksel boyu 4 kat küçülür)`** olur. Hâlâ `2 ×` yazıyorsa model dosyası
+    okunmamıştır — 12. adımdaki künye satırı da boş kalmış olmalıdır.
 12. **Model künyesi** satırında şu belirmelidir:
 
     ```
@@ -197,20 +202,35 @@ değil, 16 bitlik yansıtma verisidir. Görünmüyorsa: katmana sağ tıklayıp 
     36 karo · çıktı 4096 × 4096 piksel · 2,5 m çözünürlük · yaklaşık 134 MB
     ```
 
-14. **Çıktı dosyası** kendiliğinden dolar; olduğu gibi bırakın. **İş bitince haritaya ekle**
-    işaretli olsun.
+14. **Çıktı dosyası** kutusuna bakın — **okumadan geçmeyin.** Kutu çoğu zaman
+    kendiliğinden dolar, ama QGIS önceki bir çalıştırmadan kalan yolu da hatırlayabilir ve o
+    yol başka bir yönteme ait olabilir.
+
+    **Doğru görünüm:** dosya adı, seçtiğiniz katmanın adıyla başlar ve **`_sr_x4.tif`** ile
+    biter (wsx4 4× olduğu için). Örnek:
+
+    ```
+    DEMO_INPUT_WSX4_36SXJ_1024px_B2-B3-B4-B8_uint16DN_10m_sr_x4.tif
+    ```
+
+    **`_sr_x2.tif` ile bitiyorsa ya da başka bir dosyanın adını taşıyorsa yanlıştır.**
+    Düzeltmek için: kutudaki yazıyı **tamamen silin**, sonra **Raster katman** kutusundan
+    katmanı **yeniden seçin**; kutu doğru adla yeniden dolar. (İsterseniz sağdaki **…**
+    düğmesiyle elle de yazabilirsiniz.)
+
+15. **İş bitince haritaya ekle** işaretli olsun.
 
 ### 3.3 Çalıştırın
 
-15. **Çalıştır**. Çıktı zaten varsa **Evet**.
-16. **Karo 4 / 36** gibi bir yazı hızla artar.
-17. Yaklaşık **26 saniye** sonra:
+16. **Çalıştır**. Çıktı zaten varsa **Evet**.
+17. **Karo 4 / 36** gibi bir yazı hızla artar.
+18. Yaklaşık **26 saniye** sonra:
 
     ```
     Bitti · 36 karo · 25,7 sn · 107 MB Katman eklendi ve girdiyle hizalı.
     ```
 
-18. **Layers panelinde artık İKİ satır vardır ve yeni olan ÜSTTEDİR:**
+19. **Layers panelinde artık İKİ satır vardır ve yeni olan ÜSTTEDİR:**
 
     ```
     DEMO_INPUT_WSX4_..._sr_x4      <- sonuç (2,5 m), ÜSTTE
@@ -309,15 +329,32 @@ Yaklaşık **22–35 saniye** — makine meşgulse uzun ucuna yaklaşır, ölç�
 2. **DEMO_INPUT_36SXJ_4096px_B02-B03-B04_uint16DN_10m.tif** (adında **WSX4 geçmeyen**)
    dosyasına çift tıklayın, **Add**, **Close**.
 3. Eklenti penceresinde **Raster katman** kutusundan bu katmanı seçin.
+
+   > **Şimdi kırmızı bir hata göreceksiniz — bu beklenen davranıştır, bir arıza değildir.**
+   > **Yöntem** hâlâ **wsx4**'tür ve wsx4 4 bant ister; yeni seçtiğiniz katman 3 bantlıdır.
+   > Durum satırında şu çıkar ve **Çalıştır** soluklaşır:
+   >
+   > > Model **4 bant** bekler (B2,B3,B4,B8); seçilen dosyada **3 bant** var.
+   >
+   > **Bu, korumanın çalıştığının kanıtıdır** — eklenti yanlış eşleşmeyle çalışıp anlamsız
+   > sonuç üretmiyor.
+   >
+   > **Uyarıyı temizleyen tıklama, yöntemi değiştirmek DEĞİLDİR.** Yöntemi değiştirdiğinizde
+   > **Model dosyası** kutusunda hâlâ bir önceki modelin (`wsx4_spatrad.onnx`) yolu durur ve
+   > uyarı sürer. **Uyarı, 6. adımda GenCP model dosyasını seçtiğinizde kaybolur.** Ölçek
+   > katsayısı da o anda `2 ×`'e döner. Ölçüldü; 5. ve 6. adımları sırayla yapın.
+
 4. **Girdi** satırında **`3 bant`** yazmalıdır.
-5. **Yöntem** kutusundan **Eğitilmiş model — GenCP (2×)** seçin.
+5. **Yöntem** kutusundan **Eğitilmiş model — GenCP (2×)** seçin. **Kırmızı uyarı henüz
+   kaybolmaz** — model dosyası hâlâ wsx4'ünkidir.
 6. **Model dosyası**: **…** > `Command + Shift + G` >
 
    ```
    /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/sr_models
    ```
 
-   ve **gencp_sr_x2_v1.onnx** dosyasına çift tıklayın.
+   ve **gencp_sr_x2_v1.onnx** dosyasına çift tıklayın. **Kırmızı uyarı şimdi kaybolur,
+   Çalıştır yeniden etkinleşir ve Ölçek katsayısı `2 ×` olur.**
 7. **Model künyesi** satırı:
 
    ```
@@ -335,7 +372,9 @@ Yaklaşık **22–35 saniye** — makine meşgulse uzun ucuna yaklaşır, ölç�
 
 ## Bölüm 5 — Karşılaştırma: bikübik
 
-Taban çizgisi. Yaklaşık **39 saniye** (bu dosya çok daha büyüktür).
+Taban çizgisi. **39 saniye ile birkaç dakika arasında** — bu dosya çok daha büyüktür
+(10980 × 10980) ve makine meşgulse belirgin biçimde uzar; ölçülen iki değer 39 sn ve 163 sn.
+Karo sayısı (**529**) sabittir, süre değildir.
 
 1. **Layer** > **Add Layer** > **Add Raster Layer…**, `Command + Shift + G`:
 
