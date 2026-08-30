@@ -81,3 +81,17 @@ it is ever run; still deferred, conclusion unaffected.
 **Standing state of the ledger:** 25 items, 8 closed, 17 open — every open item carries a
 written reason and none blocks the final report.
 
+
+## Package review 2026-08-30 (standing practice 8, fifth pass — Project 2 WP2B verification)
+
+This pass opened one item and closed none. It was not a Project 1 package: the item was
+found while verifying that Project 2's new QGIS plugin had not disturbed Project 1, which
+it had not (`plugin_e2e_run.py` 82/82, Gate G 12/12, sub-pixel offset +0.000181 px, both
+plugins loaded in one process).
+
+| # | item | origin | status 2026-08-30 |
+|---|---|---|---|
+| 26 | Three of twenty-five evidence screenshots differ between two runs of `plugin_e2e_run.py` on the same machine | Project 2 WP2B verification pass | OPEN — DEFERRED, not this week. Cause is identified and is not a rendering nondeterminism: the differing pixels are the dialog's **pre-filled output path**, restored by `dialog._prefill()` from `QgsSettings` (`out_dir`), so the screenshots record whatever directory the profile last wrote to. A small reproducibility question for the paper, since the evidence images are then a function of profile state rather than of the code. Closable by having the harness set the output path explicitly before shot 1, or by clearing that key; deliberately not chased further |
+
+**Standing state of the ledger:** 26 items, 8 closed, 18 open — every open item carries a
+written reason and none blocks the final report.
