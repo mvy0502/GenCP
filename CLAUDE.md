@@ -110,3 +110,29 @@ restore, and report the count.
 
 For each gate: prediction, what was run, the numbers, pass or fail. Include the
 inference path. Disclose errors you made and how they were caught.
+
+## Concurrency and commit policy
+
+Sessions may run in parallel **only on disjoint directories.** Two sessions writing into the
+same directory is not a merge conflict waiting to happen — git never sees it, because both
+writes land in the working tree and the first commit picks up whatever the other session
+happened to have finished. Project 2 has already done this: WP1 and WP2A ran at the same
+time, and both wrote into `tubitak/sr/docs/`. Nothing was lost, but the WP1 session found a
+file it had not written sitting in its own output directory, and had to establish by mtime
+and process inspection who had written it and whether that session was still running.
+
+**No session runs `git add`, `git commit`, `git checkout` or `git stash` while another
+session is working.** Each of these acts on the whole working tree, not on the directory the
+session believes it owns. `git add` stages another session's half-finished files; `git
+checkout` and `git stash` delete another session's uncommitted work outright, with no
+warning and no reflog entry to recover it from.
+
+**Commits happen between work packages, from a single session, once the others are idle.**
+Not during a work package, and not from two sessions in turn. Before committing, confirm the
+other sessions are idle rather than assuming it — a session is idle when its process has no
+spawned work children and nothing in the repository has been written for some minutes. Both
+are observable; neither is a matter of opinion.
+
+The reporting rule that follows from this: a commit that includes another session's work
+says so in its message, and says whether the committing session verified it. A commit
+message is the only place that distinction survives.
