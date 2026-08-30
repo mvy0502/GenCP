@@ -36,14 +36,14 @@ from sr_train import config as C, data as D                             # noqa: 
 
 def run_split(split):
     chips, recs = D.load_split(split)
-    div = D.assert_norm_divisor(P.NORM_DIVISOR_DN)
-    up = BicubicUpsampler(scale=P.SCALE)
+    div = D.assert_norm_divisor(C.NORM_DIVISOR_DN)
+    up = BicubicUpsampler(scale=C.SCALE)
     psnr, ssim, mae = [], [], []
     for i in range(chips.shape[0]):
-        lo, hi = degrade_chip(chips[i], div)
+        lo, hi = degrade_chip(chips[i], div, scale=C.SCALE)
         pred = np.moveaxis(up.upsample(np.moveaxis(lo, 0, -1)), -1, 0)
-        psnr.append(psnr_chip(pred, hi, P.PSNR_DATA_RANGE))
-        ssim.append(ssim_chip(pred, hi, P.PSNR_DATA_RANGE))
+        psnr.append(psnr_chip(pred, hi, C.PSNR_DATA_RANGE))
+        ssim.append(ssim_chip(pred, hi, C.PSNR_DATA_RANGE))
         mae.append(mae_chip(pred, hi))
     return dict(n=len(psnr), psnr=summarise(psnr), ssim=summarise(ssim), mae=summarise(mae),
                 per_chip=dict(psnr=[float(v) for v in psnr],
@@ -54,7 +54,7 @@ def run_split(split):
 def main():
     argv = sys.argv[1:]
     splits = ["test", "heldout", "val"]
-    out = C.data_root() / C.SPLIT_SUBDIR / "bicubic_control_v2.json"
+    out = C.data_root() / C.CORPUS_SUBDIR / f"bicubic_control_{C.VARIANT}.json"
     for a in argv:
         if a.startswith("--splits="):
             splits = a.split("=", 1)[1].split(",")
@@ -63,8 +63,9 @@ def main():
     t0 = time.perf_counter()
     res = {}
     print("bicubic control on the CORRECTED split")
-    print(f"  domain normalised reflectance DN/{P.NORM_DIVISOR_DN:.0f}, per chip, "
-          f"unweighted mean over chips, PSNR range {P.PSNR_DATA_RANGE}")
+    print(f"  variant {C.VARIANT}: scale {C.SCALE}, {C.N_BANDS} bands {','.join(C.BANDS)}")
+    print(f"  domain normalised reflectance DN/{C.NORM_DIVISOR_DN:.0f}, per chip, "
+          f"unweighted mean over chips, PSNR range {C.PSNR_DATA_RANGE}")
     for s in splits:
         res[s] = run_split(s)
         r = res[s]
@@ -73,8 +74,9 @@ def main():
               f"{r['ssim']['std']:.4f}   MAE {r['mae']['mean']:.8f} +- {r['mae']['std']:.6f}")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(dict(
-        work_package="P2-WP3B", split="v2-corrected",
-        norm_divisor_dn=P.NORM_DIVISOR_DN, psnr_data_range=P.PSNR_DATA_RANGE,
+        work_package=C.WORK_PACKAGE, split="v2-corrected",
+        norm_divisor_dn=C.NORM_DIVISOR_DN, psnr_data_range=C.PSNR_DATA_RANGE,
+        variant=C.VARIANT, scale=C.SCALE, bands=list(C.BANDS),
         convention="per chip, unweighted mean over chips, never pooled",
         wall_clock_s=time.perf_counter() - t0, results=res), indent=2))
     print(f"  wrote {out}  ({time.perf_counter()-t0:.1f} s)")

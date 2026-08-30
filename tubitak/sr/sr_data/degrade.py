@@ -1,4 +1,9 @@
-"""The Wald degradation: MTF-matched Gaussian low-pass, then decimation by two.
+"""The Wald degradation: MTF-matched Gaussian low-pass, then decimation by `scale`.
+
+Every function here takes `scale`; the module-level default is `params.SCALE` (2) and is
+the SCALE-2 value. A caller working at another scale must pass it explicitly - omitting it
+is silent and has caused four separate defects in this project. The concrete figures in the
+text below (20 m, 2 x 2) describe the scale-2 case.
 
 **This is the one implementation.** Training imports it, the bicubic control imports it, and
 the checks import it. D10 stores targets only and degrades at load time precisely so that
@@ -44,12 +49,17 @@ def gaussian_decimation_kernel(sigma=None, scale=SCALE,
     if sigma is None:
         sigma = sigma_for_mtf(MTF_AT_NYQUIST, scale)
     centre = (scale - 1) / 2.0
-    r = int(math.ceil(radius_sigmas * sigma))
-    offsets = np.arange(-r, r + 1, dtype=np.int64)
-    # keep only offsets within the radius of the (possibly half-integer) centre
+    # The window is built around the CENTRE, not around zero. Building it as
+    # `arange(-r, r+1)` and then filtering by distance from the centre truncates one side
+    # whenever the centre is not near 0: at scale 4 the centre is 1.5 and offset +9 lies
+    # within the radius but was never a candidate, so the kernel came out asymmetric and
+    # baked a -0.0011 px shift into every degraded input - the exact shift this docstring
+    # promises does not exist. Scale 2 was symmetric only by arithmetic coincidence.
+    # Caught by the dihedral commutation check at s=4 (max |diff| 4.03e-05), not by review.
+    r = radius_sigmas * sigma
+    offsets = np.arange(int(math.ceil(centre - r)), int(math.floor(centre + r)) + 1,
+                        dtype=np.int64)
     d = offsets - centre
-    keep = np.abs(d) <= radius_sigmas * sigma
-    offsets, d = offsets[keep], d[keep]
     w = np.exp(-0.5 * (d / sigma) ** 2)
     w /= w.sum()
     return offsets, w.astype(np.float64)
@@ -114,8 +124,9 @@ def area_average(x, scale=SCALE):
 def degrade_chip(target_dn, norm_divisor, sigma=None, scale=SCALE):
     """The dataloader entry point: stored uint16 DN target -> (input, target) normalised.
 
-    `target_dn` is (3, 256, 256) uint16 as stored. Returns
-    (input (3,128,128) float32, target (3,256,256) float32), both in normalised units
+    `target_dn` is (B, 256, 256) uint16 as stored, B = 3 at scale 2 and 4 at scale 4.
+    Returns (input (B, 256/scale, 256/scale) float32, target (B,256,256) float32),
+    both in normalised units
     `DN / norm_divisor`. Normalisation is applied BEFORE the filter, which is equivalent
     because both are linear, and is done in this order so nothing downstream ever handles
     a DN-valued float that could be mistaken for a normalised one.

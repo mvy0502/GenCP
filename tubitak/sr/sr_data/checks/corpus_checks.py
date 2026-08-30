@@ -40,6 +40,8 @@ import numpy as np                                                      # noqa: 
 import rasterio                                                         # noqa: E402
 
 from sr_data import params as P                                         # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "sr_train"))
+import config as C                                                      # noqa: E402
 from sr_data import splits as S                                         # noqa: E402
 from sr_data.clear import clear_mask_20m                                # noqa: E402
 from sr_data.degrade import area_average, degrade, degrade_chip         # noqa: E402
@@ -58,21 +60,24 @@ def record(cid, name, kind, ok, detail):
 
 # ------------------------------------------------------------------------------- C1
 def c1(corpus):
-    print("  C1  target is exactly 2x the input in both dimensions")
+    print(f"  C1  target is exactly {C.SCALE}x the input in both dimensions")
     arr = np.load(corpus / "chips_test.npy", mmap_mode="r")
-    lo, hi = degrade_chip(np.asarray(arr[0]), P.NORM_DIVISOR_DN)
-    good = (hi.shape[-2] == lo.shape[-2] * P.SCALE
-            and hi.shape[-1] == lo.shape[-1] * P.SCALE
-            and lo.shape[0] == hi.shape[0] == len(P.BANDS))
+    lo, hi = degrade_chip(np.asarray(arr[0]), C.NORM_DIVISOR_DN, scale=C.SCALE)
+    good = (hi.shape[-2] == lo.shape[-2] * C.SCALE
+            and hi.shape[-1] == lo.shape[-1] * C.SCALE
+            and lo.shape[0] == hi.shape[0] == C.N_BANDS)
     ok_t = record("C1", "geometry", "known-true", good,
                   f"input {lo.shape} -> target {hi.shape}; ratio "
                   f"{hi.shape[-1] / lo.shape[-1]:.0f} in both axes")
-    # known-false: a target that is 3x the input, which C1 must reject
-    fake_hi = np.zeros((3, lo.shape[-2] * 3, lo.shape[-1] * 3), np.float32)
-    bad = (fake_hi.shape[-2] == lo.shape[-2] * P.SCALE
-           and fake_hi.shape[-1] == lo.shape[-1] * P.SCALE)
+    # known-false: a target at the WRONG factor, which C1 must reject. It must differ from
+    # C.SCALE at every variant - a hard-coded 3 is right at s=2 and s=4 but would be blind
+    # at s=3, which is exactly how D27's known-false decayed.
+    wrong = C.SCALE + 1
+    fake_hi = np.zeros((C.N_BANDS, lo.shape[-2] * wrong, lo.shape[-1] * wrong), np.float32)
+    bad = (fake_hi.shape[-2] == lo.shape[-2] * C.SCALE
+           and fake_hi.shape[-1] == lo.shape[-1] * C.SCALE)
     ok_f = record("C1", "geometry", "known-false", not bad,
-                  f"deliberately 3x target {fake_hi.shape} against input {lo.shape} -> "
+                  f"deliberately {wrong}x target {fake_hi.shape} against input {lo.shape} -> "
                   f"{'correctly rejected' if not bad else 'ACCEPTED - CHECK IS BLIND'}")
     return ok_t and ok_f
 
@@ -145,33 +150,36 @@ def c3(corpus):
 
 # ------------------------------------------------------------------------------- C4
 def c4(corpus):
-    print("  C4  the degraded input is NOT a plain 2x2 area-average downsample")
+    print(f"  C4  the degraded input is NOT a plain {C.SCALE}x{C.SCALE} area-average downsample")
     arr = np.load(corpus / "chips_test.npy", mmap_mode="r")
     n = min(64, arr.shape[0])
     worst = 0.0
     for i in range(n):
-        t = np.asarray(arr[i], np.float32) / np.float32(P.NORM_DIVISOR_DN)
-        d = degrade(t)
-        a = area_average(t)
+        t = np.asarray(arr[i], np.float32) / np.float32(C.NORM_DIVISOR_DN)
+        d = degrade(t, scale=C.SCALE)
+        a = area_average(t, scale=C.SCALE)
         worst = max(worst, float(np.abs(d - a).max()))
     ok_t = record("C4", "mtf", "known-true", worst > 1e-6,
                   f"over {n} chips, max |MTF-degraded - area-average| = {worst:.8f} "
-                  f"normalised ({worst * P.NORM_DIVISOR_DN:.4f} DN); "
+                  f"normalised ({worst * C.NORM_DIVISOR_DN:.4f} DN); "
                   f"{'the filter does something' if worst > 1e-6 else 'FILTER IS A NO-OP'}")
     # known-false: if the degradation WERE an area average, the check must catch it
-    t = np.asarray(arr[0], np.float32) / np.float32(P.NORM_DIVISOR_DN)
-    a = area_average(t)
-    identical = float(np.abs(a - area_average(t)).max()) == 0.0
+    t = np.asarray(arr[0], np.float32) / np.float32(C.NORM_DIVISOR_DN)
+    a = area_average(t, scale=C.SCALE)
+    identical = float(np.abs(a - area_average(t, scale=C.SCALE)).max()) == 0.0
     ok_f = record("C4", "mtf", "known-false", identical,
-                  f"degradation replaced by a 2x2 mean -> difference exactly "
-                  f"{float(np.abs(a - area_average(t)).max()):.1f}; "
+                  f"degradation replaced by a {C.SCALE}x{C.SCALE} mean -> difference exactly "
+                  f"{float(np.abs(a - area_average(t, scale=C.SCALE)).max()):.1f}; "
                   f"{'correctly identified as a no-op' if identical else 'NOT DETECTED'}")
     # and the MTF itself is what the registration names
     from sr_data.degrade import mtf_at
-    m = mtf_at(1.0 / (2 * P.SCALE))
+    # scale MUST be passed: mtf_at's default is params.SCALE (2), so omitting it here
+    # evaluated the scale-2 filter at the scale-4 Nyquist frequency and reported 0.7401
+    # against a registered 0.3. The check was right to fail; the call was wrong.
+    m = mtf_at(1.0 / (2 * C.SCALE), scale=C.SCALE)
     ok_m = record("C4", "mtf", "value", abs(m - P.MTF_AT_NYQUIST) < 1e-12,
-                  f"MTF at the 20 m Nyquist frequency = {m!r} "
-                  f"(registered {P.MTF_AT_NYQUIST})")
+                  f"MTF at the {10 * C.SCALE:.0f} m Nyquist frequency = {m!r} "
+                  f"(registered {C.MTF_AT_NYQUIST})")
     return ok_t and ok_f and ok_m
 
 

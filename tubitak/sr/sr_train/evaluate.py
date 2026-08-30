@@ -38,6 +38,7 @@ from sr_data import params as P                                         # noqa: 
 from sr_data.degrade import degrade_chip                                # noqa: E402
 from sr_data.metrics import mae_chip, psnr_chip, ssim_chip              # noqa: E402
 from sr_train import config as C, data as D                             # noqa: E402
+from sr_train.data import BandOrderError, assert_band_order             # noqa: E402
 from sr_train.model import SRNet                                        # noqa: E402
 
 #: A1.1, registered before this was run.
@@ -47,12 +48,24 @@ TOL = dict(raw=1e-4, psnr=0.01, ssim=1e-4, mae=1e-6)
 #: beside it, always both, never one alone.
 SCHEDULE_STEPS = 20000
 
+def _num(x):
+    """Trim a trailing '.0' so 2.5 stays 2.5 and 5.0 prints as 5."""
+    return f"{x:g}"
+
+
+# D21: the caveat travels with the number. It is DERIVED from the scale, never written down:
+# at scale 2 this text said "decimation by two ... real imagery at 5 m ... the 10 m -> 5 m
+# relationship", and it printed those words unchanged under a scale-4 model, where the
+# degradation is by four and the deployment output is 2.5 m. A caveat that is mandated to
+# travel with a number is worthless if it travels hard-coded.
 CAVEAT = (
-    "SCOPE OF THIS NUMBER: the model inverts a degradation we constructed and know exactly\n"
-    "  (Gaussian low-pass at MTF 0.3, then decimation by two). Beating bicubic at that task\n"
-    "  is partly a statement about inverting a KNOWN SYNTHETIC BLUR, not about how well it\n"
-    "  super-resolves real imagery at 5 m, where there is no ground truth and the true\n"
-    "  10 m -> 5 m relationship is not that blur.")
+    f"SCOPE OF THIS NUMBER: the model inverts a degradation we constructed and know exactly\n"
+    f"  (Gaussian low-pass at MTF {C.MTF_AT_NYQUIST}, then decimation by {C.SCALE}: "
+    f"{_num(C.SRC_GSD_M)} m -> {_num(C.GSD_M)} m).\n"
+    f"  Beating bicubic at that task is partly a statement about inverting a KNOWN SYNTHETIC\n"
+    f"  BLUR, not about how well it super-resolves real imagery at {_num(C.OUT_GSD_M)} m, where\n"
+    f"  there is no ground truth and the true {_num(C.GSD_M)} m -> {_num(C.OUT_GSD_M)} m "
+    f"relationship is not that blur.")
 
 
 def edge_density(x):
@@ -68,8 +81,8 @@ def summarise(v):
 
 def evaluate_split(split, torch_model, sess, batch=8):
     chips, recs = D.load_split(split)
-    div = D.assert_norm_divisor(P.NORM_DIVISOR_DN)
-    up = BicubicUpsampler(scale=P.SCALE)
+    div = D.assert_norm_divisor(C.NORM_DIVISOR_DN)
+    up = BicubicUpsampler(scale=C.SCALE)
     keys = ("psnr", "ssim", "mae", "ed")
     acc = {f"{k}_{p}": [] for k in keys for p in ("o", "t", "b")}
     acc["ed_tgt"], acc["raw_diff"] = [], []
@@ -77,7 +90,7 @@ def evaluate_split(split, torch_model, sess, batch=8):
     for s in range(0, n, batch):
         lo_l, hi_l = [], []
         for i in range(s, min(s + batch, n)):
-            a, b = degrade_chip(chips[i], div)
+            a, b = degrade_chip(chips[i], div, scale=C.SCALE)
             lo_l.append(a); hi_l.append(b)
         lo = np.stack(lo_l).astype(np.float32)
         hi = np.stack(hi_l).astype(np.float32)
@@ -90,8 +103,8 @@ def evaluate_split(split, torch_model, sess, batch=8):
             o, w = y_onnx[k], y_torch[k]
             acc["raw_diff"].append(float(np.abs(o - w).max()))
             for tag, pred in (("o", o), ("t", w), ("b", bic)):
-                acc[f"psnr_{tag}"].append(psnr_chip(pred, t, P.PSNR_DATA_RANGE))
-                acc[f"ssim_{tag}"].append(ssim_chip(pred, t, P.PSNR_DATA_RANGE))
+                acc[f"psnr_{tag}"].append(psnr_chip(pred, t, C.PSNR_DATA_RANGE))
+                acc[f"ssim_{tag}"].append(ssim_chip(pred, t, C.PSNR_DATA_RANGE))
                 acc[f"mae_{tag}"].append(mae_chip(pred, t))
                 acc[f"ed_{tag}"].append(edge_density(pred))
             acc["ed_tgt"].append(edge_density(t))
@@ -142,9 +155,21 @@ def main():
         if not p.is_file():
             raise SystemExit(f"evaluate: {what} not found: {p}")
 
+    import onnx
     import onnxruntime as ort
-    ck = torch.load(ck_path, map_location="cpu")
-    model = SRNet(); model.load_state_dict(ck["model"]); model.eval()
+    # weights_only=False: this checkpoint stores TorchVersion objects, because standing
+    # practice 9 records library versions in it. torch 2.6 defaults weights_only=True
+    # and refuses them. The file is our own, written by train.py in this repository.
+    ck = torch.load(ck_path, map_location="cpu", weights_only=False)
+    model = SRNet(bands=C.N_BANDS, scale=C.SCALE)
+    model.load_state_dict(ck["model"]); model.eval()
+    # X5: the graph states its own band order; refuse it if it is not the one this config
+    # feeds. assert_band_order was DEFINED and never CALLED until now - a check nothing
+    # invokes is not a check, which is this project's own standing finding about verifiers.
+    _meta = {kv.key: kv.value for kv in onnx.load(str(onnx_path)).metadata_props}
+    if "band_order" not in _meta:
+        raise BandOrderError(f"{onnx_path}: graph declares no band_order; refusing to use it")
+    assert_band_order(_meta["band_order"], where=str(onnx_path))
     sess = ort.InferenceSession(str(onnx_path), providers=["CPUExecutionProvider"])
     if sess.get_providers() != ["CPUExecutionProvider"]:
         raise SystemExit(f"evaluate: expected CPU provider, got {sess.get_providers()}")
@@ -161,8 +186,10 @@ def main():
     print("  one; every number below carries that step count.")
     print(f"  ONNX {onnx_path.name}, provider {sess.get_providers()[0]}, "
           f"onnxruntime {ort.__version__}, torch {torch.__version__}")
-    print(f"  domain normalised reflectance DN/{P.NORM_DIVISOR_DN:.0f}, per chip, unweighted "
-          f"mean over chips, PSNR range {P.PSNR_DATA_RANGE}")
+    print(f"  variant {C.VARIANT}: scale {C.SCALE}, {C.N_BANDS} bands "
+          f"{','.join(C.BANDS)}")
+    print(f"  domain normalised reflectance DN/{C.NORM_DIVISOR_DN:.0f}, per chip, unweighted "
+          f"mean over chips, PSNR range {C.PSNR_DATA_RANGE}")
     print("  sign: model - bicubic. PSNR/SSIM positive = model better; MAE negative = better")
     print(f"  registered tolerance: raw < {TOL['raw']:g}, PSNR < {TOL['psnr']:g} dB, "
           f"SSIM < {TOL['ssim']:g}, MAE < {TOL['mae']:g}\n")
@@ -203,7 +230,7 @@ def main():
 
     out = Path(a.json or (ck_path.parent / "evaluation.json"))
     out.write_text(json.dumps(dict(
-        work_package="P2-WP3B", checkpoint=str(ck_path), onnx=str(onnx_path),
+        work_package=C.WORK_PACKAGE, checkpoint=str(ck_path), onnx=str(onnx_path),
         step=ck.get("step"), best_val=ck.get("best"),
         registered_schedule_steps=SCHEDULE_STEPS,
         completed_steps=tr.get("step_to"), stop_reason=tr.get("stop_reason"),
@@ -212,7 +239,8 @@ def main():
         torch=torch.__version__, onnxruntime=ort.__version__,
         onnx_provider=sess.get_providers()[0],
         onnx_exporter="legacy TorchScript (dynamo=False)",
-        norm_divisor_dn=P.NORM_DIVISOR_DN, tolerance=TOL,
+        norm_divisor_dn=C.NORM_DIVISOR_DN, variant=C.VARIANT, scale=C.SCALE,
+        bands=list(C.BANDS), tolerance=TOL,
         registered_path=("onnx_cpu" if all_agree else "NONE - paths disagree"),
         all_paths_agree=all_agree, scope_caveat=CAVEAT.replace("\n", " "),
         sign_convention="model - bicubic; PSNR/SSIM positive = model better; "

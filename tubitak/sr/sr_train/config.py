@@ -9,6 +9,7 @@ Changing a value here invalidates the registration, not just the code.
 """
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -18,19 +19,38 @@ if str(SR) not in sys.path:
 
 from sr_data import params as P                                        # noqa: E402
 
+#: WHICH CONFIGURATION IS IN FORCE. "x2" is WP3A/WP3B's, unchanged and still the default, so
+#: every WP3B number remains reproducible by importing this module with nothing set. "x4" is
+#: WP7's: scale 4, four bands, normalised = reflectance.
+#:
+#: A variant rather than a forked copy of every module, so there is ONE implementation of the
+#: dataloader, the trainer, the evaluator and the exporter. The variant name is written into
+#: every artefact those produce, so a number always says which configuration made it.
+VARIANT = os.environ.get("GENCP_SR_VARIANT", "x2")
+if VARIANT not in ("x2", "x4"):
+    raise SystemExit(f"config: unknown GENCP_SR_VARIANT {VARIANT!r}; known: x2, x4")
+
+_X4 = VARIANT == "x4"
+
 # ------------------------------------------------------- inherited from WP3A, not redefined
-CHIP_PX = P.CHIP_PX                    # 256
-INPUT_PX = P.INPUT_PX                  # 128
-SCALE = P.SCALE                        # 2
+CHIP_PX = P.CHIP_PX                    # 256, both variants
+SCALE = 4 if _X4 else P.SCALE
+INPUT_PX = CHIP_PX // SCALE            # 64 at x4, 128 at x2
 CHIP_M = P.CHIP_M                      # 2560.0
 BLOCK_CHIPS = P.BLOCK_CHIPS            # 14
 BLOCKS_PER_GRANULE = P.BLOCKS_PER_GRANULE
 SPLIT_BUFFER_M = P.SPLIT_BUFFER_M      # 2560.0
 SPLIT_SEED = P.SPLIT_SEED              # 20260830
 HELDOUT_GRANULE = P.HELDOUT_GRANULE    # 36SXJ
-NORM_DIVISOR_DN = P.NORM_DIVISOR_DN    # 5000.0
+#: D24: re-derived for WP7, not reused. B08's clear-pixel p99.9 is 6650 DN, so DN/5000 would
+#: put it at 1.330, outside a nominal full scale of 1. 10000 is 1/DN_TO_REFLECTANCE, so the
+#: normalised value IS the surface reflectance - a physical constant rather than a fitted one,
+#: and the same domain the reference model uses internally.
+NORM_DIVISOR_DN = 10000.0 if _X4 else P.NORM_DIVISOR_DN
 PSNR_DATA_RANGE = P.PSNR_DATA_RANGE    # 1.0
-BANDS = P.BANDS
+#: D23/D28: B08 is APPENDED as plane 4; the first three keep their existing order.
+BANDS = (tuple(P.BANDS) + ("B08",)) if _X4 else tuple(P.BANDS)
+N_BANDS = len(BANDS)
 GRANULES = P.GRANULES
 
 # ------------------------------------------------------------------------- D13, new in WP3B
@@ -63,10 +83,25 @@ BATCH = 32
 CHECKPOINT_EVERY = 500
 
 # ---------------------------------------------------------------------------------- paths
-CORPUS_SUBDIR = P.CORPUS_SUBDIR           # sr_wald_corpus
+#: WP7 writes a NEW directory. The WP3B corpus is never overwritten, so a WP3B number can
+#: still be reproduced after this work package.
+CORPUS_SUBDIR = "sr_wald_corpus_x4" if _X4 else P.CORPUS_SUBDIR
 SPLIT_SUBDIR = "sr_wald_split_v2"         # the corrected manifest lives here, beside it
-RUN_SUBDIR = "sr_train_runs"
+RUN_SUBDIR = "sr_train_runs_x4" if _X4 else "sr_train_runs"
+WORK_PACKAGE = "P2-WP7" if _X4 else "P2-WP3B"
+GSD_M = P.GSD_M                        # target GSD, 10 m
+SRC_GSD_M = P.GSD_M * SCALE            # training input: 20 m at s=2, 40 m at s=4
+OUT_GSD_M = P.GSD_M / SCALE            # deployment output: 5 m at s=2, 2.5 m at s=4
 
 
 def data_root():
     return SR.parent / "data"
+
+
+# ------------------------------------------------------------------ inference tile contract
+#: Inference tile in SOURCE px. At x4 the network consumes 64 source px (the training input);
+#: overlap stays 32, comfortably above the measured receptive field of 31 input px.
+INFER_TILE_SRC_PX = 64 if _X4 else P.INFER_TILE_SRC_PX
+INFER_OVERLAP_SRC_PX = P.INFER_OVERLAP_SRC_PX
+PSNR_DATA_RANGE = P.PSNR_DATA_RANGE
+MTF_AT_NYQUIST = P.MTF_AT_NYQUIST

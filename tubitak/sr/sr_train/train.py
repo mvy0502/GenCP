@@ -74,10 +74,12 @@ class Pairs:
         chips, recs = D.load_split(split)
         if limit:
             chips, recs = chips[:limit], recs[:limit]
-        div = D.assert_norm_divisor(P.NORM_DIVISOR_DN)
+        div = D.assert_norm_divisor(C.NORM_DIVISOR_DN)
         lo, hi = [], []
         for i in range(chips.shape[0]):
-            a, b = degrade_chip(chips[i], div)
+            # scale MUST be passed: degrade_chip's default comes from params.SCALE (2),
+            # so a variant that does not pass it silently degrades at the wrong factor.
+            a, b = degrade_chip(chips[i], div, scale=C.SCALE)
             lo.append(a); hi.append(b)
         self.lo = np.stack(lo).astype(np.float32)
         self.hi = np.stack(hi).astype(np.float32)
@@ -90,16 +92,20 @@ class Pairs:
 def check_commutes(n=8, seed=C.TRAIN_SEED):
     """Known-true/known-false for the commutation the Pairs cache depends on."""
     rng = np.random.default_rng(seed)
-    x = (rng.random((3, C.CHIP_PX, C.CHIP_PX)) * 3000 + 500).astype(np.uint16)
-    div = P.NORM_DIVISOR_DN
+    x = (rng.random((C.N_BANDS, C.CHIP_PX, C.CHIP_PX)) * 3000 + 500).astype(np.uint16)
+    div = C.NORM_DIVISOR_DN
     worst = 0.0
     for k in range(8):
-        a, _ = degrade_chip(np.ascontiguousarray(dihedral(x, k)), div)
-        b, _ = degrade_chip(x, div)
+        a, _ = degrade_chip(np.ascontiguousarray(dihedral(x, k)), div, scale=C.SCALE)
+        b, _ = degrade_chip(x, div, scale=C.SCALE)
         worst = max(worst, float(np.abs(a - np.ascontiguousarray(dihedral(b, k))).max()))
     # known-false: an ASYMMETRIC degradation must NOT commute
     def shifted(t, d):
-        return t[:, ::2, ::2].astype(np.float32) / d          # phase-0 decimation, no filter
+        # D27: phase-0 decimation by the CONFIGURED scale, no filter. It was hard-coded to
+        # ::2, which at s=4 still returns a differing array - so the gate reported success
+        # while no longer testing the s=4 phase at all. A known-false that has decayed into a
+        # no-op is worse than none, because it looks like coverage.
+        return t[:, ::C.SCALE, ::C.SCALE].astype(np.float32) / d
     bad = 0.0
     for k in range(8):
         a = shifted(np.ascontiguousarray(dihedral(x, k)), div)
@@ -169,11 +175,14 @@ def main():
     print(f"train {len(tr)} chips, val {len(va)} chips, loaded+degraded in "
           f"{time.perf_counter()-t_load:.1f} s  (test sets NOT opened)")
 
-    model = SRNet().to(dev)
+    model = SRNet(bands=C.N_BANDS, scale=C.SCALE).to(dev)
     opt = torch.optim.Adam(model.parameters(), lr=a.lr, betas=(0.9, 0.999))
     step0, best = 0, float("inf")
     if a.resume:
-        ck = torch.load(a.resume, map_location=dev)
+        # weights_only=False: this checkpoint stores TorchVersion objects, because standing
+        # practice 9 records library versions in it. torch 2.6 defaults weights_only=True
+        # and refuses them. The file is our own, written by train.py in this repository.
+        ck = torch.load(a.resume, map_location=dev, weights_only=False)
         model.load_state_dict(ck["model"]); opt.load_state_dict(ck["opt"])
         step0, best = ck["step"], ck.get("best", float("inf"))
         rng = np.random.default_rng(C.TRAIN_SEED + step0)
@@ -214,7 +223,8 @@ def main():
                                     step=step, best=best, train_device=str(dev),
                                     versions=versions(), config=dict(
                                         width=C.WIDTH, n_blocks=C.N_BLOCKS, scale=C.SCALE,
-                                        norm_divisor_dn=P.NORM_DIVISOR_DN)),
+                                        norm_divisor_dn=C.NORM_DIVISOR_DN,
+                                        bands=list(C.BANDS), variant=C.VARIANT)),
                                run / "best.pt")
             if step % C.CHECKPOINT_EVERY == 0:
                 torch.save(dict(model=model.state_dict(), opt=opt.state_dict(),
@@ -230,7 +240,7 @@ def main():
 
     el = time.perf_counter() - t0
     rate = (step - step0) / max(el, 1e-9)
-    rec = dict(work_package="P2-WP3B", device=str(dev), params=model.n_params(),
+    rec = dict(work_package=C.WORK_PACKAGE, device=str(dev), params=model.n_params(),
                batch=a.batch, steps_done=step - step0, step_from=step0, step_to=step,
                wall_clock_s=el, steps_per_s=rate, best_val=best, stop_reason=stop_reason,
                seed=C.TRAIN_SEED, lr=a.lr, lr_min=C.LR_MIN,
