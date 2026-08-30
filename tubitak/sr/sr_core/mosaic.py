@@ -350,3 +350,139 @@ class StreamingMosaic:
 
     def close(self):
         self.flush_below(self.row0 + self.filled)
+
+
+# ---------------------------------------------------------------------------------------
+# WP6, PURELY ADDITIVE: crop-the-margin placement, for models that must not be blended.
+#
+# The feather path above is correct for an L1-trained model, whose tile predictions agree
+# closely in the overlap so that averaging them is a smoothing of near-identical numbers.
+# It is WRONG for a GAN-family model: WP5 measured that averaging two ESRGAN predictions of
+# the same ground differs from either of them by up to 37 DN at a 32 px overlap, and still
+# 20 DN at 64 px, so the residual is not context starvation and no overlap removes it.
+#
+# The reference tool (sentinel2_superresolution, Michel et al.) does not blend. It pads each
+# tile by a margin, runs the network, crops the margin off, and lets the remainders abut.
+# This is that scheme. Nothing above this line changes, and a model that does not ask for
+# cropping never reaches this code.
+# ---------------------------------------------------------------------------------------
+
+
+class CropLayoutError(ValueError):
+    """The tile layout cannot be cropped by the requested margin and still tile exactly."""
+
+
+def crop_keep_bounds(tiles, out_h, out_w, scale, margin_out):
+    """Per-tile output keep-box, proven to partition the output exactly.
+
+    Returns {(i, j): (r0, r1, c0, c1)} in OUTPUT pixels, the half-open region of that tile's
+    upsampled block that is written. Regions abut with no gap and no overlap, so no output
+    pixel is written twice and none is left unwritten. That is asserted here on the
+    INTERVALS - exact integer arithmetic over a few hundred numbers - rather than by
+    painting a coverage raster, which at 21960 x 21960 would cost half a gigabyte to learn
+    the same fact less reliably.
+
+    The rule, per axis: a tile keeps from where its predecessor stopped to `margin_out`
+    inside its own trailing edge; the first tile starts at 0 and the last runs to the end.
+    A boundary side is never cropped, because there is no neighbour to supply its context
+    and cropping it would leave the raster border unwritten.
+    """
+    s, m = int(scale), int(margin_out)
+    if m < 0:
+        raise CropLayoutError(f"margin must be >= 0 output px, got {m}")
+
+    def axis(starts_sizes, out_extent):
+        """starts_sizes: [(start_src, size_src)] in tile-index order."""
+        n = len(starts_sizes)
+        keep, prev_end = [], 0
+        for k, (p, t) in enumerate(starts_sizes):
+            lo = 0 if k == 0 else prev_end
+            hi = out_extent if k == n - 1 else (p + t) * s - m
+            if k > 0 and lo < p * s + m:
+                raise CropLayoutError(
+                    f"tile {k} would keep output pixels from {lo}, which is less than "
+                    f"{m} px inside its own leading edge at {p * s}. The overlap is too "
+                    f"small for a margin of {m} output px: it must be at least "
+                    f"{2 * m / s:g} source px, and the tile layout gives less.")
+            if hi <= lo:
+                raise CropLayoutError(
+                    f"tile {k} keeps an empty region [{lo}, {hi}); the margin {m} is too "
+                    f"large for this tile size.")
+            keep.append((lo, hi))
+            prev_end = hi
+        if keep[-1][1] != out_extent:
+            raise CropLayoutError(f"kept regions end at {keep[-1][1]}, not {out_extent}")
+        for a, b in zip(keep, keep[1:]):
+            if a[1] != b[0]:
+                raise CropLayoutError(f"kept regions {a} and {b} do not abut")
+        return keep
+
+    rows = sorted({(r, th) for (_i, _j, _c, r, _tw, th) in tiles})
+    cols = sorted({(c, tw) for (_i, _j, c, _r, tw, _th) in tiles})
+    kr = axis(rows, out_h)
+    kc = axis(cols, out_w)
+    ri = {r: k for k, (r, _t) in enumerate(rows)}
+    ci = {c: k for k, (c, _t) in enumerate(cols)}
+    out = {}
+    for (i, j, c, r, _tw, _th) in tiles:
+        r0, r1 = kr[ri[r]]
+        c0, c1 = kc[ci[c]]
+        out[(i, j)] = (r0, r1, c0, c1)
+    return out
+
+
+def min_overlap_for_margin(margin_out, scale):
+    """Smallest source-pixel overlap that lets `margin_out` be cropped and still tile."""
+    import math
+    return int(math.ceil(2.0 * int(margin_out) / int(scale)))
+
+
+class CropMosaic:
+    """Writes cropped tile interiors straight to the dataset. No accumulation, no blending.
+
+    Same `add`/`close` surface as `StreamingMosaic` so `run.superresolve` can choose between
+    them, but the arithmetic is different in kind: nothing is averaged, so a pixel's value is
+    exactly what the network produced for the tile that owns it.
+    """
+
+    def __init__(self, dst, count, out_h, out_w, dtype, keep, nodata=None):
+        self.dst, self.count = dst, int(count)
+        self.out_h, self.out_w = int(out_h), int(out_w)
+        self.dtype = np.dtype(dtype)
+        self.keep = keep
+        self.nodata = nodata
+        self.uncovered = 0                 # zero by construction; see crop_keep_bounds
+        self.peak_band_rows = 0
+        self.written = 0
+
+    def add(self, block, tile):
+        """`block` is the tile's upsampled H x W x C output; `tile` its layout entry."""
+        import rasterio
+        i, j, col0, row0, _tw, _th = tile
+        r0, r1, c0, c1 = self.keep[(i, j)]
+        s_r0, s_c0 = r0 - row0 * self._scale_r(block, _th), c0 - col0 * self._scale_c(block, _tw)
+        sub = block[s_r0:s_r0 + (r1 - r0), s_c0:s_c0 + (c1 - c0)]
+        if sub.shape[0] != r1 - r0 or sub.shape[1] != c1 - c0:
+            raise CropLayoutError(
+                f"tile ({i},{j}) keep box {(r0, r1, c0, c1)} does not lie inside its own "
+                f"block of shape {block.shape[:2]} at output origin "
+                f"{(row0 * self._scale_r(block, _th), col0 * self._scale_c(block, _tw))}")
+        arr = np.moveaxis(np.ascontiguousarray(sub), -1, 0).astype(self.dtype, copy=False)
+        self.dst.write(arr, window=rasterio.windows.Window(c0, r0, c1 - c0, r1 - r0))
+        self.written += (r1 - r0) * (c1 - c0)
+        self.peak_band_rows = max(self.peak_band_rows, r1 - r0)
+
+    @staticmethod
+    def _scale_r(block, th):
+        return block.shape[0] // int(th)
+
+    @staticmethod
+    def _scale_c(block, tw):
+        return block.shape[1] // int(tw)
+
+    def close(self):
+        if self.written != self.out_h * self.out_w:
+            raise CropLayoutError(
+                f"wrote {self.written} output pixels, expected exactly "
+                f"{self.out_h * self.out_w}")
+        return self

@@ -48,13 +48,14 @@ def main():
     if not a.no_validate:
         validate_input(a.input, prov)
     up = OnnxUpsampler(model, sess=sess, prov=prov, clip=True)
-    tile = a.tile_px or int(prov["infer_tile_src_px"])
-    ovl = a.overlap_px if a.overlap_px is not None else int(prov["infer_overlap_src_px"])
+    tile = a.tile_px or int(prov["tile_src"])
+    ovl = a.overlap_px if a.overlap_px is not None else int(prov["overlap_src"])
 
     t0 = time.perf_counter()
     rec = superresolve(a.input, a.output, scale=int(prov["scale"]),
                        tile_px=tile, overlap_px=ovl, window=a.window,
-                       upsampler=up, progress=None)
+                       upsampler=up, progress=None,
+                       tiling=prov["tiling"], margin_out=prov["margin_out"])
     rec["tile_px_used"] = tile
     rec["overlap_px_used"] = ovl
     rec["model"] = str(model)
@@ -63,7 +64,9 @@ def main():
         print(json.dumps({k: v for k, v in rec.items() if k != "provenance"},
                          indent=2, default=str))
     else:
-        print(f"{rec['method']}  tile {tile} ovl {ovl}  {rec['n_tiles']} tiles  "
+        print(f"{rec['method']}  x{rec['scale']} {rec['tiling']}"
+              f"{'' if rec['tiling']!='crop' else ' m='+str(rec['margin_out_px'])}  "
+              f"tile {tile} ovl {ovl}  {rec['n_tiles']} tiles  "
               f"{rec['wall_clock_s']:.1f} s  {rec['output_size_bytes']/1e6:.1f} MB  "
               f"-> {rec['output']}")
     return 0

@@ -43,7 +43,8 @@ def peak_rss_bytes():
 
 def superresolve(src_path, out_path, scale=2, method="bicubic",
                  tile_px=_tiles.DEFAULT_TILE_PX, overlap_px=_tiles.DEFAULT_OVERLAP_PX,
-                 window=None, clip=True, progress=None, upsampler=None):
+                 window=None, clip=True, progress=None, upsampler=None,
+                 tiling="feather", margin_out=0):
     """Super-resolve `src_path` onto `out_path`. Returns a dict describing the run.
 
     `window` is an optional `(col0, row0, width, height)` in source pixels; the grid
@@ -107,21 +108,38 @@ def superresolve(src_path, out_path, scale=2, method="bicubic",
             prof["nodata"] = nodata
 
         n = len(tlist)
+        if tiling not in ("feather", "crop"):
+            raise ValueError(f"unknown tiling {tiling!r}; known: 'feather', 'crop'")
+        keep = None
+        if tiling == "crop":
+            # WP6: a model may require that its tiles are NOT blended. The keep boxes are
+            # computed - and proven to partition the output exactly - before a tile runs,
+            # so a layout that cannot be cropped fails here rather than after the compute.
+            keep = _mosaic.crop_keep_bounds(tlist, out_h, out_w, s, margin_out)
+        prov["tiling"] = tiling
+        prov["margin_out_px"] = int(margin_out) if tiling == "crop" else None
         with _mosaic.atomic_path(out_path) as tmp:
             with rasterio.open(str(tmp), "w", **prof) as dst:
-                # The band must hold the tallest span one tile row can occupy.
-                mos = _mosaic.StreamingMosaic(dst, count, out_w, dtype,
-                                              band_rows=min(out_h, tile_px * s),
-                                              nodata=nodata)
+                if tiling == "crop":
+                    mos = _mosaic.CropMosaic(dst, count, out_h, out_w, dtype, keep,
+                                             nodata=nodata)
+                else:
+                    # The band must hold the tallest span one tile row can occupy.
+                    mos = _mosaic.StreamingMosaic(dst, count, out_w, dtype,
+                                                  band_rows=min(out_h, tile_px * s),
+                                                  nodata=nodata)
                 for k, t in enumerate(tlist, 1):
                     i, j, col0, row0, tw, th = t
                     sub = Window(win.col_off + col0, win.row_off + row0, tw, th)
                     arr = np.moveaxis(src.read(window=sub), 0, -1)   # -> h x w x C
                     block = up.upsample(arr)
-                    top, bot, left, right = _mosaic.tile_ramp_sides(t, tlist)
-                    wgt = _mosaic.feather_weight(th * s, tw * s, overlap_px * s,
-                                                 top, bot, left, right)
-                    mos.add(block, wgt, row0 * s, col0 * s)
+                    if tiling == "crop":
+                        mos.add(block, t)
+                    else:
+                        top, bot, left, right = _mosaic.tile_ramp_sides(t, tlist)
+                        wgt = _mosaic.feather_weight(th * s, tw * s, overlap_px * s,
+                                                     top, bot, left, right)
+                        mos.add(block, wgt, row0 * s, col0 * s)
                     if progress is not None:
                         progress(k, n)
                 mos.close()
@@ -138,6 +156,7 @@ def superresolve(src_path, out_path, scale=2, method="bicubic",
         "count": count, "dtype": str(dtype), "nodata": nodata, "crs": str(crs),
         "source_transform": tuple(src_T)[:6], "output_transform": tuple(out_T)[:6],
         "n_tiles": n, "tile_px": tile_px, "overlap_px": overlap_px, "stride_px": stride,
+        "tiling": tiling, "margin_out_px": (int(margin_out) if tiling == "crop" else None),
         "clipped_output_values": int(up.n_clipped),
         "total_output_values": int(up.n_total),
         "uncovered_output_pixels": mos.uncovered,

@@ -106,15 +106,29 @@ S = {
     "no": "Hayır",
 
     # ------------------------------------------------------------------ WP4 model ---
-    "method_model": "Eğitilmiş model (ONNX)",
+    "method_model": "Eğitilmiş model — GenCP (2×)",
+    "method_wsx4": "Referans model — wsx4 (4×)",
     "model_info": "Model künyesi",
     "model_unset": "<span style='color:gray'>model dosyası seçilmedi</span>",
     # Reads: "gencp_sr_x2_v1.onnx - DN/5000 - 2x - 3 bant B02,B03,B04 - adım 16306/20000"
-    "model_desc": ("{name} · DN/{norm:.0f} · {scale}× · {ch} bant {order} · "
-                   "adım {done}/{sched}"),
+    # `norm` and `steps` arrive PRE-FORMATTED as strings. They were format specs until a
+    # model with normalisation done inside its own graph made `norm_divisor_dn` None, and
+    # "{norm:.0f}" then raised TypeError inside a Qt signal handler - where Qt swallowed it,
+    # leaving the model loaded but the tile size never applied. A format spec that only
+    # works for some models is a defect, not a formatting choice.
+    "model_desc": "{name} · {norm} · {scale}× · {ch} bant {order} · {tiling}{steps}",
+    "model_norm_ext": "DN/{d:.0f}",
+    "model_norm_int": "normalleştirme modelin içinde",
+    "model_tiling_crop": "kırpmalı birleştirme (kenar {m} px)",
+    "model_tiling_feather": "yumuşak geçişli birleştirme",
+    "model_steps": " · adım {done}/{sched}",
     "model_bad": "<span style='color:#a00'>Bu ONNX dosyası okunamadı: {msg}</span>",
     "model_caveat": ("<span style='color:gray'>Model, 20 m→10 m üzerinde eğitildi ve "
-                     "10 m→5 m uygulanıyor. 5 m çıktı doğrulanmamıştır.</span>"),
+                     "10 m→5 m uygulanıyor. Çıktı doğrulanmamıştır.</span>"),
+    "wsx4_note": ("<span style='color:gray'>wsx4 ağırlıkları bu eklentiyle birlikte "
+                  "dağıtılmaz; dosyayı kendiniz seçersiniz. Ölçek, bant sırası, "
+                  "normalleştirme ve karo birleştirme yöntemi modelin kendi "
+                  "yapılandırmasından okunur.</span>"),
     "tile_model_note": ("<span style='color:gray'>Model yolunda karo boyutu modelin "
                         "künyesinden okunur.</span>"),
 

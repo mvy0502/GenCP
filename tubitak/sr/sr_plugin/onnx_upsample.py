@@ -35,26 +35,92 @@ class ModelInputError(ValueError):
         super().__init__(f"{key}: {fmt}")
 
 
-def read_provenance(model_path):
-    """The model's declared contract, from its own metadata. Lazily imports onnxruntime."""
-    import onnxruntime as ort
-    sess = ort.InferenceSession(str(model_path), providers=["CPUExecutionProvider"])
-    md = dict(sess.get_modelmeta().custom_metadata_map)
+def _from_onnx_metadata(md, model_path):
+    """Our own models: the contract is inside the file, written at export time."""
     missing = [k for k in REQUIRED_META if k not in md]
     if missing:
         raise ModelInputError("err_model_meta", missing=", ".join(missing),
                               name=Path(model_path).name)
-    return sess, dict(
-        norm_divisor_dn=float(md["norm_divisor_dn"]),
+    return dict(
         scale=int(md["scale_factor"]),
         in_channels=int(md["in_channels"]),
         band_order=md["band_order"],
+        # OUR models are normalised by the CALLER: the graph sees DN / norm_divisor_dn.
+        normalisation="external",
+        norm_divisor_dn=float(md["norm_divisor_dn"]),
+        tiling="feather",
+        margin_out=0,
+        tile_src=int(md.get("infer_tile_src_px", 128)),
+        overlap_src=int(md.get("infer_overlap_src_px", 32)),
         corpus_id=md.get("corpus_id", "?"),
         completed_steps=md.get("completed_steps", "?"),
         registered_schedule_steps=md.get("registered_schedule_steps", "?"),
-        infer_tile_src_px=int(md.get("infer_tile_src_px", 128)),
-        infer_overlap_src_px=int(md.get("infer_overlap_src_px", 32)),
+        contract_source="ONNX metadata_props",
         raw=md)
+
+
+#: Default inference tile, in SOURCE px, for a crop-tiled model. The reference tool's own
+#: default is `-ts 1000` OUTPUT px, which at factor 4 is 250 source px; 256 is the nearest
+#: power of two and is what we use.
+CROP_TILE_SRC_PX = 256
+
+
+def _from_yaml_sidecar(path, model_path):
+    """The reference tool's own configuration, used as the contract for its weights.
+
+    `wsx4_spatrad.onnx` carries NO `metadata_props` at all - verified in WP5 - so there is
+    nothing inside the file to read. Its parameters live beside it in `wsx4_spatrad.yaml`,
+    which is the file the tool itself reads. We read the same file rather than restating its
+    numbers, so a different model of theirs is a different sidecar and not a code change.
+    """
+    import yaml
+    cfg = yaml.safe_load(Path(path).read_text())
+    for k in ("bands", "factor", "margin"):
+        if k not in cfg:
+            raise ModelInputError("err_model_meta", missing=k, name=Path(path).name)
+    bands = list(cfg["bands"])
+    scale = int(float(cfg["factor"]))
+    margin = int(cfg["margin"])
+    from sr_core.mosaic import min_overlap_for_margin
+    return dict(
+        scale=scale,
+        in_channels=len(bands),
+        band_order=",".join(bands),
+        # THEIR graph divides by 10000 on the way in and multiplies by 10000 on the way out,
+        # and their run.py reads with scale=1.0. The caller must apply NOTHING. Normalising
+        # outside as well would divide twice and produce an image that is wrong by a large
+        # factor while still looking entirely ordinary.
+        normalisation="internal",
+        norm_divisor_dn=None,
+        # A GAN's tile predictions must not be averaged. WP5 measured 37 DN at overlap 32.
+        tiling="crop",
+        margin_out=margin,
+        tile_src=CROP_TILE_SRC_PX,
+        overlap_src=min_overlap_for_margin(margin, scale),
+        corpus_id=f"reference tool config {Path(path).name}",
+        completed_steps="?", registered_schedule_steps="?",
+        contract_source=f"sidecar {Path(path).name} (the reference tool's own config)",
+        raw={k: str(v) for k, v in cfg.items()})
+
+
+def read_provenance(model_path):
+    """The model's declared contract. Lazily imports onnxruntime.
+
+    Two sources, in order: the ONNX file's own `metadata_props` (our models), else a
+    same-stem `.yaml` beside it (the reference tool's models, whose graphs carry none).
+    A model with neither is refused rather than run under guessed defaults.
+    """
+    import onnxruntime as ort
+    sess = ort.InferenceSession(str(model_path), providers=["CPUExecutionProvider"])
+    md = dict(sess.get_modelmeta().custom_metadata_map)
+    if md:
+        return sess, _from_onnx_metadata(md, model_path)
+    side = Path(model_path).with_suffix(".yaml")
+    if side.is_file():
+        return sess, _from_yaml_sidecar(side, model_path)
+    raise ModelInputError("err_model_meta",
+                          missing=f"metadata_props, and no sidecar {side.name}",
+                          name=Path(model_path).name)
 
 
 def validate_input(raster_path, prov, sample_px=1024):
@@ -102,7 +168,11 @@ class OnnxUpsampler:
             sess, prov = read_provenance(model_path)
         self.sess, self.prov = sess, prov
         self.scale = int(prov["scale"])
-        self.norm = float(prov["norm_divisor_dn"])
+        self.normalisation = prov["normalisation"]
+        self.norm = prov["norm_divisor_dn"]
+        if self.normalisation == "external" and not self.norm:
+            raise ModelInputError("err_model_meta", missing="norm_divisor_dn",
+                                  name=Path(model_path).name)
         self.name = f"onnx:{Path(model_path).name}"
         self.clip = clip
         self.n_clipped = 0
@@ -112,18 +182,24 @@ class OnnxUpsampler:
     def upsample(self, arr):
         a = np.asarray(arr)
         dt = a.dtype
-        # H x W x C -> 1 x C x H x W, normalised by the constant the MODEL declares.
-        x = (np.moveaxis(a, -1, 0)[None].astype(np.float32) / self.norm)
-        y = self.sess.run(None, {self._in: x})[0][0]          # C x sH x sW, normalised
-        y = np.moveaxis(y, 0, -1) * self.norm                  # sH x sW x C, DN
+        x = np.moveaxis(a, -1, 0)[None].astype(np.float32)
+        # THE DECLARATION IS HONOURED HERE, and it is the difference between a correct
+        # image and one that is wrong by a factor of thousands while looking ordinary.
+        #   external : the graph expects DN / norm_divisor_dn, applied by us.
+        #   internal : the graph does its own scaling; we must pass raw DN untouched.
+        if self.normalisation == "external":
+            x = x / self.norm
+        y = self.sess.run(None, {self._in: x})[0][0]
+        y = np.moveaxis(y, 0, -1)
+        if self.normalisation == "external":
+            y = y * self.norm
         self.n_total += int(y.size)
         if np.issubdtype(dt, np.integer):
             info = np.iinfo(dt)
             if self.clip:
                 # Same argument as the bicubic path: an unclipped float cast to an integer
-                # dtype WRAPS, so an overshoot to 65536 becomes 0 - a black pixel at the
-                # brightest place in the scene, which reads as data rather than as an
-                # artefact. Clipping loses the overshoot; wrapping invents a value.
+                # dtype WRAPS, so an overshoot becomes a dark pixel at the brightest place
+                # in the scene, which reads as data rather than as an artefact.
                 out = np.rint(y)
                 self.n_clipped += int(np.count_nonzero(
                     (out < info.min) | (out > info.max)))
@@ -134,6 +210,9 @@ class OnnxUpsampler:
 
     def describe(self):
         p = self.prov
-        return (f"{Path(self.model_path).name} | DN/{p['norm_divisor_dn']:.0f} | x{p['scale']}"
-                f" | {p['in_channels']}ch {p['band_order']} | step {p['completed_steps']}"
-                f"/{p['registered_schedule_steps']}")
+        norm = ("DN/%.0f" % p["norm_divisor_dn"]) if p["normalisation"] == "external" \
+            else "norm in-graph"
+        return (f"{Path(self.model_path).name} | {norm} | x{p['scale']} | "
+                f"{p['in_channels']}ch {p['band_order']} | {p['tiling']}"
+                f"{'' if p['tiling'] != 'crop' else ' m=' + str(p['margin_out'])} | "
+                f"{p['contract_source']}")

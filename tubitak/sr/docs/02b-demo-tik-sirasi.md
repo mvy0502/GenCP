@@ -14,24 +14,29 @@ düzeltilmiş olanıdır.
 
 ---
 
-## Eklenti ne yapar — iki yöntem, iki ayrı dosya
+## Eklenti ne yapar — üç yöntem, üç ayrı dosya
 
-Eklenti bir rasterı alır, piksel boyunu ikiye böler ve sonucu yeni bir GeoTIFF olarak yazar.
-**İki yöntem vardır ve her biri farklı bir girdi dosyası ister.** Yanlış eşleştirme yaparsanız
-eklenti çalışmayı reddeder ve nedenini söyler.
+Eklenti bir rasterı alır, piksel boyunu küçültür ve sonucu yeni bir GeoTIFF olarak yazar.
+**Üç yöntem vardır ve her biri farklı bir girdi dosyası ister.** Yanlış eşleştirme yaparsanız
+eklenti çalışmayı reddeder ve nedenini söyler; yanlış sonuç üretmez.
 
-| Yöntem | Ne yapar | Hangi dosyayı ister |
-|---|---|---|
-| **Bikübik** | Taban çizgisi. Yeni bilgi üretmez, var olanı yeniden örnekler. Görüntü yumuşar. | **TCI** dosyası (8 bit, görsel) |
-| **Eğitilmiş model (ONNX)** | Ayrıntı üretir. Bu, projenin eğittiği ağdır. | Adı **MODEL_INPUT_** ya da **DEMO_INPUT_** ile başlayan dosya (16 bit, yansıtma) |
+| Yöntem | Ne yapar | Ölçek | Hangi dosyayı ister |
+|---|---|---|---|
+| **Referans model — wsx4** | Danışmanın hedeflediği model (Evoland/CESBIO, ESRGAN, WorldStrat). 10 m → 2,5 m. | **4×** | Adı **DEMO_INPUT_WSX4_** ile başlayan **4 bantlı** dosya (B2,B3,B4,B8) |
+| **Eğitilmiş model — GenCP** | Bu projenin eğittiği model. 10 m → 5 m. | **2×** | Adı **DEMO_INPUT_** ile başlayan **3 bantlı** dosya (B02,B03,B04) |
+| **Bikübik** | Taban çizgisi. Yeni bilgi üretmez. | 2× | **TCI** dosyası (8 bit, görsel) |
 
-**Gösteride söylenmesi gereken cümle:** çıktı 5 m ızgaradadır ve ızgara doğruluğu
-denetlenmiştir, ama **5 m çıktı doğrulanmamıştır**. Model 20 m→10 m üzerinde eğitildi ve
-10 m→5 m uygulanıyor; bu iki aralığın aynı davrandığı varsayılıyor ve bu varsayım bu projeyle
-sınanamaz. "5 m çözünürlüklü görüntü ürettik" **denmemelidir**; "5 m ızgaraya, eğitilmiş
-modelin takılı olduğu bir hat kurduk" denmelidir.
+**Model ağırlıkları eklentiyle birlikte gelmez.** Model dosyasını (`.onnx`) her iki model
+yolunda da siz seçersiniz. Eklenti ölçeği, bant sayısını, bant sırasını, normalleştirmeyi ve
+karo birleştirme yöntemini **modelin kendisinden** okur; hiçbirini kendi içinde saklamaz.
 
----
+**wsx4 için kritik ayrıntı:** `wsx4_spatrad.onnx` dosyasının **yanında**
+`wsx4_spatrad.yaml` dosyası da bulunmalıdır. wsx4 grafiği künye taşımaz; parametreleri bu
+yaml dosyasından okunur. Yaml yoksa eklenti modeli reddeder.
+
+**Gösteride söylenmesi gereken cümle:** çıktı ızgarası denetlenmiştir (Gate S, 5/5), ama
+**çıktının doğruluğu doğrulanmamıştır**. "2,5 m çözünürlüklü görüntü ürettik" denmemelidir;
+"2,5 m ızgaraya, danışmanın hedeflediği modelin takılı olduğu bir hat kurduk" denmelidir.
 
 ## Bölüm 0 — Gösteriden önce, bir kez
 
@@ -52,27 +57,25 @@ cd /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap
 
 Son satırda `checked:` sözcüğünü görmelisiniz. Görmüyorsanız devam etmeyin.
 
-### 0.2 Dört dosyanın yerinde olduğunu doğrulayın
+### 0.2 Dosyaların yerinde olduğunu doğrulayın
 
 ```bash
-ls -l /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/sr_dist/gencp_super_resolution.zip /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/sr_models/gencp_sr_x2_v1.onnx /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/sr_model_input/DEMO_INPUT_36SXJ_4096px_B02-B03-B04_uint16DN_10m.tif /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/tiles36SVJ/TCI.tif
+ls -l /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/sr_dist/gencp_super_resolution.zip /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/wp5_reference/models/wsx4_spatrad.onnx /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/wp5_reference/models/wsx4_spatrad.yaml /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/sr_model_input/DEMO_INPUT_WSX4_36SXJ_1024px_B2-B3-B4-B8_uint16DN_10m.tif /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/sr_models/gencp_sr_x2_v1.onnx /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/sr_model_input/DEMO_INPUT_36SXJ_4096px_B02-B03-B04_uint16DN_10m.tif /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/tiles36SVJ/TCI.tif
 ```
 
-**Dört satır** görmelisiniz. `No such file` yazan varsa o dosya eksiktir ve gösteride o yol
-çalışmaz.
+**Yedi satır** görmelisiniz. `No such file` yazan varsa o yol gösteride çalışmaz.
 
-Yolları not edin; bunlar gösteride tek tek gerekecek:
-
-| Ne | Tam yol |
+| Ne | Tam yol (`…` = depo kökü) |
 |---|---|
 | Eklenti (zip) | `…/tubitak/data/sr_dist/gencp_super_resolution.zip` |
-| **Model** (ONNX) | `…/tubitak/data/sr_models/gencp_sr_x2_v1.onnx` |
-| **Model girdisi** (gösteri) | `…/tubitak/data/sr_model_input/DEMO_INPUT_36SXJ_4096px_B02-B03-B04_uint16DN_10m.tif` |
-| **Bikübik girdisi** | `…/tubitak/data/tiles36SVJ/TCI.tif` |
+| **wsx4 ağırlıkları** | `…/tubitak/data/wp5_reference/models/wsx4_spatrad.onnx` |
+| **wsx4 yapılandırması** (yanında olmalı) | `…/tubitak/data/wp5_reference/models/wsx4_spatrad.yaml` |
+| **wsx4 girdisi** (4 bant) | `…/tubitak/data/sr_model_input/DEMO_INPUT_WSX4_36SXJ_1024px_B2-B3-B4-B8_uint16DN_10m.tif` |
+| GenCP modeli | `…/tubitak/data/sr_models/gencp_sr_x2_v1.onnx` |
+| GenCP girdisi (3 bant) | `…/tubitak/data/sr_model_input/DEMO_INPUT_36SXJ_4096px_B02-B03-B04_uint16DN_10m.tif` |
+| Bikübik girdisi | `…/tubitak/data/tiles36SVJ/TCI.tif` |
 
-(`…` = `/Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap`)
-
----
+`…` = `/Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap`
 
 ## Bölüm 1 — QGIS'i açın
 
@@ -112,9 +115,10 @@ Bir kere yapılır; QGIS'i kapatıp açsanız da kurulu kalır.
 
 ---
 
-## Bölüm 3 — GÖSTERİNİN ANA KISMI: eğitilmiş model
+## Bölüm 3 — GÖSTERİNİN ANA KISMI: referans model wsx4 (4×)
 
-Bu, gösterilecek olan şeydir. Yaklaşık **23 saniye** sürer.
+Danışmanın hedeflediği model. Yaklaşık **27 saniye** sürer ve 10 m girdiyi **2,5 m**'ye
+çıkarır.
 
 ### 3.1 Girdi katmanını ekleyin
 
@@ -126,115 +130,143 @@ Bu, gösterilecek olan şeydir. Yaklaşık **23 saniye** sürer.
    /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/sr_model_input
    ```
 
-4. **DEMO_INPUT_36SXJ_4096px_B02-B03-B04_uint16DN_10m.tif** dosyasına çift tıklayın.
+4. **DEMO_INPUT_WSX4_36SXJ_1024px_B2-B3-B4-B8_uint16DN_10m.tif** dosyasına çift tıklayın.
+   **Adında WSX4 geçen dosya budur; diğerini seçmeyin.**
 5. **Ekle**, sonra **Kapat**.
-6. Haritada görüntü belirir. **Katmanlar** panelinde uzun adlı bir satır oluşur.
 
-**Görüntü karanlık ya da tuhaf renkli görünebilir — bu normaldir.** Bu bir görsel dosya
-değil, 16 bitlik yansıtma verisidir; QGIS onu otomatik olarak güzel göstermez. Modelin
-gördüğü şey budur.
-
-Görüntü hiç görünmüyorsa: **Katmanlar** panelinde satıra sağ tıklayın, **Katmana
+**Görüntü karanlık ya da tuhaf renkli görünebilir — bu normaldir.** Bu görsel bir dosya
+değil, 16 bitlik yansıtma verisidir. Görünmüyorsa: katmana sağ tıklayıp **Katmana
 Yakınlaştır**.
 
-### 3.2 Eklentiyi açın ve modeli seçin
+### 3.2 Eklentiyi açın, yöntemi ve modeli seçin
 
-7. **Raster** > **GenCP SR** > **GenCP Super-Resolution…**
-8. **Girdi** bölümünde **Yüklü katmandan** seçili olmalı; **Raster katman** kutusundan
-   **DEMO_INPUT_…** katmanını seçin.
-9. **Girdi** satırında şunu görmelisiniz:
+6. **Raster** > **GenCP SR** > **GenCP Super-Resolution…**
+7. **Girdi** bölümünde **Yüklü katmandan** seçilidir; **Raster katman** kutusundan
+   **DEMO_INPUT_WSX4_…** katmanını seçin.
+8. **Girdi** satırında şunu görmelisiniz:
 
    ```
-   4096 × 4096 piksel · 3 bant, uint16 · EPSG:32636 · 10 m çözünürlük
+   1024 × 1024 piksel · 4 bant, uint16 · EPSG:32636 · 10 m çözünürlük
    ```
 
-   **`uint16` yazması önemlidir.** `uint8` yazıyorsa yanlış dosyayı seçtiniz.
+   **`4 bant` ve `uint16` yazması önemlidir.** `3 bant` yazıyorsa yanlış dosyayı seçtiniz.
 
-10. **Ayarlar** bölümünde **Yöntem** kutusunu açın ve **Eğitilmiş model (ONNX)** seçin.
-11. **Model dosyası** kutusu artık tıklanabilir. Sağındaki **…** düğmesine basın,
-    `Command + Shift + G`, sonra:
-
-    ```
-    /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/sr_models
-    ```
-
-12. **gencp_sr_x2_v1.onnx** dosyasına çift tıklayın.
-13. **Model künyesi** satırında şu belirmelidir:
+9. **Ayarlar** > **Yöntem** kutusundan **Referans model — wsx4 (4×)** seçin.
+10. **Model dosyası** kutusunun sağındaki **…** düğmesine basın, `Command + Shift + G`,
+    sonra:
 
     ```
-    gencp_sr_x2_v1.onnx · DN/5000 · 2× · 3 bant B02,B03,B04 · adım 16306/20000
+    /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/wp5_reference/models
     ```
 
-    Bu satır **modelin kendi içinden** okunur. Eklenti bu sayıları kendi içinde saklamaz.
-    `adım 16306/20000`, eğitimin kayıtlı programın 16306. adımında durduğunu söyler.
+11. **wsx4_spatrad.onnx** dosyasına çift tıklayın.
+12. **Model künyesi** satırında şu belirmelidir:
 
-14. **Çıktı dosyası** kutusu kendiliğinden dolmuştur. Olduğu gibi bırakın.
-15. **İş bitince haritaya ekle** işaretli olmalı.
+    ```
+    wsx4_spatrad.onnx · normalleştirme modelin içinde · 4× · 4 bant B2,B3,B4,B8 · kırpmalı birleştirme (kenar 130 px)
+    ```
+
+    Bu satırın tamamı **modelin kendi yapılandırmasından** okunur. Çıkmıyorsa
+    `wsx4_spatrad.yaml` dosyası `.onnx` dosyasının yanında değildir.
+
+13. **Tahmin** satırında şu yazmalıdır:
+
+    ```
+    36 karo · çıktı 4096 × 4096 piksel · 2,5 m çözünürlük · yaklaşık 134 MB
+    ```
+
+14. **Çıktı dosyası** kendiliğinden dolar; olduğu gibi bırakın. **İş bitince haritaya ekle**
+    işaretli olsun.
 
 ### 3.3 Çalıştırın
 
-16. **Çalıştır** düğmesine basın. Çıktı zaten varsa **Evet** deyin.
-17. İlerleme çubuğu dolar; altında **Karo 12 / 81** gibi bir yazı hızla artar.
-18. Yaklaşık **23 saniye** sonra:
+15. **Çalıştır**. Çıktı zaten varsa **Evet**.
+16. **Karo 4 / 36** gibi bir yazı hızla artar.
+17. Yaklaşık **27 saniye** sonra:
 
     ```
-    Bitti · 81 karo · 23,0 sn · 323 MB Katman eklendi ve girdiyle hizalı.
+    Bitti · 36 karo · 27,0 sn · 107 MB Katman eklendi ve girdiyle hizalı.
     ```
 
-19. **Katmanlar** panelinde yeni bir katman belirir.
+18. Yeni katmanı **Katmanlar** panelinde en üste sürükleyin ve bir yere iyice yakınlaşın.
 
-### 3.4 Sonucu gösterin
-
-20. Yeni katmanı **Katmanlar** panelinde en üste sürükleyin.
-21. Bir yere iyice **yakınlaşın** (fare tekerleği ileri). Vadi kenarları ve yol izleri en iyi
-    görünen yerlerdir.
-22. Yeni katmanın onay kutusunu **kapatıp açın**: alttaki 10 m katmanla arasındaki fark budur.
-
-**Ne söylenmeli:** model, kenarların bir kısmını geri getirir; bikübik getirmez. Ölçüldü:
-model çıktısının kenar yoğunluğu hedefin altındadır, yani ağ olmayan ayrıntı **uydurmaz**,
-eksik bırakır. Bu, bu uygulama için doğru olan taraftır.
+**Ne söylenmeli:** bu, danışmanın adını verdiği modeldir ve Türkiye görüntüsü üzerinde
+çalışmaktadır. Referans aracın kendisi bu veriyi **okuyamaz** — yalnızca THEIA/MAJA ya da
+L1C SAFE biçimini kabul eder — bu yüzden modelin Türkiye verisiyle kullanılabildiği tek yol
+bu eklentidir.
 
 ---
 
-## Bölüm 4 — Karşılaştırma: bikübik
+## Bölüm 4 — Karşılaştırma: GenCP modeli (2×)
 
-Aynı işi taban çizgisiyle göstermek için. Yaklaşık **39 saniye** sürer (bu dosya çok daha
-büyüktür: 10980 × 10980).
+Yaklaşık **23 saniye**.
 
 1. **Katman** > **Katman Ekle** > **Raster Katman Ekle…**, `Command + Shift + G`:
+
+   ```
+   /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/sr_model_input
+   ```
+
+2. **DEMO_INPUT_36SXJ_4096px_B02-B03-B04_uint16DN_10m.tif** (WSX4 **geçmeyen**) dosyasına
+   çift tıklayın, **Ekle**, **Kapat**.
+3. Eklenti penceresinde **Raster katman** kutusundan bu katmanı seçin.
+4. **Yöntem** kutusundan **Eğitilmiş model — GenCP (2×)** seçin.
+5. **Model dosyası**: **…** > `Command + Shift + G` >
+
+   ```
+   /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/sr_models
+   ```
+
+   ve **gencp_sr_x2_v1.onnx** dosyasına çift tıklayın.
+6. **Model künyesi** satırı:
+
+   ```
+   gencp_sr_x2_v1.onnx · DN/5000 · 2× · 3 bant B02,B03,B04 · yumuşak geçişli birleştirme · adım 16306/20000
+   ```
+
+7. **Çalıştır**. Yaklaşık 23 saniye sonra `Bitti · 529 karo · …` yazısı çıkar.
+
+---
+
+## Bölüm 5 — Karşılaştırma: bikübik
+
+Taban çizgisi. Yaklaşık **39 saniye** (bu dosya çok daha büyüktür).
+
+1. **Katman Ekle** > `Command + Shift + G` >
 
    ```
    /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/tiles36SVJ
    ```
 
-2. **TCI.tif** dosyasına çift tıklayın, **Ekle**, **Kapat**.
-3. Eklenti penceresinde **Raster katman** kutusundan **TCI** katmanını seçin.
-4. **Yöntem** kutusundan **Bikübik** seçin.
-5. **Çıktı dosyası** yolunu olduğu gibi bırakın, **Çalıştır**.
-6. Yaklaşık 39 saniye sonra `Bitti · 529 karo · …` yazısı çıkar.
+   **TCI.tif**, **Ekle**, **Kapat**.
+2. **Raster katman** kutusundan **TCI**'yi seçin.
+3. **Yöntem** kutusundan **Bikübik** seçin.
+4. **Çalıştır**.
 
 ---
 
-## Bölüm 5 — Yanlış dosyayı vermek (isteğe bağlı, ama etkili)
+## Bölüm 6 — Yanlış dosyayı vermek (isteğe bağlı, ama etkili)
 
 Eklentinin yanlış girdiyi **reddettiğini** göstermek, çalıştığını göstermek kadar
-değerlidir. Ölçüldü ve şöyle davranır:
+değerlidir. Üç yöntem ve üç dosya olduğu için karıştırmak kolaydır; eklenti karıştırmaya
+izin vermez. Hepsi ölçülmüştür:
 
-1. **Yöntem** kutusundan **Eğitilmiş model (ONNX)** seçin.
-2. **Raster katman** kutusundan **TCI** katmanını seçin (bu 8 bitlik görsel dosyadır).
-3. **Çalıştır** düğmesi **soluklaşır** ve durum satırında şu çıkar:
+| Yöntem | Verilen dosya | Sonuç |
+|---|---|---|
+| wsx4 | TCI (8 bit, 3 bant) | **Reddedilir** |
+| wsx4 | GenCP girdisi (3 bant) | **Reddedilir** |
+| GenCP | wsx4 girdisi (4 bant) | **Reddedilir** |
+| GenCP | GenCP girdisi (3 bant) | Kabul edilir |
+| Bikübik | TCI | Kabul edilir |
 
-   > Model **16 bit tam sayı (uint16)** yansıtma değerleri bekler; seçilen dosyanın veri tipi
-   > **uint8**.
-   >
-   > TCI dosyası 8 bitlik *görsel* bir birleşimdir; modelin eğitildiği veri bu değildir ve
-   > model bu dosyayla anlamsız sonuç üretir.
-   >
-   > Model yolu için adı **MODEL_INPUT_** ile başlayan, B02,B03,B04 bantlarını içeren
-   > yansıtma dosyasını seçin. TCI dosyasını **Bikübik** yöntemiyle kullanabilirsiniz.
+Denemek için: **Yöntem** = **Referans model — wsx4 (4×)**, **Raster katman** = GenCP
+girdisi. **Çalıştır** soluklaşır ve durum satırında şu çıkar:
 
-4. Diske **hiçbir dosya yazılmaz**. Eklenti çalışıp inandırıcı ama yanlış bir sonuç üretmez.
-5. **Yöntem**'i **Bikübik**'e geri alın: uyarı kaybolur, **Çalıştır** yeniden etkinleşir.
+> Model **4 bant** bekler (B2,B3,B4,B8); seçilen dosyada **3 bant** var.
+>
+> Adı **MODEL_INPUT_** ile başlayan yansıtma dosyasını seçin.
+
+Diske **hiçbir dosya yazılmaz**. Yöntemi geri değiştirdiğinizde uyarı kaybolur.
 
 ---
 
@@ -243,25 +275,26 @@ değerlidir. Ölçüldü ve şöyle davranır:
 | Belirti | Ne yapılmalı |
 |---|---|
 | **Raster** menüsünde **GenCP SR** yok | Bölüm 2 adım 8: **Kurulu** listesinde onay kutusu |
-| Eklenti açılırken **rasterio** uyarısı çıkıyor | Bu QGIS kurulumunda `rasterio` yok; gösteri bu makinede yapılamaz |
-| **Model künyesi** satırında **onnxruntime** uyarısı | Model yolu çalışmaz. **Bikübik ile devam edin** — o `onnxruntime` istemez ve gösteri sürer |
-| Durum satırında "16 bit … bekler" yazıyor | Yanlış dosya. Model için **DEMO_INPUT_…**, bikübik için **TCI.tif** |
-| **Çalıştır** soluk ve neden belirsiz | Fareyi düğmenin üzerinde bekletin; eksik olanı yazar |
-| İş çok uzun sürüyor | **Durdur**'a basın. Diske eksik dosya yazılmaz. Daha küçük **DEMO_INPUT_** dosyasıyla tekrar deneyin |
-| "Başarısız:" ile başlayan bir yazı | **Görünüm** > **Paneller** > **Günlük Mesajları** > **GenCP SR** sekmesi |
+| **Model künyesi** boş kalıyor, model seçtiğiniz halde | wsx4 için: `wsx4_spatrad.yaml` dosyası `.onnx` yanında değil |
+| **Model künyesi**nde **onnxruntime** uyarısı | Model yolları çalışmaz. **Bikübik ile devam edin**; o `onnxruntime` istemez |
+| Eklenti açılırken **rasterio** uyarısı | Bu QGIS kurulumunda `rasterio` yok; gösteri bu makinede yapılamaz |
+| Durum satırında "4 bant bekler" ya da "16 bit … bekler" | Yöntem ile dosya eşleşmiyor. Yukarıdaki tabloya bakın |
+| **Çalıştır** soluk, neden belirsiz | Fareyi düğmenin üzerinde bekletin; eksik olanı yazar |
+| İş çok uzun sürüyor | **Durdur**. Diske eksik dosya yazılmaz |
+| "Başarısız:" ile başlayan yazı | **Görünüm** > **Paneller** > **Günlük Mesajları** > **GenCP SR** |
 | Çıktı katmanı görünmüyor | **Katmanlar** panelinde en üste sürükleyin |
-| Model yolu hiç çalışmıyor ve zaman yok | **Bikübik ile gösterin.** Çalıştığı ölçülmüştür ve hiçbir ek pakete bağlı değildir |
+| wsx4 hiç çalışmıyor ve zaman yok | **GenCP modeli**, o da olmazsa **Bikübik** ile gösterin |
 
-**Gösteri sırasında bir şey çökerse:** eklenti penceresini kapatıp **Raster > GenCP SR**'den
-yeniden açmak, QGIS'i kapatmadan durumu sıfırlar.
+**Bir şey çökerse:** eklenti penceresini kapatıp **Raster > GenCP SR**'den yeniden açmak,
+QGIS'i kapatmadan durumu sıfırlar.
 
 ---
 
 ## Gösteriden sonra temizlik
 
-Çıktılar büyüktür (bikübik çıktısı ~1,2 GB). Silmeden önce katmanları QGIS'ten kaldırın
-(**Katmanlar** panelinde sağ tıklayıp **Katmanı Kaldır**), sonra:
+Çıktılar büyüktür. Önce katmanları QGIS'ten kaldırın (**Katmanlar** panelinde sağ tıklayıp
+**Katmanı Kaldır**), sonra:
 
 ```bash
-rm -f /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/sr_model_input/DEMO_INPUT_36SXJ_4096px_B02-B03-B04_uint16DN_10m_sr_x2.tif /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/tiles36SVJ/TCI_sr_x2.tif
+rm -f /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/sr_model_input/*_sr_x2.tif /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/sr_model_input/*_sr_x4.tif /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/tiles36SVJ/TCI_sr_x2.tif
 ```

@@ -34,9 +34,12 @@ SETTINGS_PREFIX = "gencp_sr/"
 # The scale factor is FIXED at 2 for this work package. It is a named constant rather than
 # a literal 2 scattered through the file so that WP4 changes it in one place, and so that
 # the estimate, the run parameters and the label can never disagree about it.
-SCALE = 2
+#: Scale for the BICUBIC path only. A model path takes its scale from the model itself
+#: (WP6): wsx4 is x4, ours is x2, and a constant here would silently misdescribe one of
+#: them. Gate S asserts exact equality at both, four and two being powers of two.
+BICUBIC_SCALE = 2
 
-#: Inference tile for the MODEL path, in source pixels. NOT the training tile: the network
+#: Inference tile for OUR model path, in source pixels. NOT the training tile: the network
 #: is fully convolutional and the graph was exported with dynamic spatial axes, so the
 #: inference tile is free. Chosen by measurement on a 4096 x 4096 source extent of 36SXJ,
 #: overlap 32 throughout:
@@ -161,6 +164,7 @@ class SRDialog(QDialog):
         # onnxruntime and no particular input dtype, so it is the option that always works.
         self.method_cb.addItem(t("method_bicubic"), "bicubic")
         self.method_cb.addItem(t("method_model"), "model")
+        self.method_cb.addItem(t("method_wsx4"), "wsx4")
         self.method_cb.setCurrentIndex(0)
         self._row(f_set, "method", self.method_cb, "method")
 
@@ -260,6 +264,12 @@ class SRDialog(QDialog):
         self._on_src_mode(True)
         self._on_method()
 
+    def _repo_root(self):
+        for p in Path(__file__).resolve().parents:
+            if (p / "tubitak").is_dir():
+                return p
+        return None
+
     def _prefill(self):
         p = self._recall("input_path")
         if p and Path(p).is_file():
@@ -328,7 +338,47 @@ class SRDialog(QDialog):
         self._validate()
 
     def _is_model(self):
-        return str(self.method_cb.currentData()) == "model"
+        """Both model entries take the model path; only the default FILE differs.
+
+        Everything that distinguishes wsx4 from our own model - scale, channel count, band
+        order, normalisation mode, tiling scheme, margin - is read from the chosen file's
+        contract, never from which combo entry was clicked. The entries are a convenience
+        for finding the right file, not a second place where the parameters live.
+        """
+        return str(self.method_cb.currentData()) in ("model", "wsx4")
+
+    def _scale(self):
+        """Scale of the CURRENT method: from the model when there is one, else bicubic's."""
+        if self._is_model() and self._model:
+            return int(self._model[1]["scale"])
+        return BICUBIC_SCALE
+
+    def _default_model_path(self):
+        """A sensible default file for the chosen entry, if one is on this machine.
+
+        The wsx4 weights are NOT shipped with the plugin and are not in the repository -
+        they are 18 MB of binary that does not belong there, and they are the user's to
+        supply locally. This only looks for a file the user already has.
+        """
+        kind = str(self.method_cb.currentData())
+        # 1. what this user last chose FOR THIS METHOD. Remembered per method, because the
+        #    two methods take different files and one shared slot would hand wsx4 our
+        #    3-band model on every switch.
+        last = self._recall(f"model_path_{kind}")
+        if last and Path(last).is_file():
+            return last
+        # 2. a checkout-relative guess. Deployed into a QGIS profile there is no repository
+        #    above the plugin, so this finds nothing and the user picks the file - which is
+        #    the correct outcome for wsx4, whose weights we deliberately do not ship.
+        root = self._repo_root()
+        cands = {"wsx4": ["tubitak/data/wp5_reference/models/wsx4_spatrad.onnx"],
+                 "model": ["tubitak/data/sr_models/gencp_sr_x2_v1.onnx"]}.get(kind, [])
+        if root:
+            for c in cands:
+                f = Path(root) / c
+                if f.is_file():
+                    return str(f)
+        return ""
 
     def _on_method(self):
         """Enable the model field for the model path; take the tile size from the model."""
@@ -337,6 +387,12 @@ class SRDialog(QDialog):
         self.lbl_model.setVisible(m)
         self.lbl_caveat.setVisible(m)
         if m:
+            if not self.model_w.filePath().strip() or \
+                    str(self.method_cb.currentData()) != getattr(self, "_last_kind", None):
+                d = self._default_model_path()
+                if d:
+                    self.model_w.setFilePath(d)
+            self._last_kind = str(self.method_cb.currentData())
             self._on_model_changed()
         else:
             from sr_core import tiles as _t
@@ -378,16 +434,26 @@ class SRDialog(QDialog):
             _log(f"model unreadable: {exc}", member(Qgis, "Warning"))
         else:
             self._model = (sess, prov)
-            self.lbl_model.setText(t("model_desc", name=Path(path).name,
-                                     norm=prov["norm_divisor_dn"], scale=prov["scale"],
-                                     ch=prov["in_channels"], order=prov["band_order"],
-                                     done=prov["completed_steps"],
-                                     sched=prov["registered_schedule_steps"]))
-            self._remember("model_path", path)
+            norm = (t("model_norm_ext", d=prov["norm_divisor_dn"])
+                    if prov["normalisation"] == "external" else t("model_norm_int"))
+            tiling = (t("model_tiling_crop", m=prov["margin_out"])
+                      if prov["tiling"] == "crop" else t("model_tiling_feather"))
+            steps = ("" if prov["completed_steps"] in ("?", None)
+                     else t("model_steps", done=prov["completed_steps"],
+                            sched=prov["registered_schedule_steps"]))
+            self.lbl_model.setText(t("model_desc", name=Path(path).name, norm=norm,
+                                     scale=prov["scale"], ch=prov["in_channels"],
+                                     order=prov["band_order"], tiling=tiling, steps=steps))
+            self._remember(f"model_path_{self.method_cb.currentData()}", path)
             # D8: the network consumes 128 SOURCE pixels because its input is the 20 m
             # image; the bicubic path tiles at 512. Read from the model, never a literal.
-            self.tile_sb.setValue(MODEL_INFER_TILE_PX)
-            self.ovl_sb.setValue(int(prov["infer_overlap_src_px"]))
+            # For a crop-tiled model the overlap is NOT free: it must be at least
+            # 2*margin/scale or the cropped regions cannot tile the output. The contract
+            # computes it; the dialog shows it and does not invent one.
+            self.tile_sb.setValue(int(prov["tile_src"]) if prov["tiling"] == "crop"
+                                  else MODEL_INFER_TILE_PX)
+            self.ovl_sb.setValue(int(prov["overlap_src"]))
+        self._suggest_output()
         self._recheck_input()
         self._validate()
         self._refresh_estimate()
@@ -409,11 +475,25 @@ class SRDialog(QDialog):
             self._input_err = ("model_bad", dict(msg=str(exc)[:200]))
 
     def _suggest_output(self):
-        """Propose an output path beside the source, if the user has not set one."""
-        if self.out_w.filePath().strip() or not self._src:
+        """Propose an output path beside the source, if the user has not set one.
+
+        Re-proposed when the SCALE changes, because the name carries the factor: choosing
+        a 4x model after the name had been suggested at 2x left a file called `_sr_x2`
+        holding a 4x result. Only a path WE generated is replaced - once the user edits it,
+        `_auto_out` no longer matches and their choice stands.
+        """
+        if not self._src:
             return
+        cur = self.out_w.filePath().strip()
+        if cur and cur != getattr(self, "_auto_out", ""):
+            return                                    # the user chose this; leave it alone
         p = Path(self._src["path"])
-        self.out_w.setFilePath(str(p.with_name(f"{p.stem}_sr_x{SCALE}.tif")))
+        new = str(p.with_name(f"{p.stem}_sr_x{self._scale()}.tif"))
+        if new != cur:
+            self._auto_out = new
+            self.out_w.setFilePath(new)
+        else:
+            self._auto_out = cur
 
     def _refresh_estimate(self):
         if not self._src:
@@ -429,11 +509,12 @@ class SRDialog(QDialog):
             n = len(tlist)
         except Exception:                            # noqa: BLE001
             n = 0
-        ow, oh = s["width"] * SCALE, s["height"] * SCALE
+        sc = self._scale()
+        ow, oh = s["width"] * sc, s["height"] * sc
         # Uncompressed size. Stated as approximate in the tooltip precisely because the
         # written file is deflate-compressed and is normally well under this.
         mb = ow * oh * s["count"] * s["itemsize"] / 1e6
-        gsd = ("%g" % (s["gsd"] / SCALE)).replace(".", ",")
+        gsd = ("%g" % (s["gsd"] / sc)).replace(".", ",")
         self.lbl_est.setText(t("out_estimate_value", n=n, w=ow, h=oh, gsd=gsd, mb=mb))
 
     def _blocker(self):
@@ -502,7 +583,7 @@ class SRDialog(QDialog):
         self._remember("out_path", out)
 
         params = dict(
-            src_path=self._src["path"], out_path=out, scale=SCALE,
+            src_path=self._src["path"], out_path=out, scale=self._scale(),
             method=str(self.method_cb.currentData()),
             tile_px=int(self.tile_sb.value()), overlap_px=int(self.ovl_sb.value()),
         )
@@ -511,6 +592,9 @@ class SRDialog(QDialog):
             # is not documented as safe to share across threads, and constructing one costs
             # 0.02 s. The PATH travels, not the session object.
             params["model_path"] = self.model_w.filePath().strip()
+            prov = self._model[1]
+            params["tiling"] = prov["tiling"]
+            params["margin_out"] = int(prov["margin_out"])
         ensure_core_importable()
         from .task import SuperResolveTask
         self._task = SuperResolveTask("GenCP SR", params)
@@ -597,7 +681,7 @@ class SRDialog(QDialog):
         # source footprint exactly by construction - so this tolerance exists only to
         # absorb the float printing QGIS does on the way in and out of a layer, not to
         # admit a real offset. Gate S is where exactness is asserted.
-        eps = self._src["gsd"] / (2.0 * SCALE)
+        eps = self._src["gsd"] / (2.0 * self._scale())
         same_crs = src_lyr.crs().authid() == lyr.crs().authid()
         same_ext = (abs(a.xMinimum() - b.xMinimum()) <= eps
                     and abs(a.yMinimum() - b.yMinimum()) <= eps

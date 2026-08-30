@@ -104,6 +104,8 @@ class SuperResolveTask(QgsTask):
                 if n:
                     self.setProgress(min(99.0, 100.0 * k / n))
 
+            # `tiling` and `margin_out` reach superresolve straight from self.params,
+            # which the dialog filled from the model's own contract.
             self.result = superresolve(progress=progress, upsampler=upsampler,
                                        **self.params)
             if self.isCanceled():
