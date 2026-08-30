@@ -1,0 +1,15 @@
+[general]
+name=GenCP Super-Resolution
+qgisMinimumVersion=3.28
+qgisMaximumVersion=4.99
+supportsQt6=True
+description=Super-resolve a raster onto the exact integer refinement of its own grid, on a background task.
+about=Takes a georeferenced raster, upsamples it by an integer power-of-two scale factor and writes a GeoTIFF that sits on the exact refinement of the source grid (the Gate S contract). The upsampler is a SETTING: bicubic is the baseline shipped here, and a trained model plugs into the same interface without a rewrite. All logic lives in sr_core, which imports neither Qt nor QGIS. The bicubic path imports no onnxruntime, so the plugin loads and completes a job on a machine where onnxruntime cannot be imported at all. Requires numpy, Pillow and rasterio in the QGIS Python; all three ship with QGIS 4.2.1 on macOS. VERIFIED ON: QGIS 4.2.1 (Qt 6.11.1 / PyQt 6.11.0) on macOS 26.5.1, executed end to end on a 10980x10980 Sentinel-2 granule, including a clean-profile install. NOT YET VERIFIED: any QGIS 3.x load, any Windows or Linux load. All Qt access goes through the qgis.PyQt shim and no Qt5-only or Qt6-only API is used, so 3.28 LTR is reasoned about rather than tested. This is a SEPARATE plugin from GenCP Synthetic Reference and shares no code with it.
+version=0.1.0
+author=TUBITAK UZAY / GenCP
+email=mustafavedatyildirim@gmail.com
+tracker=https://github.com/mvy0502/GenCP/issues
+repository=https://github.com/mvy0502/GenCP
+category=Raster
+experimental=True
+hasProcessingProvider=no
