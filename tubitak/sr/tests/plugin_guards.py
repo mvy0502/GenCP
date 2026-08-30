@@ -34,7 +34,16 @@ from _guard import strict_argv                       # noqa: E402
 
 PKG = HERE.parent / "sr_plugin"
 STRINGS = "strings.py"
-FORBIDDEN = ("onnxruntime", "pyproj", "multiprocessing", "gencp_core")
+#: Never importable at all, anywhere, at any nesting depth.
+FORBIDDEN = ("pyproj", "multiprocessing", "gencp_core")
+
+#: Importable, but ONLY lazily - inside a function body, never at module level.
+#: WP4 refinement: the model path genuinely needs onnxruntime, so a blanket ban became
+#: wrong. The invariant that actually matters is unchanged and is now stated exactly: a
+#: MODULE-LEVEL import runs at plugin load, so on a machine where onnxruntime cannot be
+#: imported the whole plugin would fail to load and the bicubic path would go with it. A
+#: lazy import fails only when the model path is actually used.
+LAZY_ONLY = ("onnxruntime",)
 # Turkish-specific letters. Restricted to these rather than "any non-ASCII" so that an
 # English comment containing a dash or a degree sign is not reported as a Turkish string.
 TR = re.compile(r"[çğıİöşüÇĞÖŞÜ]")
@@ -63,16 +72,42 @@ def _string_literals(tree):
     return out
 
 
+def _import_names(node):
+    out = set()
+    if isinstance(node, ast.Import):
+        for a in node.names:
+            out.add(a.name.split(".")[0])
+    elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
+        out.add(node.module.split(".")[0])
+    return out
+
+
 def _imports(tree):
-    names = set()
+    """(all_imports, module_level_imports).
+
+    Module level means: reachable without entering a function or method body. An import
+    inside `if`/`try`/`with` at module level still runs at import time and counts.
+    """
+    allnames = set()
     for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            for a in node.names:
-                names.add(a.name.split(".")[0])
-        elif isinstance(node, ast.ImportFrom):
-            if node.module and node.level == 0:
-                names.add(node.module.split(".")[0])
-    return names
+        allnames |= _import_names(node)
+
+    top = set()
+
+    def walk_top(body):
+        for n in body:
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue                     # a function body runs later, not at import
+            top.update(_import_names(n))
+            for f in ("body", "orelse", "finalbody", "handlers"):
+                sub = getattr(n, f, None)
+                if isinstance(sub, list):
+                    walk_top([x for x in sub if isinstance(x, ast.stmt)])
+                    for h in sub:
+                        if isinstance(h, ast.ExceptHandler):
+                            walk_top(h.body)
+    walk_top(tree.body)
+    return allnames, top
 
 
 def _string_keys(tree):
@@ -104,8 +139,13 @@ def check(pkg, strings_module_name=STRINGS):
                     off.append(("G1", p.name, lineno,
                                 f"Turkish literal outside {strings_module_name}: "
                                 f"{val[:60]!r}"))
-        for mod in sorted(_imports(tree) & set(FORBIDDEN)):
+        allnames, toplevel = _imports(tree)
+        for mod in sorted(allnames & set(FORBIDDEN)):
             off.append(("G2", p.name, 0, f"forbidden import {mod!r}"))
+        for mod in sorted(toplevel & set(LAZY_ONLY)):
+            off.append(("G2", p.name, 0,
+                        f"{mod!r} imported at MODULE LEVEL; it must be imported lazily, "
+                        f"inside a function, or the plugin fails to load where it is absent"))
         used_keys |= _string_keys(tree)
 
     sp = pkg / strings_module_name
@@ -132,6 +172,17 @@ from .strings import t, tip
 def build():
     lab = "Çalıştır"
     return t("run"), t("no_such_key_at_all"), lab
+'''
+
+#: Known-true for the LAZY_ONLY rule: onnxruntime imported inside a function is CORRECT and
+#: must not be reported. Without this case the rule would be untested in the direction that
+#: matters - it is easy to write a check that bans the module outright and calls it a pass.
+_LAZY_OK = '''\
+from .strings import t
+
+def run():
+    import onnxruntime
+    return onnxruntime, t("run")
 '''
 _GOOD_STRINGS = 'S = {"run": "Çalıştır"}\nTIP = {"run": "ipucu"}\n'
 
@@ -163,6 +214,7 @@ def self_test():
         good.mkdir()
         (good / "dialog.py").write_text(
             'from .strings import t\ndef f():\n    return t("run")\n', encoding="utf-8")
+        (good / "lazy.py").write_text(_LAZY_OK, encoding="utf-8")
         (good / STRINGS).write_text(_GOOD_STRINGS, encoding="utf-8")
         off2, _ = check(good)
         print(f"  KT  known-true fixture  -> {len(off2)} offences")

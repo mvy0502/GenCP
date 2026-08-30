@@ -83,6 +83,17 @@ class SuperResolveTask(QgsTask):
                 f"onnxruntime {'loaded' if 'onnxruntime' in sys.modules else 'not loaded'}",
                 LOG_TAG, member(Qgis, 'Info'))
 
+            # WP4: the model path. onnxruntime is imported here, on the worker thread,
+            # only when a model was actually chosen - the bicubic path must still load and
+            # run on a machine where it cannot be imported at all (WP2B 4.1).
+            model_path = self.params.pop("model_path", None)
+            upsampler = None
+            if model_path:
+                from .onnx_upsample import OnnxUpsampler
+                upsampler = OnnxUpsampler(model_path, clip=True)
+                QgsMessageLog.logMessage(f"model path: {upsampler.describe()}",
+                                         LOG_TAG, member(Qgis, 'Info'))
+
             def progress(k, n):
                 # Cancellation is honoured BETWEEN tiles: the check happens after tile k
                 # has been fully blended and before tile k+1 is read. A tile is never
@@ -93,7 +104,8 @@ class SuperResolveTask(QgsTask):
                 if n:
                     self.setProgress(min(99.0, 100.0 * k / n))
 
-            self.result = superresolve(progress=progress, **self.params)
+            self.result = superresolve(progress=progress, upsampler=upsampler,
+                                       **self.params)
             if self.isCanceled():
                 self.was_cancelled = True
                 return False

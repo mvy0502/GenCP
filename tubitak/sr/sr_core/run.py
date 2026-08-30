@@ -43,7 +43,7 @@ def peak_rss_bytes():
 
 def superresolve(src_path, out_path, scale=2, method="bicubic",
                  tile_px=_tiles.DEFAULT_TILE_PX, overlap_px=_tiles.DEFAULT_OVERLAP_PX,
-                 window=None, clip=True, progress=None):
+                 window=None, clip=True, progress=None, upsampler=None):
     """Super-resolve `src_path` onto `out_path`. Returns a dict describing the run.
 
     `window` is an optional `(col0, row0, width, height)` in source pixels; the grid
@@ -55,11 +55,26 @@ def superresolve(src_path, out_path, scale=2, method="bicubic",
     from rasterio.windows import Window
 
     t0 = time.perf_counter()
-    up_cls = METHODS.get(method)
-    if up_cls is None:
-        raise ValueError(f"unknown method {method!r}; known: {sorted(METHODS)}")
     s = _grid.require_integer_scale(scale, "superresolve")
-    up = up_cls(scale=s, clip=clip)
+    # WP4, PURELY ADDITIVE: an already-constructed Upsampler may be supplied directly. This
+    # is the seam `upsample.Upsampler` was written for - "it must give the same verdict for
+    # BicubicUpsampler today and for a trained ONNX model in WP4" (Gate S registration D16).
+    # A trained model needs constructor arguments METHODS cannot supply (a file path), so it
+    # is passed in rather than looked up. Every existing caller omits it and is unaffected:
+    # the `method` lookup below is unchanged and still runs when `upsampler` is None.
+    if upsampler is not None:
+        up = upsampler
+        if int(getattr(up, "scale", s)) != s:
+            raise ValueError(
+                f"supplied upsampler has scale {getattr(up, 'scale', None)!r} but "
+                f"superresolve was asked for scale {s}; they must agree or the output "
+                f"grid and the pixels would describe different rasters")
+        method = getattr(up, "name", method)
+    else:
+        up_cls = METHODS.get(method)
+        if up_cls is None:
+            raise ValueError(f"unknown method {method!r}; known: {sorted(METHODS)}")
+        up = up_cls(scale=s, clip=clip)
 
     with rasterio.open(str(src_path)) as src:
         if window is None:

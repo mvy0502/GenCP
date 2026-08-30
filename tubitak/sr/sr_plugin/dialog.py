@@ -36,6 +36,20 @@ SETTINGS_PREFIX = "gencp_sr/"
 # the estimate, the run parameters and the label can never disagree about it.
 SCALE = 2
 
+#: Inference tile for the MODEL path, in source pixels. NOT the training tile: the network
+#: is fully convolutional and the graph was exported with dynamic spatial axes, so the
+#: inference tile is free. Chosen by measurement on a 4096 x 4096 source extent of 36SXJ,
+#: overlap 32 throughout:
+#:     tile 128 -> 1849 tiles, 32.6 s      (redundancy 1.78x)
+#:     tile 256 ->  361 tiles, 23.2 s      (redundancy 1.31x)
+#:     tile 512 ->   81 tiles, 22.4 s      (redundancy 1.14x)   <- chosen, 1.46x faster
+#: Against tile 128 the pixels differ by at most 8 DN on ~1 % of pixels, all at tile seams,
+#: which is 20 % of the model's own measured MAE of 39.7 DN. The model's declared
+#: `infer_tile_src_px` (128) remains the TRAINING contract and is shown to the user; it is
+#: not the inference tile, and the difference is documented in 04-model-in-plugin.md.
+#: The overlap is unchanged at 32, still above the measured receptive field of 31 px.
+MODEL_INFER_TILE_PX = 512
+
 
 def _log(msg, level=None):
     QgsMessageLog.logMessage(str(msg), LOG_TAG, level or member(Qgis, 'Info'))
@@ -43,6 +57,11 @@ def _log(msg, level=None):
 
 def _enum(cls, name):
     return member(cls, name)
+
+
+def _tr_num(text):
+    """Turkish decimal separator. `terimler.md`: decimal comma, not a period."""
+    return str(text).replace(".", ",")
 
 
 class SRDialog(QDialog):
@@ -53,6 +72,9 @@ class SRDialog(QDialog):
         self.setWindowTitle(t("window_title"))
         self._task = None
         self._src = None          # dict of source properties, or None
+        self._model = None        # (session, provenance) for the chosen ONNX file, or None
+        self._model_err = None    # (strings_key, fmt) if the model file is unreadable
+        self._input_err = None    # (strings_key, fmt) if the input does not suit the model
         self._ui_ready = False
         self._build_ui()
         self._ui_ready = True
@@ -135,19 +157,23 @@ class SRDialog(QDialog):
         self._row(f_set, "scale", self.lbl_scale, "scale")
 
         self.method_cb = QComboBox()
+        # Bicubic stays the DEFAULT and stays first: it needs no model file, no
+        # onnxruntime and no particular input dtype, so it is the option that always works.
         self.method_cb.addItem(t("method_bicubic"), "bicubic")
+        self.method_cb.addItem(t("method_model"), "model")
         self.method_cb.setCurrentIndex(0)
         self._row(f_set, "method", self.method_cb, "method")
 
-        # Present but disabled: WP4 plugs a trained model in here, and the field existing
-        # now is what makes that a swap rather than a dialog rewrite.
         self.model_w = QgsFileWidget()
         self.model_w.setStorageMode(_enum(QgsFileWidget, 'GetFile'))
         self.model_w.setFilter(t("filter_model"))
-        self.model_w.setEnabled(False)
         self._row(f_set, "model_file", self.model_w, "model_file")
-        lbl_md = QLabel(t("model_disabled"))
-        f_set.addRow(QLabel(""), lbl_md)
+        self.lbl_model = QLabel(t("model_unset"))
+        self.lbl_model.setWordWrap(True)
+        self._row(f_set, "model_info", self.lbl_model, "model_info")
+        self.lbl_caveat = QLabel(t("model_caveat"))
+        self.lbl_caveat.setWordWrap(True)
+        f_set.addRow(QLabel(""), self.lbl_caveat)
         outer.addWidget(g_set)
 
         # --------------------------------------------------------- gelişmiş ----
@@ -216,12 +242,23 @@ class SRDialog(QDialog):
         self.btn_cancel.clicked.connect(self._cancel)
         self.btn_close.clicked.connect(self.close)
         self.rb_layer.toggled.connect(self._on_src_mode)
+        # BOTH signals. `layerChanged` alone never fired for a combo-box selection in
+        # QGIS 4.2.1 / PyQt6: every earlier test passed only because the chosen layer was
+        # already current when the dialog was CONSTRUCTED, so __init__'s own
+        # _refresh_source() had already read it. Switching layers in the open dialog - which
+        # is exactly what the demonstration asks the presenter to do - left the source line,
+        # the estimate and the model input check all stale. `currentIndexChanged` does fire.
+        # _refresh_source is idempotent and cheap, so connecting both costs nothing.
         self.layer_cb.layerChanged.connect(lambda *_a: self._refresh_source())
+        self.layer_cb.currentIndexChanged.connect(lambda *_a: self._refresh_source())
         self.file_w.fileChanged.connect(lambda *_a: self._refresh_source())
         self.out_w.fileChanged.connect(lambda *_a: self._validate())
+        self.method_cb.currentIndexChanged.connect(lambda *_a: self._on_method())
+        self.model_w.fileChanged.connect(lambda *_a: self._on_model_changed())
         self.tile_sb.valueChanged.connect(lambda *_a: self._refresh_estimate())
         self.ovl_sb.valueChanged.connect(lambda *_a: self._refresh_estimate())
         self._on_src_mode(True)
+        self._on_method()
 
     def _prefill(self):
         p = self._recall("input_path")
@@ -286,8 +323,90 @@ class SRDialog(QDialog):
             txt += "<br>" + t("src_rotated")
         self.lbl_src.setText(txt)
         self._suggest_output()
+        self._recheck_input()
         self._refresh_estimate()
         self._validate()
+
+    def _is_model(self):
+        return str(self.method_cb.currentData()) == "model"
+
+    def _on_method(self):
+        """Enable the model field for the model path; take the tile size from the model."""
+        m = self._is_model()
+        self.model_w.setEnabled(m)
+        self.lbl_model.setVisible(m)
+        self.lbl_caveat.setVisible(m)
+        if m:
+            self._on_model_changed()
+        else:
+            from sr_core import tiles as _t
+            self.tile_sb.setValue(_t.DEFAULT_TILE_PX)
+            self.ovl_sb.setValue(_t.DEFAULT_OVERLAP_PX)
+            # _recheck_input() clears _input_err, because it is a no-op off the model path.
+            # Without this the model's refusal stayed on screen after switching to bicubic,
+            # while Run was enabled - two contradictory signals at once. Found by driving
+            # the dialog in QGIS, not by reading the code.
+            self._recheck_input()
+            self.lbl_status.setText(t("idle"))
+            self._validate()
+            self._refresh_estimate()
+
+    def _on_model_changed(self):
+        """Read the model's own provenance. Nothing about it is assumed or hard-coded."""
+        self._model, self._model_err = None, None
+        path = self.model_w.filePath().strip()
+        if not self._is_model() or not path:
+            self.lbl_model.setText(t("model_unset"))
+            self._recheck_input(); self._validate(); self._refresh_estimate(); return
+        ensure_core_importable()
+        try:
+            from .onnx_upsample import read_provenance, ModelInputError
+        except ImportError as exc:
+            self._model_err = ("err_no_onnxruntime", {})
+            self.lbl_model.setText(t("err_no_onnxruntime"))
+            _log(f"onnxruntime unavailable: {exc}", member(Qgis, "Warning"))
+            self._recheck_input(); self._validate(); self._refresh_estimate(); return
+        try:
+            sess, prov = read_provenance(path)
+        except ModelInputError as exc:
+            self._model_err = (exc.key, exc.fmt)
+            self.lbl_model.setText(t(exc.key, **exc.fmt))
+            _log(f"model metadata incomplete: {exc}", member(Qgis, "Warning"))
+        except Exception as exc:                     # noqa: BLE001
+            self._model_err = ("model_bad", dict(msg=str(exc)[:200]))
+            self.lbl_model.setText(t("model_bad", msg=str(exc)[:200]))
+            _log(f"model unreadable: {exc}", member(Qgis, "Warning"))
+        else:
+            self._model = (sess, prov)
+            self.lbl_model.setText(t("model_desc", name=Path(path).name,
+                                     norm=prov["norm_divisor_dn"], scale=prov["scale"],
+                                     ch=prov["in_channels"], order=prov["band_order"],
+                                     done=prov["completed_steps"],
+                                     sched=prov["registered_schedule_steps"]))
+            self._remember("model_path", path)
+            # D8: the network consumes 128 SOURCE pixels because its input is the 20 m
+            # image; the bicubic path tiles at 512. Read from the model, never a literal.
+            self.tile_sb.setValue(MODEL_INFER_TILE_PX)
+            self.ovl_sb.setValue(int(prov["infer_overlap_src_px"]))
+        self._recheck_input()
+        self._validate()
+        self._refresh_estimate()
+
+    def _recheck_input(self):
+        """Assert the chosen raster against the model's contract, BEFORE any tile runs.
+
+        This is what stops the plugin turning the 8-bit TCI into plausible garbage.
+        """
+        self._input_err = None
+        if not self._is_model() or not self._model or not self._src:
+            return
+        try:
+            from .onnx_upsample import validate_input, ModelInputError
+            validate_input(self._src["path"], self._model[1])
+        except ModelInputError as exc:
+            self._input_err = (exc.key, exc.fmt)
+        except Exception as exc:                     # noqa: BLE001
+            self._input_err = ("model_bad", dict(msg=str(exc)[:200]))
 
     def _suggest_output(self):
         """Propose an output path beside the source, if the user has not set one."""
@@ -325,6 +444,13 @@ class SRDialog(QDialog):
             return "blocked_no_input"
         if self._src is None:
             return "blocked_bad_input"
+        if self._is_model():
+            if self._model_err is not None:
+                return "blocked_bad_model"
+            if not self.model_w.filePath().strip():
+                return "blocked_no_model"
+            if self._input_err is not None:
+                return "blocked_input_not_model"
         out = self.out_w.filePath().strip()
         if not out:
             return "blocked_no_output"
@@ -339,6 +465,19 @@ class SRDialog(QDialog):
         b = self._blocker()
         self.btn_run.setEnabled(b is None)
         self.btn_run.setToolTip(tip("run") if b is None else t(b))
+        # A disabled button with a terse tooltip is not a refusal a user can act on. When
+        # the input does not suit the model, the FULL explanation - what was expected, what
+        # was given, and which file to pick instead - goes in the status line where it
+        # cannot be missed.
+        if self._task is None:
+            if self._input_err is not None:
+                k, f = self._input_err
+                self.lbl_status.setText(t(k, **f))
+            elif self._model_err is not None and self._is_model():
+                k, f = self._model_err
+                self.lbl_status.setText(t(k, **f))
+            elif self.lbl_status.text() not in (t("idle"),) and b is not None:
+                self.lbl_status.setText(t("idle"))
 
     # ------------------------------------------------------------------ run ---
     def _start(self):
@@ -367,6 +506,11 @@ class SRDialog(QDialog):
             method=str(self.method_cb.currentData()),
             tile_px=int(self.tile_sb.value()), overlap_px=int(self.ovl_sb.value()),
         )
+        if self._is_model():
+            # The task builds its own session on the worker thread; an onnxruntime session
+            # is not documented as safe to share across threads, and constructing one costs
+            # 0.02 s. The PATH travels, not the session object.
+            params["model_path"] = self.model_w.filePath().strip()
         ensure_core_importable()
         from .task import SuperResolveTask
         self._task = SuperResolveTask("GenCP SR", params)
@@ -411,8 +555,13 @@ class SRDialog(QDialog):
             self._validate()
             return
         self.progress.setValue(100)
-        msg = t("done", n=rec["n_tiles"], secs=rec["wall_clock_s"],
-                mb=rec["output_size_bytes"] / 1e6)
+        # Decimal COMMA. terimler.md fixes Turkish number formatting and Python's %f
+        # always emits a period, so the conversion happens here. WP2B shipped "37.7 sn"
+        # against a document that said "37,7 sn"; the document was right and the code was
+        # wrong, and nothing caught it because that walkthrough compared only the prefix.
+        msg = t("done", n=rec["n_tiles"],
+                secs=_tr_num(f"{rec['wall_clock_s']:.1f}"),
+                mb=f"{rec['output_size_bytes'] / 1e6:.0f}")
         if self.cb_add.isChecked():
             msg += " " + self._add_and_check(rec)
         self.lbl_status.setText(msg)

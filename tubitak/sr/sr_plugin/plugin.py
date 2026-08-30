@@ -5,6 +5,11 @@ from pathlib import Path
 
 from qgis.PyQt.QtWidgets import QAction
 from qgis.PyQt.QtGui import QIcon
+from qgis.PyQt.QtCore import Qt
+
+from .qtcompat import member
+
+_RICH = member(Qt.TextFormat, 'RichText') if hasattr(Qt, 'TextFormat') else 1
 
 PLUGIN_DIR = Path(__file__).resolve().parent
 
@@ -20,9 +25,35 @@ def ensure_core_importable():
     for cand in (PLUGIN_DIR, PLUGIN_DIR.parent, PLUGIN_DIR.parent.parent):
         if (cand / "sr_core" / "__init__.py").is_file():
             if str(cand) not in sys.path:
-                sys.path.insert(0, str(cand))
+                # APPEND, not insert(0). WP2B open item: inserting at position 0 put this
+                # plugin's own directory ahead of everything, so a bare `import strings` or
+                # `import dialog` anywhere in the QGIS process resolved to OUR module. That
+                # was demonstrated, not theorised - `import strings` was measured resolving
+                # to this package. Appending means we are consulted only after every
+                # existing path, so the SR plugin can no longer shadow another plugin's
+                # modules. sr_core is unaffected: no other entry on sys.path provides it.
+                sys.path.append(str(cand))
             return cand
     return None
+
+
+#: Third-party modules the plugin cannot work without, with the strings key that explains
+#: each absence in Turkish. WP2B open item 1: rasterio is the dependency most likely to be
+#: missing on another machine, and its absence used to surface as a ModuleNotFoundError
+#: behind a bare "Başarısız:".
+REQUIRED_MODULES = (("rasterio", "err_no_rasterio"),)
+
+
+def missing_requirements():
+    """[(module, strings_key)] for every hard requirement that will not import."""
+    import importlib
+    out = []
+    for mod, key in REQUIRED_MODULES:
+        try:
+            importlib.import_module(mod)
+        except Exception:                            # noqa: BLE001 - absence is the answer
+            out.append((mod, key))
+    return out
 
 
 class GenCPSRPlugin:
@@ -55,6 +86,17 @@ class GenCPSRPlugin:
 
     def run(self):
         ensure_core_importable()
+        missing = missing_requirements()
+        if missing:
+            # Readable, in Turkish, naming the package - not a traceback in the log panel.
+            from qgis.PyQt.QtWidgets import QMessageBox
+            from .strings import t
+            box = QMessageBox(self.iface.mainWindow())
+            box.setWindowTitle(t("window_title"))
+            box.setTextFormat(_RICH)
+            box.setText("<br><br>".join(t(key) for _m, key in missing))
+            box.exec()
+            return
         from .dialog import SRDialog
         if self.dialog is None:
             self.dialog = SRDialog(self.iface, self.iface.mainWindow())

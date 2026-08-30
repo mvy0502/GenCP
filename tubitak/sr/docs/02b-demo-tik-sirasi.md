@@ -5,30 +5,42 @@ yazıldı. Her adım tek bir iştir. Hiçbir adım "zaten bellidir" diye atlanma
 
 **Soğuk başlangıç varsayılır:** QGIS kapalı, eklenti kurulu değil, hiçbir katman açık değil.
 
-**Bu belge bir kez sınandı.** Yazıldıktan sonra sıfırdan bir QGIS profilinde baştan sona
-uygulandı; 20 adımdan 2'si yanlış çıktı ve düzeltildi (ayrıntı: `02b-plugin.md`, §9).
-Aşağıdaki metin düzeltilmiş olanıdır.
+**Bu belge iki kez sınandı.** Önce bikübik yolu için yazıldı ve sıfırdan bir QGIS profilinde
+uygulandı; 20 adımdan 2'si yanlış çıktı ve düzeltildi. Sonra eğitilmiş model yolu eklendi ve
+belge yeniden baştan sona uygulandı (ayrıntı: `04-model-in-plugin.md`). Aşağıdaki metin
+düzeltilmiş olanıdır.
 
-**Tamamı ne kadar sürer:** kurulum yaklaşık 3 dakika, üretim yaklaşık 40 saniye.
+**Tamamı ne kadar sürer:** kurulum yaklaşık 3 dakika, iki üretim toplam yaklaşık 1 dakika.
 
-**Bu eklenti ne yapar:** bir raster dosyasını alır, piksel boyunu ikiye böler ve sonucu
-yeni bir GeoTIFF olarak yazar. 10 m girdi 5 m çıktı verir. Şu anki yöntem **bikübik**tir:
-bu bir taban çizgisidir, eğitilmiş model değildir. Yeni bilgi üretmez, var olanı yeniden
-örnekler.
+---
+
+## Eklenti ne yapar — iki yöntem, iki ayrı dosya
+
+Eklenti bir rasterı alır, piksel boyunu ikiye böler ve sonucu yeni bir GeoTIFF olarak yazar.
+**İki yöntem vardır ve her biri farklı bir girdi dosyası ister.** Yanlış eşleştirme yaparsanız
+eklenti çalışmayı reddeder ve nedenini söyler.
+
+| Yöntem | Ne yapar | Hangi dosyayı ister |
+|---|---|---|
+| **Bikübik** | Taban çizgisi. Yeni bilgi üretmez, var olanı yeniden örnekler. Görüntü yumuşar. | **TCI** dosyası (8 bit, görsel) |
+| **Eğitilmiş model (ONNX)** | Ayrıntı üretir. Bu, projenin eğittiği ağdır. | Adı **MODEL_INPUT_** ya da **DEMO_INPUT_** ile başlayan dosya (16 bit, yansıtma) |
+
+**Gösteride söylenmesi gereken cümle:** çıktı 5 m ızgaradadır ve ızgara doğruluğu
+denetlenmiştir, ama **5 m çıktı doğrulanmamıştır**. Model 20 m→10 m üzerinde eğitildi ve
+10 m→5 m uygulanıyor; bu iki aralığın aynı davrandığı varsayılıyor ve bu varsayım bu projeyle
+sınanamaz. "5 m çözünürlüklü görüntü ürettik" **denmemelidir**; "5 m ızgaraya, eğitilmiş
+modelin takılı olduğu bir hat kurduk" denmelidir.
 
 ---
 
 ## Bölüm 0 — Gösteriden önce, bir kez
 
-Bu bölüm gösteri sırasında değil, gösteriden **önce** yapılır. Sonucu bir dosyadır ve o
-dosya durduğu sürece bu bölüm bir daha yapılmaz.
+Gösteri sırasında değil, gösteriden **önce** yapılır.
 
 ### 0.1 Eklenti dosyasını (zip) üret
 
-Terminal'i açın. (Bulamıyorsanız: Spotlight'ı `Command + Boşluk` ile açın, `Terminal`
-yazın, `Enter`.)
-
-Aşağıdaki iki satırı sırayla yapıştırıp her birinden sonra `Enter`'a basın:
+Terminal'i açın (`Command + Boşluk`, `Terminal` yazın, `Enter`). İki satırı sırayla
+yapıştırın:
 
 ```bash
 cd /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap
@@ -38,250 +50,218 @@ cd /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap
 /opt/homebrew/Caskroom/miniforge/base/envs/gencp/bin/python tubitak/sr/build_sr_plugin_zip.py
 ```
 
-Ekranda şuna benzer bir satır görmelisiniz:
+Son satırda `checked:` sözcüğünü görmelisiniz. Görmüyorsanız devam etmeyin.
 
-```
-/Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/sr_dist/gencp_super_resolution.zip  13 files  34613 bytes  sha256 ...
-  checked: metadata, classFactory module, vendored sr_core, no .pyc
-```
-
-Son satırdaki `checked:` sözcüğünü görmüyorsanız devam etmeyin; zip eksiktir.
-
-Üretilen dosyanın tam yolu — bir sonraki bölümde gerekecek, not edin:
-
-```
-/Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/sr_dist/gencp_super_resolution.zip
-```
-
-### 0.2 Girdi dosyasının yerinde olduğunu doğrulayın
+### 0.2 Dört dosyanın yerinde olduğunu doğrulayın
 
 ```bash
-ls -l /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/tiles36SVJ/TCI.tif
+ls -l /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/sr_dist/gencp_super_resolution.zip /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/sr_models/gencp_sr_x2_v1.onnx /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/sr_model_input/DEMO_INPUT_36SXJ_4096px_B02-B03-B04_uint16DN_10m.tif /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/tiles36SVJ/TCI.tif
 ```
 
-Bir satır ve yaklaşık `358841596` gibi bir sayı görmelisiniz. `No such file` yazıyorsa
-gösteri bu dosya olmadan yapılamaz.
+**Dört satır** görmelisiniz. `No such file` yazan varsa o dosya eksiktir ve gösteride o yol
+çalışmaz.
+
+Yolları not edin; bunlar gösteride tek tek gerekecek:
+
+| Ne | Tam yol |
+|---|---|
+| Eklenti (zip) | `…/tubitak/data/sr_dist/gencp_super_resolution.zip` |
+| **Model** (ONNX) | `…/tubitak/data/sr_models/gencp_sr_x2_v1.onnx` |
+| **Model girdisi** (gösteri) | `…/tubitak/data/sr_model_input/DEMO_INPUT_36SXJ_4096px_B02-B03-B04_uint16DN_10m.tif` |
+| **Bikübik girdisi** | `…/tubitak/data/tiles36SVJ/TCI.tif` |
+
+(`…` = `/Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap`)
 
 ---
 
 ## Bölüm 1 — QGIS'i açın
 
-1. Spotlight'ı açın: `Command + Boşluk`.
+1. `Command + Boşluk` ile Spotlight'ı açın.
 2. `QGIS` yazın.
-3. Çıkan sonuçlar arasından **QGIS-final-4_2_1** olanı seçin ve `Enter`'a basın.
-4. Program açılırken birkaç saniye beklersiniz. Ortada bir tanıtım penceresi çıkarsa
-   sağ üstteki çarpıya basıp kapatın.
+3. **QGIS-final-4_2_1** olanı seçip `Enter`'a basın.
+4. Açılırken birkaç saniye bekleyin. Ortada tanıtım penceresi çıkarsa sağ üstteki çarpıyla
+   kapatın.
 
-Artık boş bir QGIS penceresi karşınızda. Sol tarafta **Katmanlar** paneli boş.
+Sol tarafta **Katmanlar** paneli boştur.
 
 ---
 
 ## Bölüm 2 — Eklentiyi kurun
 
-Bu bölüm bir kere yapılır. Eklenti bir kez kurulduktan sonra QGIS'i kapatıp açsanız da
-kurulu kalır.
+Bir kere yapılır; QGIS'i kapatıp açsanız da kurulu kalır.
 
-1. Üst menüden **Eklentiler**'e tıklayın.
-2. Açılan listeden **Eklentileri Yönet ve Kur…** seçeneğine tıklayın.
-3. Açılan pencerenin **sol** tarafında bir liste var. Oradan **ZIP'ten Kur**'a tıklayın.
-4. Ortada **ZIP dosyası** yazan bir kutu ve sağında **…** düğmesi göreceksiniz.
-   **…** düğmesine tıklayın.
-5. Bir dosya seçme penceresi açılır. Klavyeden `Command + Shift + G` tuşlarına basın.
-   Küçük bir yol yazma kutusu çıkar.
-6. Bu kutuya aşağıdaki yolu yapıştırın ve `Enter`'a basın:
+1. Üst menüden **Eklentiler** > **Eklentileri Yönet ve Kur…**
+2. Açılan pencerenin **sol** tarafından **ZIP'ten Kur**.
+3. **ZIP dosyası** kutusunun sağındaki **…** düğmesine tıklayın.
+4. `Command + Shift + G` tuşlarına basın; çıkan kutuya yapıştırıp `Enter`:
 
    ```
    /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/sr_dist
    ```
 
-7. Listede **gencp_super_resolution.zip** dosyasını göreceksiniz. Üzerine **çift
-   tıklayın**.
-8. Dosya seçme penceresi kapanır, yol kutusuna dosyanın yolu yazılmıştır.
-9. **Eklentiyi Kur** düğmesine tıklayın.
-10. Birkaç saniye sonra "Eklenti kuruldu" anlamında bir bilgi kutusu çıkar. **Tamam**'a
-    basın.
-11. **Bu bir denetleme adımıdır, bir iş değil.** Aynı pencerenin sol tarafından
-    **Kurulu** listesine tıklayın. Listede **GenCP Super-Resolution** satırını bulun ve
-    solundaki **onay kutusunun işaretli olduğunu görün**.
+5. **gencp_super_resolution.zip** dosyasına **çift tıklayın**.
+6. **Eklentiyi Kur** düğmesine tıklayın.
+7. "Eklenti kuruldu" kutusunda **Tamam**'a basın.
+8. **Bu bir denetleme adımıdır, bir iş değil.** Sol taraftan **Kurulu** listesine geçin,
+   **GenCP Super-Resolution** satırını bulun, onay kutusunun **işaretli olduğunu görün**.
+   QGIS zip'ten kurulan eklentiyi kendiliğinden etkinleştirir; ölçüldü, kutu zaten işaretli
+   gelir. İşaretsizse (beklenmez) işaretleyin.
+9. Pencereyi **Kapat** ile kapatın.
 
-    QGIS, ZIP'ten kurulan bir eklentiyi kendiliğinden etkinleştirir; ölçüldü, kutu zaten
-    işaretli gelir. Yani burada yapacağınız bir şey yoktur — sadece bakın. Kutu
-    işaretsizse (beklenmez) işaretleyin, çünkü işaretsizken eklenti menüde görünmez.
-12. Pencereyi **Kapat** düğmesiyle kapatın.
-
-**Kurulumun doğrulanması.** Üst menüden **Raster**'a tıklayın. Açılan listede
-**GenCP SR** başlığını görmelisiniz. Görmüyorsanız 11. adımdaki onay kutusu işaretli
-değildir; geri dönüp işaretleyin.
+**Doğrulama.** Üst menüden **Raster**'a tıklayın; **GenCP SR** başlığını görmelisiniz.
 
 ---
 
-## Bölüm 3 — Girdi katmanını haritaya ekleyin
+## Bölüm 3 — GÖSTERİNİN ANA KISMI: eğitilmiş model
 
-Bu adım zorunlu değildir — eklenti dosyayı doğrudan diskten de okuyabilir — ama gösteride
-öncesi ve sonrası yan yana görüneceği için yapılması iyi olur.
+Bu, gösterilecek olan şeydir. Yaklaşık **23 saniye** sürer.
 
-1. Üst menüden **Katman** > **Katman Ekle** > **Raster Katman Ekle…** yolunu izleyin.
-2. Açılan pencerede **Raster veri kümesi(leri)** kutusunun sağındaki **…** düğmesine
-   tıklayın.
-3. `Command + Shift + G` tuşlarına basın ve çıkan kutuya şunu yapıştırıp `Enter`'a basın:
+### 3.1 Girdi katmanını ekleyin
+
+1. **Katman** > **Katman Ekle** > **Raster Katman Ekle…**
+2. **Raster veri kümesi(leri)** kutusunun sağındaki **…** düğmesi.
+3. `Command + Shift + G`, sonra yapıştırıp `Enter`:
+
+   ```
+   /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/sr_model_input
+   ```
+
+4. **DEMO_INPUT_36SXJ_4096px_B02-B03-B04_uint16DN_10m.tif** dosyasına çift tıklayın.
+5. **Ekle**, sonra **Kapat**.
+6. Haritada görüntü belirir. **Katmanlar** panelinde uzun adlı bir satır oluşur.
+
+**Görüntü karanlık ya da tuhaf renkli görünebilir — bu normaldir.** Bu bir görsel dosya
+değil, 16 bitlik yansıtma verisidir; QGIS onu otomatik olarak güzel göstermez. Modelin
+gördüğü şey budur.
+
+Görüntü hiç görünmüyorsa: **Katmanlar** panelinde satıra sağ tıklayın, **Katmana
+Yakınlaştır**.
+
+### 3.2 Eklentiyi açın ve modeli seçin
+
+7. **Raster** > **GenCP SR** > **GenCP Super-Resolution…**
+8. **Girdi** bölümünde **Yüklü katmandan** seçili olmalı; **Raster katman** kutusundan
+   **DEMO_INPUT_…** katmanını seçin.
+9. **Girdi** satırında şunu görmelisiniz:
+
+   ```
+   4096 × 4096 piksel · 3 bant, uint16 · EPSG:32636 · 10 m çözünürlük
+   ```
+
+   **`uint16` yazması önemlidir.** `uint8` yazıyorsa yanlış dosyayı seçtiniz.
+
+10. **Ayarlar** bölümünde **Yöntem** kutusunu açın ve **Eğitilmiş model (ONNX)** seçin.
+11. **Model dosyası** kutusu artık tıklanabilir. Sağındaki **…** düğmesine basın,
+    `Command + Shift + G`, sonra:
+
+    ```
+    /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/sr_models
+    ```
+
+12. **gencp_sr_x2_v1.onnx** dosyasına çift tıklayın.
+13. **Model künyesi** satırında şu belirmelidir:
+
+    ```
+    gencp_sr_x2_v1.onnx · DN/5000 · 2× · 3 bant B02,B03,B04 · adım 16306/20000
+    ```
+
+    Bu satır **modelin kendi içinden** okunur. Eklenti bu sayıları kendi içinde saklamaz.
+    `adım 16306/20000`, eğitimin kayıtlı programın 16306. adımında durduğunu söyler.
+
+14. **Çıktı dosyası** kutusu kendiliğinden dolmuştur. Olduğu gibi bırakın.
+15. **İş bitince haritaya ekle** işaretli olmalı.
+
+### 3.3 Çalıştırın
+
+16. **Çalıştır** düğmesine basın. Çıktı zaten varsa **Evet** deyin.
+17. İlerleme çubuğu dolar; altında **Karo 12 / 81** gibi bir yazı hızla artar.
+18. Yaklaşık **23 saniye** sonra:
+
+    ```
+    Bitti · 81 karo · 23,0 sn · 323 MB Katman eklendi ve girdiyle hizalı.
+    ```
+
+19. **Katmanlar** panelinde yeni bir katman belirir.
+
+### 3.4 Sonucu gösterin
+
+20. Yeni katmanı **Katmanlar** panelinde en üste sürükleyin.
+21. Bir yere iyice **yakınlaşın** (fare tekerleği ileri). Vadi kenarları ve yol izleri en iyi
+    görünen yerlerdir.
+22. Yeni katmanın onay kutusunu **kapatıp açın**: alttaki 10 m katmanla arasındaki fark budur.
+
+**Ne söylenmeli:** model, kenarların bir kısmını geri getirir; bikübik getirmez. Ölçüldü:
+model çıktısının kenar yoğunluğu hedefin altındadır, yani ağ olmayan ayrıntı **uydurmaz**,
+eksik bırakır. Bu, bu uygulama için doğru olan taraftır.
+
+---
+
+## Bölüm 4 — Karşılaştırma: bikübik
+
+Aynı işi taban çizgisiyle göstermek için. Yaklaşık **39 saniye** sürer (bu dosya çok daha
+büyüktür: 10980 × 10980).
+
+1. **Katman** > **Katman Ekle** > **Raster Katman Ekle…**, `Command + Shift + G`:
 
    ```
    /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/tiles36SVJ
    ```
 
-4. **TCI.tif** dosyasına çift tıklayın.
-5. **Ekle** düğmesine, sonra **Kapat** düğmesine tıklayın.
-6. Haritada bir uydu görüntüsü belirir. Sol taraftaki **Katmanlar** panelinde **TCI**
-   yazan bir satır oluşur.
-
-Görüntü çok küçük ya da hiç görünmüyorsa: **Katmanlar** panelinde **TCI** satırına
-**sağ tıklayın** ve **Katmana Yakınlaştır** seçeneğine tıklayın.
+2. **TCI.tif** dosyasına çift tıklayın, **Ekle**, **Kapat**.
+3. Eklenti penceresinde **Raster katman** kutusundan **TCI** katmanını seçin.
+4. **Yöntem** kutusundan **Bikübik** seçin.
+5. **Çıktı dosyası** yolunu olduğu gibi bırakın, **Çalıştır**.
+6. Yaklaşık 39 saniye sonra `Bitti · 529 karo · …` yazısı çıkar.
 
 ---
 
-## Bölüm 4 — Eklentiyi açın ve ayarları yapın
+## Bölüm 5 — Yanlış dosyayı vermek (isteğe bağlı, ama etkili)
 
-1. Üst menüden **Raster** > **GenCP SR** > **GenCP Super-Resolution…** yolunu izleyin.
-2. **GenCP Süper Çözünürlük** başlıklı pencere açılır.
+Eklentinin yanlış girdiyi **reddettiğini** göstermek, çalıştığını göstermek kadar
+değerlidir. Ölçüldü ve şöyle davranır:
 
-Pencerede yukarıdan aşağıya dört bölüm var: **Girdi**, **Ayarlar**, **Gelişmiş**,
-**Çıktı**.
+1. **Yöntem** kutusundan **Eğitilmiş model (ONNX)** seçin.
+2. **Raster katman** kutusundan **TCI** katmanını seçin (bu 8 bitlik görsel dosyadır).
+3. **Çalıştır** düğmesi **soluklaşır** ve durum satırında şu çıkar:
 
-### 4.1 Girdi
+   > Model **16 bit tam sayı (uint16)** yansıtma değerleri bekler; seçilen dosyanın veri tipi
+   > **uint8**.
+   >
+   > TCI dosyası 8 bitlik *görsel* bir birleşimdir; modelin eğitildiği veri bu değildir ve
+   > model bu dosyayla anlamsız sonuç üretir.
+   >
+   > Model yolu için adı **MODEL_INPUT_** ile başlayan, B02,B03,B04 bantlarını içeren
+   > yansıtma dosyasını seçin. TCI dosyasını **Bikübik** yöntemiyle kullanabilirsiniz.
 
-3. En üstte iki seçenek var: **Yüklü katmandan** ve **Dosyadan**. **Yüklü katmandan**
-   zaten seçilidir; öyle bırakın.
-4. Altındaki **Raster katman** kutusuna tıklayın ve listeden **TCI**'yi seçin.
-5. Hemen altındaki **Girdi** satırında şu yazının belirmesini bekleyin:
-
-   ```
-   10980 × 10980 piksel · 3 bant, uint8 · EPSG:32636 · 10 m çözünürlük
-   ```
-
-   Bu satır dosyadan okunur. Çıkmıyorsa yanlış katman seçilmiştir.
-
-### 4.2 Ayarlar
-
-6. **Ölçek katsayısı** satırında `2 ×  (çözünürlük iki katına çıkar)` yazar. Bu bir
-   yazıdır, değiştirilemez ve gösteride değiştirilmesi gerekmez.
-7. **Yöntem** kutusunda **Bikübik** seçilidir. Başka seçenek yoktur.
-8. **Model dosyası** kutusu **soluk ve tıklanamaz** durumdadır. Bu doğrudur: bikübik
-   yönteminde model kullanılmaz. Bu kutu, eğitilmiş model hazır olduğunda kullanılacak
-   yerdir.
-
-### 4.3 Gelişmiş
-
-9. **Gelişmiş** bölümünün başındaki onay kutusu **işaretsiz** olmalıdır. Gösteride bu
-   bölüme dokunmayın.
-
-### 4.4 Çıktı
-
-10. **Çıktı dosyası** kutusu kendiliğinden dolmuştur. İçinde şuna benzer bir yol vardır:
-
-    ```
-    /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/tiles36SVJ/TCI_sr_x2.tif
-    ```
-
-    Bu yolu olduğu gibi bırakabilirsiniz. Başka bir yere yazmak isterseniz kutunun
-    sağındaki **…** düğmesiyle seçin.
-
-11. **İş bitince haritaya ekle** onay kutusu **işaretli** olmalıdır. İşaretli değilse
-    işaretleyin.
-
-12. **Tahmin** satırında şu yazmalıdır:
-
-    ```
-    529 karo · çıktı 21960 × 21960 piksel · 5 m çözünürlük · yaklaşık 1447 MB
-    ```
-
-    Buradaki MB değeri sıkıştırmadan önceki kaba bir tahmindir; diskteki gerçek dosya
-    yaklaşık 1255 MB olacaktır.
+4. Diske **hiçbir dosya yazılmaz**. Eklenti çalışıp inandırıcı ama yanlış bir sonuç üretmez.
+5. **Yöntem**'i **Bikübik**'e geri alın: uyarı kaybolur, **Çalıştır** yeniden etkinleşir.
 
 ---
 
-## Bölüm 5 — Çalıştırın
+## Sorun çıkarsa — gösteri sırasında
 
-1. Pencerenin altındaki **Çalıştır** düğmesine tıklayın.
-2. Çıktı dosyası zaten varsa **"… zaten var. Üzerine yazılsın mı?"** diye sorar.
-   Gösteride **Evet**'e basın.
-3. **İlerleme çubuğu** dolmaya başlar. Hemen altında **Karo 12 / 529** gibi bir yazı
-   belirir ve sayı hızla büyür. Karolar saniyede on beş kadar işlendiği için ilk
-   birkaç sayıyı yakalayamazsınız; bu normaldir. Önemli olan sayının **durmadan
-   artması**: durursa iş takılmıştır.
-4. Bu sırada QGIS **donmaz**. İsterseniz haritayı sürükleyin ya da yakınlaştırın:
-   çalıştığını görmek gösterinin bir parçasıdır.
-5. Yaklaşık **40 saniye** sonra ilerleme çubuğu %100'e gelir ve altında şuna benzer bir
-   yazı belirir:
+| Belirti | Ne yapılmalı |
+|---|---|
+| **Raster** menüsünde **GenCP SR** yok | Bölüm 2 adım 8: **Kurulu** listesinde onay kutusu |
+| Eklenti açılırken **rasterio** uyarısı çıkıyor | Bu QGIS kurulumunda `rasterio` yok; gösteri bu makinede yapılamaz |
+| **Model künyesi** satırında **onnxruntime** uyarısı | Model yolu çalışmaz. **Bikübik ile devam edin** — o `onnxruntime` istemez ve gösteri sürer |
+| Durum satırında "16 bit … bekler" yazıyor | Yanlış dosya. Model için **DEMO_INPUT_…**, bikübik için **TCI.tif** |
+| **Çalıştır** soluk ve neden belirsiz | Fareyi düğmenin üzerinde bekletin; eksik olanı yazar |
+| İş çok uzun sürüyor | **Durdur**'a basın. Diske eksik dosya yazılmaz. Daha küçük **DEMO_INPUT_** dosyasıyla tekrar deneyin |
+| "Başarısız:" ile başlayan bir yazı | **Görünüm** > **Paneller** > **Günlük Mesajları** > **GenCP SR** sekmesi |
+| Çıktı katmanı görünmüyor | **Katmanlar** panelinde en üste sürükleyin |
+| Model yolu hiç çalışmıyor ve zaman yok | **Bikübik ile gösterin.** Çalıştığı ölçülmüştür ve hiçbir ek pakete bağlı değildir |
 
-   ```
-   Bitti · 529 karo · 37,7 sn · 1255 MB Katman eklendi ve girdiyle hizalı.
-   ```
-
-   Cümlenin sonundaki **"Katman eklendi ve girdiyle hizalı"** kısmı önemlidir: çıktının
-   girdiyle aynı yerde durduğunu söyler.
-
-6. Sol taraftaki **Katmanlar** panelinde **TCI_sr_x2** adlı yeni bir satır belirir.
-
----
-
-## Bölüm 6 — Sonucu gösterin
-
-1. **Katmanlar** panelinde **TCI_sr_x2** satırının en üstte olduğundan emin olun. Değilse
-   fareyle tutup en üste sürükleyin.
-2. Haritada bir yere epeyce **yakınlaşın**. Fare tekerleğini ileri çevirin ya da
-   `Command + Shift + =` tuşlarına basın. Bir yerleşim yerine ya da yol kavşağına
-   yakınlaşmak en iyisidir.
-3. Farkı göstermek için: **Katmanlar** panelinde **TCI_sr_x2** satırının solundaki onay
-   kutusunu **kapatıp açın**. Altındaki 10 m katman görünüp kaybolur; iki görüntü
-   arasındaki fark budur.
-
-**Ne söylenmeli, ne söylenmemeli.** Çıktı 5 m ızgaradadır ve ızgara doğruluğu
-denetlenmiştir (Gate S). Ama bu **bikübik** bir yeniden örneklemedir: görüntü daha
-yumuşaktır, yeni ayrıntı **içermez**. Gösteride "5 m çözünürlüklü görüntü ürettik"
-denmemelidir; "5 m ızgaraya, eğitilmiş model takılmaya hazır bir hat kurduk" denmelidir.
-
----
-
-## Bölüm 7 — İşi yarıda durdurmak (isteğe bağlı)
-
-Gösteride durdurmanın çalıştığını göstermek isterseniz:
-
-1. **Çalıştır**'a basın.
-2. **Karo 50 / 529** civarını beklemeden, herhangi bir anda **Durdur** düğmesine
-   tıklayın.
-3. Birkaç saniye içinde şu yazı çıkar:
-
-   ```
-   Durduruldu. Diske eksik dosya yazılmadı.
-   ```
-
-4. Bu cümle ölçülmüştür: yarıda kesilen iş çıktı yolunda hiçbir dosya bırakmaz, var olan
-   bir dosyayı da bozmaz.
-
----
-
-## Sorun çıkarsa
-
-| Belirti | Sebep | Ne yapılmalı |
-|---|---|---|
-| **Raster** menüsünde **GenCP SR** yok | Eklenti kurulu ama etkin değil | Bölüm 2, adım 11'e dönün: **Kurulu** listesinde onay kutusunu işaretleyin. QGIS normalde bunu kendisi yapar, o yüzden bu satıra düşmeniz beklenmez |
-| **Eklentileri Yönet ve Kur** penceresinde kurulum hata verdi | Zip eksik ya da bozuk | Bölüm 0.1'i tekrar çalıştırın, `checked:` satırını görün |
-| **Raster katman** kutusu boş | Haritada hiç raster katman yok | Bölüm 3'ü yapın, ya da **Dosyadan** seçeneğine geçip dosyayı doğrudan seçin |
-| **Girdi** satırında "Bu raster okunamadı" yazıyor | Dosya bozuk ya da desteklenmeyen bir biçimde | Başka bir dosya deneyin |
-| **Girdi** satırında "kuzeye dönük değil" yazıyor | Raster döndürülmüş | Bu eklenti döndürülmüş rasterları işlemez; önce QGIS ile yeniden projelendirin |
-| **Çalıştır** düğmesi soluk | Bir eksik var | Fareyi düğmenin üzerinde bekletin: eksik olan şeyi yazar |
-| Yazı "Başarısız:" diye başlıyor | İş hata verdi | **Görünüm** > **Paneller** > **Günlük Mesajları**'nı açın, **GenCP SR** sekmesine bakın |
-| Çıktı katmanı haritada görünmüyor | Katman listede en altta | **Katmanlar** panelinde en üste sürükleyin |
+**Gösteri sırasında bir şey çökerse:** eklenti penceresini kapatıp **Raster > GenCP SR**'den
+yeniden açmak, QGIS'i kapatmadan durumu sıfırlar.
 
 ---
 
 ## Gösteriden sonra temizlik
 
-Çıktı dosyası yaklaşık 1,2 GB'dır. Gösteri bittiğinde silmek isterseniz:
+Çıktılar büyüktür (bikübik çıktısı ~1,2 GB). Silmeden önce katmanları QGIS'ten kaldırın
+(**Katmanlar** panelinde sağ tıklayıp **Katmanı Kaldır**), sonra:
 
 ```bash
-rm /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/tiles36SVJ/TCI_sr_x2.tif
+rm -f /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/sr_model_input/DEMO_INPUT_36SXJ_4096px_B02-B03-B04_uint16DN_10m_sr_x2.tif /Users/vedat/Documents/GenCP-Generative-Goruntu-Uretimi-OpenStreetMap/tubitak/data/tiles36SVJ/TCI_sr_x2.tif
 ```
-
-Silmeden önce QGIS'te o katmanı kaldırın: **Katmanlar** panelinde **TCI_sr_x2** satırına
-sağ tıklayıp **Katmanı Kaldır** deyin. Aksi halde QGIS dosyayı açık tutar.

@@ -82,7 +82,7 @@ S = {
     "stage_tiles": "Karo {done} / {total}",
     "cancelling": "Durduruluyor…",
     "cancelled": "Durduruldu. Diske eksik dosya yazılmadı.",
-    "done": "Bitti · {n} karo · {secs:.1f} sn · {mb:.0f} MB",
+    "done": "Bitti · {n} karo · {secs} sn · {mb} MB",
     "done_aligned": "Katman eklendi ve girdiyle hizalı.",
     "done_misaligned": ("<b>Çıktı katmanı girdiyle hizalı değil.</b> "
                         "Ayrıntı için Günlük Mesajları panelinde GenCP SR bölümüne bakın."),
@@ -104,6 +104,51 @@ S = {
     "err_overwrite": "{name} zaten var. Üzerine yazılsın mı?",
     "yes": "Evet",
     "no": "Hayır",
+
+    # ------------------------------------------------------------------ WP4 model ---
+    "method_model": "Eğitilmiş model (ONNX)",
+    "model_info": "Model künyesi",
+    "model_unset": "<span style='color:gray'>model dosyası seçilmedi</span>",
+    # Reads: "gencp_sr_x2_v1.onnx - DN/5000 - 2x - 3 bant B02,B03,B04 - adım 16306/20000"
+    "model_desc": ("{name} · DN/{norm:.0f} · {scale}× · {ch} bant {order} · "
+                   "adım {done}/{sched}"),
+    "model_bad": "<span style='color:#a00'>Bu ONNX dosyası okunamadı: {msg}</span>",
+    "model_caveat": ("<span style='color:gray'>Model, 20 m→10 m üzerinde eğitildi ve "
+                     "10 m→5 m uygulanıyor. 5 m çıktı doğrulanmamıştır.</span>"),
+    "tile_model_note": ("<span style='color:gray'>Model yolunda karo boyutu modelin "
+                        "künyesinden okunur.</span>"),
+
+    # --- girdi reddi: modele uygun olmayan dosya. Çalışıp saçma üretmek yerine reddeder ---
+    "err_input_title": "Girdi modele uygun değil",
+    "err_dtype": ("Model <b>16 bit tam sayı (uint16)</b> yansıtma değerleri bekler; "
+                  "seçilen dosyanın veri tipi <b>{got}</b>.<br><br>"
+                  "TCI dosyası 8 bitlik <i>görsel</i> bir birleşimdir; modelin eğitildiği "
+                  "veri bu değildir ve model bu dosyayla anlamsız sonuç üretir.<br><br>"
+                  "Model yolu için adı <b>MODEL_INPUT_</b> ile başlayan, {order} bantlarını "
+                  "içeren yansıtma dosyasını seçin. TCI dosyasını <b>Bikübik</b> yöntemiyle "
+                  "kullanabilirsiniz."),
+    "err_bands": ("Model <b>{want} bant</b> bekler ({order}); seçilen dosyada "
+                  "<b>{got} bant</b> var.<br><br>Adı <b>MODEL_INPUT_</b> ile başlayan "
+                  "yansıtma dosyasını seçin."),
+    "err_range": ("Dosya 16 bit ama değerleri 8 bitlik bir görüntününki gibi "
+                  "(%99,9 dilimi <b>{p999:.0f}</b>). Yansıtma verisinde bu değer birkaç "
+                  "bindir. Bu dosya büyük olasılıkla dönüştürülmüş bir TCI.<br><br>"
+                  "Adı <b>MODEL_INPUT_</b> ile başlayan dosyayı seçin."),
+    "err_model_meta": ("<b>{name}</b> künye bilgisi taşımıyor: {missing}. Eklenti "
+                       "normalleştirme sabitini modelden okur; künyesiz bir modeli "
+                       "tahminle çalıştırmaz."),
+
+    # --- eksik paketler: okunur bir mesaj, ModuleNotFoundError değil ---
+    "err_no_rasterio": ("<b>rasterio</b> paketi bu QGIS kurulumunda yok. Eklenti raster "
+                        "okuyup yazmak için onu kullanır ve onsuz çalışamaz.<br><br>"
+                        "QGIS'in Python ortamına <code>rasterio</code> kurulmalıdır."),
+    "err_no_onnxruntime": ("<b>onnxruntime</b> paketi bu QGIS kurulumunda yok. "
+                           "Eğitilmiş model bu paketle çalışır.<br><br>"
+                           "<b>Bikübik</b> yöntemi onsuz da çalışır; model yolu için "
+                           "QGIS'in Python ortamına <code>onnxruntime</code> kurulmalıdır."),
+    "blocked_no_model": "Model dosyasını seçin.",
+    "blocked_bad_model": "Model dosyası okunamıyor.",
+    "blocked_input_not_model": "Bu girdi model yolunda kullanılamaz (ipucu için bakın).",
 
     # ------------------------------------------------------------ dosya süzgeci ---
     # File-dialog filters are user-facing text and therefore live here, not in dialog.py.
@@ -137,6 +182,14 @@ TIP = {
                   "girdiyle hizalı olup olmadığını denetler."),
     "out_estimate": ("Karo sayısı ve çıktı boyutu. Boyut sıkıştırmadan önceki kaba bir "
                      "tahmindir; gerçek dosya genellikle daha küçüktür."),
+    "method": ("Ara değer yöntemi. <b>Bikübik</b> bir taban çizgisidir, yeni bilgi "
+               "üretmez. <b>Eğitilmiş model</b> ayrıntı üretir ve yalnızca yansıtma "
+               "(uint16) girdisiyle çalışır; TCI dosyasıyla çalışmaz."),
+    "model_file": ("Eğitilmiş modelin ONNX dosyası. Normalleştirme sabiti, ölçek ve bant "
+                   "sırası bu dosyanın içinden okunur; eklenti bunları kendi içinde "
+                   "saklamaz."),
+    "model_info": ("Modelin kendi künyesi: normalleştirme böleni, ölçek, bant sayısı ve "
+                   "sırası, ve eğitimin kaçıncı adımda durduğu."),
     "run": "İşi arka planda başlatır. QGIS bu sırada donmaz.",
     "cancel": ("Çalışan işi durdurur. Yarıda kesilen iş diske dosya bırakmaz, "
                "bu yüzden sonraki bir çalıştırma yarım dosyayı hazır sanmaz."),
