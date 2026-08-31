@@ -95,3 +95,11 @@ plugins loaded in one process).
 
 **Standing state of the ledger:** 26 items, 8 closed, 18 open — every open item carries a
 written reason and none blocks the final report.
+
+## Package review 2026-08-31 (Project 2 WP12/WP13 — QGIS 3.x compatibility)
+
+| # | item | origin | status 2026-08-31 |
+|---|---|---|---|
+| 27 | **`tubitak/tests/coverage_block.py` cannot be run: the three OSM extracts it requires are named in no document.** It takes `--wrong=`, `--right=` and `--partial=` and, given none, raises `KeyError: 'wrong'` rather than refusing cleanly (a standing-practice-10 defect in the test itself). What is needed, specifically: an extract that does **not** cover the Istanbul test extent (`--wrong`), one that fully covers it (`--right`), and one that covers it only in part (`--partial`). No fixture in `tubitak/data/geofabrik/` is documented as any of these, and the smallest available non-covering candidate is 660 MB, which costs ~16 minutes to index (`sr/docs/11-zamanlama.md` §5). **Documentation debt, not a code defect: the gate is intact but unrunnable by anyone who did not write it.** Deliberately not constructed now — recorded so the gate does not rot silently | Project 2 WP12 suite run | OPEN — three fixtures to be built and named in the gate's own docstring |
+| 28 | **Qt5 dark-capture failure in `plugin_e2e_run` (2 of 82 checks) is undiagnosed.** The harness cannot force a dark palette under Qt 5.15.18 on macOS; the check correctly refuses to assert anything about dark-mode styling on a capture that is not dark. The obvious hypothesis — that `QPalette.ColorRole.Window` does not resolve under PyQt5, leaving the palette empty — was **measured and disproved**: all eight roles resolve on Qt5 exactly as on Qt6. No cause is asserted | Project 2 WP12 | OPEN — plugin unaffected; harness-only |
+| 29 | **`demo_dry_run`'s cross-version result is withdrawn, not resolved.** Its apparent Qt6 pass came from profile residue written by earlier runs in the same package via the dialog's `_remember`; the demo project carries no `<GenCP>` properties at all. Re-runs on genuinely fresh profiles hung QGIS 3.44 at startup | Project 2 WP12 | OPEN — needs a fresh-profile harness that does not hang |

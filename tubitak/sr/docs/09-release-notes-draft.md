@@ -42,19 +42,28 @@ unchanged, and each source pixel centre to fall at the centre of its output bloc
 3. For the model methods, `onnxruntime` must be importable from QGIS's Python. The bicubic
    path deliberately does not import it, so the plugin loads and completes a job without it.
 
-**Tested versions, and only these.** Installed from this zip into throwaway profiles with no
-access to the source tree; QGIS discovered, loaded and started the plugin, and bicubic ran end
-to end with the Gate S contract holding exactly, on both:
+**Declared minimum: QGIS 3.40. Tested: 3.44.13 and 4.2.1.** These are different numbers on
+purpose — see the note below the table.
 
-| QGIS | Qt | platform | result |
-|---|---|---|---|
-| **4.2.1** (Belém do Pará) | Qt 6.11.1 | macOS 26.5.1, Apple silicon | pass |
-| **3.44.13** (Solothurn, LTR) | Qt 5.15.18 | macOS 26.5.1, Apple silicon | pass |
+| | QGIS | Qt | platform | result |
+|---|---|---|---|---|
+| **declared minimum** | **3.40** | — | — | `qgisMinimumVersion=3.40` |
+| **tested** | **4.2.1** (Belém do Pará) | Qt 6.11.1 | macOS 26.5.1, Apple silicon | headless 23/23, overlap 20/20, sidecar 6/6, e2e 82/82; bicubic end to end, Gate S exact |
+| **tested** | **3.44.13** (Solothurn, LTR) | Qt 5.15.18 | macOS 26.5.1, Apple silicon | headless 23/23, overlap 20/20, sidecar 6/6, e2e 80/82; bicubic end to end, Gate S exact |
+| **NOT tested** | **3.40 itself** | Qt5 | — | no longer downloadable from qgis.org |
+| **NOT tested** | anything below 3.44 | — | — | — |
+| **NOT tested** | any version | — | **Windows, Linux** | — |
 
-`qgisMinimumVersion` is **3.44** — the oldest version actually run, not the oldest reasoned
-about. **QGIS 3.40 could not be tested: it is no longer downloadable from qgis.org.** Anything
-below 3.44 is untested, and **Windows and Linux are untested** — a macOS Qt5 pass says Qt5
-works, not that Windows does. See `12-qt5-uyumluluk.md`.
+> **The declared minimum is deliberately below the tested floor. Do not "correct" it.**
+> QGIS refuses to enable a plugin whose `qgisMinimumVersion` exceeds the running version, so
+> declaring 3.44 would lock out QGIS 3.40 — the version institutions actually run, and the
+> version whose reported failure was diagnosed as a missing `rasterio`, not a Qt or API
+> incompatibility (`12-qt5-uyumluluk.md`). Every QGIS API symbol the code calls is QGIS 3.0-era;
+> the only newer one, `QgsProjectionSelectionWidget.CrsOption`, is already behind a `hasattr`
+> guard with a 3.x fallback. The field states what the code needs; this table states what was
+> actually run.
+
+See `12-qt5-uyumluluk.md`.
 
 #### The models
 
