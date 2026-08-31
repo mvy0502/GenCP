@@ -11,6 +11,15 @@ decision can be made on the actual content. Publishing is Vedat's call.
 
 ## Attachments
 
+> **Project 1's plugin now ships as TWO artefacts.** `gencp_plugin.zip` (98,410 B) is the
+> cross-platform build. `gencp_plugin_win_amd64.zip` (15,935,709 B) is a **Windows-only**
+> build with `onnxruntime` and `osmium` vendored inside it, for institution machines with no
+> internet. The cross-platform artefact was **not** made Windows-specific; both come from the
+> same source, and the vendoring code is a no-op where `_vendor/` is absent. `rasterio` is
+> deliberately not vendored in either — it carries its own GDAL and QGIS has already loaded
+> one. An offline wheel kit covers it instead (`13-cevrimdisi-kurulum.md`).
+
+
 | file | size | sha256 |
 |---|---|---|
 | `gencp_super_resolution.zip` | 49,379 B | `59b72bb9d6004c4d9c089658fe215bc3f771f628a7a3e120ca8d685ac17bf962` |
