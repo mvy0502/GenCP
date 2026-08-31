@@ -25,6 +25,33 @@ def ensure_core_importable():
     return None
 
 
+#: Heavy dependencies that are NOT bundled with QGIS and that this plugin cannot work
+#: without. Checked by import, not by reading a manifest: what matters is whether THIS
+#: interpreter can import it. `rasterio` is needed to open the dialog at all (gencp_core
+#: .extent uses it); `onnxruntime` is needed to generate.
+REQUIRED_MODULES = (("rasterio", "err_no_rasterio"),
+                    ("onnxruntime", "err_no_onnxruntime"))
+
+
+def _python_env_hint():
+    """This QGIS's own site-packages directory, so the user installs into the right one."""
+    import sys
+    cands = [p for p in sys.path if p.endswith("site-packages")]
+    return cands[-1] if cands else sys.prefix
+
+
+def missing_requirements():
+    """[(module, message_key)] for every required module this interpreter cannot import."""
+    import importlib
+    out = []
+    for mod, key in REQUIRED_MODULES:
+        try:
+            importlib.import_module(mod)
+        except Exception:
+            out.append((mod, key))
+    return out
+
+
 class GenCPPlugin:
     def __init__(self, iface):
         self.iface = iface
@@ -57,6 +84,19 @@ class GenCPPlugin:
 
     def run(self):
         ensure_core_importable()
+        missing = missing_requirements()
+        if missing:
+            # The dialog is NOT constructed. Building it would re-enter the same failing
+            # import and put a traceback on screen, which is the behaviour this replaces.
+            # The static call takes no enum argument, so there is nothing here that is
+            # spelled differently on Qt5 and Qt6 - the failure mode qtcompat.member exists
+            # for. Qt's default AutoText detects the <b> tags and renders rich text.
+            from qgis.PyQt.QtWidgets import QMessageBox
+            from .strings import t
+            QMessageBox.warning(
+                self.iface.mainWindow(), t("err_missing_title"),
+                "<br><br>".join(t(k, where=_python_env_hint()) for _m, k in missing))
+            return
         from .dialog import GenCPDialog
         if self.dialog is None:
             self.dialog = GenCPDialog(self.iface, self.iface.mainWindow())

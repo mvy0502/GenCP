@@ -20,6 +20,25 @@ from __future__ import annotations
 LANG = "tr"
 
 S = {
+    # WP12: a missing heavy dependency must name itself, not arrive as a stack trace in
+    # _build_ui. `{where}` is filled in at runtime with THIS QGIS's own site-packages
+    # directory, because the whole difficulty is that two QGIS installations have separate
+    # Python environments and installing into the wrong one changes nothing.
+    "err_no_rasterio": (
+        "<b>rasterio</b> paketi bu QGIS kurulumunun Python ortamında yok. Eklenti raster "
+        "okumak, yazmak ve koordinat dönüşümü için onu kullanır ve onsuz açılamaz."
+        "<br><br>Bu QGIS'in Python ortamı:<br><code>{where}</code>"
+        "<br><br>Kurulum için <b>Eklentiler &gt; Python Konsolu</b> açılıp şu satır "
+        "çalıştırılmalıdır:<br><code>import pip; pip.main([\"install\", \"rasterio\"])</code>"
+        "<br><br>Ardından QGIS yeniden başlatılmalıdır."),
+    "err_no_onnxruntime": (
+        "<b>onnxruntime</b> paketi bu QGIS kurulumunun Python ortamında yok. Sentetik "
+        "referans üretimi bu paketle çalışır."
+        "<br><br>Bu QGIS'in Python ortamı:<br><code>{where}</code>"
+        "<br><br>Kurulum için <b>Eklentiler &gt; Python Konsolu</b> açılıp şu satır "
+        "çalıştırılmalıdır:<br><code>import pip; pip.main([\"install\", \"onnxruntime\"])</code>"
+        "<br><br>Ardından QGIS yeniden başlatılmalıdır."),
+    "err_missing_title": "Eksik Python paketi",
     # ------------------------------------------------------------------ window ----
     "window_title": "GenCP Sentetik Referans",
     "close": "Kapat",

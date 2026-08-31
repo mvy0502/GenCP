@@ -1,6 +1,6 @@
 [general]
 name=GenCP Super-Resolution
-qgisMinimumVersion=3.28
+qgisMinimumVersion=3.44
 qgisMaximumVersion=4.99
 supportsQt6=True
 description=Super-resolve a raster onto the exact integer refinement of its own grid, on a background task.

@@ -42,10 +42,19 @@ unchanged, and each source pixel centre to fall at the centre of its output bloc
 3. For the model methods, `onnxruntime` must be importable from QGIS's Python. The bicubic
    path deliberately does not import it, so the plugin loads and completes a job without it.
 
-Verified on **QGIS 4.2.1, macOS**, installed from this zip into a throwaway profile with no
-access to the source tree: QGIS discovered, loaded and started the plugin, and bicubic ran end
-to end with the Gate S contract holding exactly. **QGIS 3.x is written for but has never been
-run. Windows is untested.**
+**Tested versions, and only these.** Installed from this zip into throwaway profiles with no
+access to the source tree; QGIS discovered, loaded and started the plugin, and bicubic ran end
+to end with the Gate S contract holding exactly, on both:
+
+| QGIS | Qt | platform | result |
+|---|---|---|---|
+| **4.2.1** (Belém do Pará) | Qt 6.11.1 | macOS 26.5.1, Apple silicon | pass |
+| **3.44.13** (Solothurn, LTR) | Qt 5.15.18 | macOS 26.5.1, Apple silicon | pass |
+
+`qgisMinimumVersion` is **3.44** — the oldest version actually run, not the oldest reasoned
+about. **QGIS 3.40 could not be tested: it is no longer downloadable from qgis.org.** Anything
+below 3.44 is untested, and **Windows and Linux are untested** — a macOS Qt5 pass says Qt5
+works, not that Windows does. See `12-qt5-uyumluluk.md`.
 
 #### The models
 

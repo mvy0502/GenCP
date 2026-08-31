@@ -62,7 +62,19 @@ def validate_bbox(bbox):
 # The arithmetic is deliberately unchanged: the same four corners are transformed and the
 # same min/max is taken, rather than switching to transform_bounds, which densifies edges
 # and would move rendered pixels. Gate R re-run after this change: still byte-identical.
-from rasterio.crs import CRS as _CRS
+# WP12: DEFERRED, not module-level. This single line was the whole of "the plugin does not
+# work on QGIS 3.40": `dialog._build_ui` imports this module at line 375, so a QGIS whose
+# Python has no rasterio died here with an ImportError and the dialog never opened. The user
+# saw a stack trace, not a sentence naming the library. rasterio's other two uses in this
+# file (rasterio.warp at ~line 88, rasterio.transform at ~line 178) were already deferred;
+# this one was not, and it is the only one that runs at import time.
+#
+# Reproduced on QGIS 3.44.13 (Qt 5.15.18) by removing rasterio: identical traceback,
+# extent.py line 65 reached from dialog.py line 375.
+def _crs():
+    """The rasterio CRS class, imported on first use. Raises ImportError if absent."""
+    from rasterio.crs import CRS
+    return CRS
 
 
 def _crs_name(c):
@@ -86,7 +98,7 @@ def _crs_name(c):
 def _transform_points(src, dst, xs, ys):
     """Transform coordinate lists. Thread-safe inside QGIS; pyproj is not - see above."""
     from rasterio.warp import transform as _rio_transform
-    ox, oy = _rio_transform(_CRS.from_user_input(src), _CRS.from_user_input(dst),
+    ox, oy = _rio_transform(_crs().from_user_input(src), _crs().from_user_input(dst),
                             list(xs), list(ys))
     return list(ox), list(oy)
 
@@ -112,7 +124,7 @@ def classify_crs(crs: str):
     if not crs:
         return "unusable", "a CRS is required"
     try:
-        c = _CRS.from_user_input(crs)
+        c = _crs().from_user_input(crs)
     except Exception as e:                           # noqa: BLE001 - reported to the user
         return "unusable", (f"the reference layer's CRS ({crs}) could not be interpreted "
                             f"({e}). Reproject the layer to a UTM zone and try again.")
