@@ -206,6 +206,12 @@ Model, arazi örtüsü ve OSM dosyaları hazırsa küçük bir alan için üreti
 
 ## 6. Sınanmış ve sınanmamış olanlar
 
+**Ne kadar sürer.** İndirme ve üretim süreleri, ölçüldükleri makine, ağ ve girdilerle
+birlikte [`11-zamanlama.md`](11-zamanlama.md) belgesinde kayıtlıdır. Özet: dört dosyanın
+indirilmesi 1,78 GB için **1,6 dakika** (20 MB/s bağlantıda ölçülmüştür; ağa bağlıdır),
+10 × 10 km'lik bir sahnenin **ilk** üretimi ülke geneli OSM dosyasıyla ve önbellek boşken
+**16,6 dakika**, aynı sahnenin yeniden üretimi **1,3 saniye**.
+
 **Sınanmıştır** — 31 Ağustos 2026, QGIS 4.2.1 (Belém do Pará), macOS:
 
 - Her iki eklenti de **yayımlanmış zip dosyalarından** indirilmiş, çalışma ağacına erişimi
