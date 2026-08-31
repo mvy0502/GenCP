@@ -93,14 +93,16 @@ CHECKPOINT_EVERY = 500
 # ---------------------------------------------------------------------------------- paths
 #: WP7 writes a NEW directory. The WP3B corpus is never overwritten, so a WP3B number can
 #: still be reproduced after this work package.
-CORPUS_SUBDIR = ("sr_wald_corpus_tci" if _TCI else
+#: WP13 D35: the tci variant points at the CORRECTED corpus. WP12's is kept on disk under
+#: sr_wald_corpus_tci and is not deleted; it is reachable by passing its path explicitly.
+CORPUS_SUBDIR = ("sr_wald_corpus_tci_v2" if _TCI else
                  "sr_wald_corpus_x4" if _X4 else P.CORPUS_SUBDIR)
-SPLIT_SUBDIR = ("sr_wald_split_tci" if _TCI else "sr_wald_split_v2")
+SPLIT_SUBDIR = ("sr_wald_split_tci_v2" if _TCI else "sr_wald_split_v2")
 #: the corrected manifest lives here, beside the corpus it corrects. WP12: the TCI
 #: corpus has its own, because its chip set differs (see 12-tci-model.md section 9).
-RUN_SUBDIR = ("sr_train_runs_tci" if _TCI else
+RUN_SUBDIR = ("sr_train_runs_tci_v2" if _TCI else
               "sr_train_runs_x4" if _X4 else "sr_train_runs")
-WORK_PACKAGE = "P2-WP12" if _TCI else ("P2-WP7" if _X4 else "P2-WP3B")
+WORK_PACKAGE = "P2-WP13" if _TCI else ("P2-WP7" if _X4 else "P2-WP3B")
 GSD_M = P.GSD_M                        # target GSD, 10 m
 SRC_GSD_M = P.GSD_M * SCALE            # training input: 20 m at s=2, 40 m at s=4
 OUT_GSD_M = P.GSD_M / SCALE            # deployment output: 5 m at s=2, 2.5 m at s=4

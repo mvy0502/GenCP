@@ -85,25 +85,57 @@ def _fmt(name, r):
             f"{r['buffer']:4d} ({100*r['buffer']/n:6.2f} %)   pairs {r['pairs']}")
 
 
+#: WP13 D36: an expected value travels with the corpus it was measured on.
+#:
+#: KF2's 47 was measured on WP3A's reflectance corpus by an independent implementation. As a
+#: bare constant it silently became untestable the moment the corpus changed: on the TCI
+#: corpus it reported FAILED when it meant "this expectation is not about you", and the gate
+#: then refused a verdict for a split that was in fact clean.
+#:
+#: Keyed by corpus, so a new corpus reports NOT APPLICABLE instead of failing. Adding an entry
+#: requires an independent measurement, which is the point - the check is only as good as the
+#: number it is checking against.
+KF2_EXPECTED = {
+    "sr_wald_corpus": (47, "WP3A open item 8 measured 47 leaking test chips by a different "
+                           "implementation in another work package."),
+}
+
+
 def self_test():
     """Known-false FIRST, then known-true. Practice 11."""
     ok = True
     v2 = C.data_root() / C.SPLIT_SUBDIR / "manifest_v2.csv"
     v1 = C.data_root() / C.CORPUS_SUBDIR / "manifest.csv"
 
-    print("KF2  known-false: WP3A's own manifest, unmodified.")
-    print("     WP3A open item 8 measured 47 leaking test chips by a different")
-    print("     implementation in another work package. Expect 47.")
+    print("KF2  known-false: the pre-correction manifest of THIS corpus, unmodified.")
+    exp = KF2_EXPECTED.get(C.CORPUS_SUBDIR)
     if not v1.is_file():
         print(f"     *** cannot run: {v1} missing"); ok = False
-    else:
+    elif exp is None:
+        # WP13 D36: the expectation is 47 ON THE CORPUS IT WAS MEASURED ON. Applied to any
+        # other corpus it is not a failing check, it is an inapplicable one - and a check that
+        # reports FAIL when it means "I have no expectation here" trains people to ignore it.
         r = leakage(load(v1))
         print(_fmt("test", r["test"])); print(_fmt("val", r["val"]))
         print(_fmt("heldout", r["heldout"]))
-        if r["test"]["overlap"] == 47:
-            print("     KF2 PASS - reproduces WP3A's 47 exactly")
+        print(f"     KF2 NOT APPLICABLE to corpus {C.CORPUS_SUBDIR!r} - no independently")
+        print(f"     measured expectation exists for it. Measured here: "
+              f"{r['test']['overlap']} leaking test chips.")
+        print("     The check still demonstrates it CAN report leakage: the figure above is")
+        print("     non-zero on the uncorrected split and zero on the corrected one.")
+        if r["test"]["overlap"] == 0:
+            print("     *** KF2 INCONCLUSIVE - the uncorrected split shows no leakage, so this")
+            print("         case demonstrates nothing on this corpus.")
+            ok = False
+    else:
+        r = leakage(load(v1))
+        print(f"     {exp[1]} Expect {exp[0]}.")
+        print(_fmt("test", r["test"])); print(_fmt("val", r["val"]))
+        print(_fmt("heldout", r["heldout"]))
+        if r["test"]["overlap"] == exp[0]:
+            print(f"     KF2 PASS - reproduces {exp[0]} exactly")
         else:
-            print(f"     *** KF2 FAILED - got {r['test']['overlap']}, WP3A measured 47")
+            print(f"     *** KF2 FAILED - got {r['test']['overlap']}, expected {exp[0]}")
             ok = False
 
     print("\nKF1  known-false: one train chip of 36SVJ that genuinely overlaps a 36SWJ")

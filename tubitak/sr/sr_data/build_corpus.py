@@ -81,6 +81,27 @@ def _read_chip(srcs, win):
     return np.stack([srcs[b].read(1, window=win) for b in P.BANDS])
 
 
+#: WP13 D35: how "nodata" is recognised, and it is NOT the same test in both products.
+#:
+#: For uint16 reflectance, 0 is a rare sentinel and ANY band at 0 marks a nodata pixel. That
+#: is WP3A's rule and it is correct there; it is left exactly as it was, so WP3A, WP3B and
+#: WP7 remain reproducible.
+#:
+#: For 8-bit TCI it is wrong, and WP12 measured the cost: 902 rejected chips on 36SXJ alone
+#: and a held-out granule of 740 instead of 1332. Quantisation to 8 bits puts genuinely dark
+#: LAND - deep shadow, water - at 0 in one band while the others carry signal, so the rule
+#: rejected dark terrain rather than nodata. Nodata in this product is written as all three
+#: bands zero together. That is the test used here.
+#:
+#: The sixth instance of the shape WP7 catalogued: code written for one parameter, met by
+#: another.
+def _is_nodata(arr):
+    """Per-pixel nodata mask for the configured source. `arr` is (bands, H, W)."""
+    if SOURCE == "tci":
+        return (arr == P.REJECT_CHIPS_CONTAINING_DN).all(axis=0)
+    return (arr == P.REJECT_CHIPS_CONTAINING_DN).any(axis=0)
+
+
 def screen_granule(tile, meta):
     """Return (accepted records, rejection counts) for one granule.
 
@@ -112,7 +133,7 @@ def screen_granule(tile, meta):
                     continue
                 win = Window(c0, r0, n, n)
                 arr = _read_chip(srcs, win)
-                if (arr == P.REJECT_CHIPS_CONTAINING_DN).any():
+                if _is_nodata(arr).any():
                     rej["has_nodata_dn"] += 1
                     continue
                 rej["accepted"] += 1
@@ -147,7 +168,8 @@ def main():
     print(f"  chip          : {P.CHIP_PX} px @ {P.GSD_M} m, stride {P.CHIP_STRIDE_PX}")
     print(f"  clear classes : {sorted(P.CLEAR_CLASSES)}   min clear fraction "
           f"{P.MIN_CLEAR_FRACTION}")
-    print(f"  reject DN     : {P.REJECT_CHIPS_CONTAINING_DN}")
+    print(f"  reject DN     : {P.REJECT_CHIPS_CONTAINING_DN} "
+          f"({'all bands together' if SOURCE == 'tci' else 'any band'})")
     print(f"  held out      : {P.HELDOUT_GRANULE} (whole granule)")
     print(f"  split         : {P.BLOCK_CHIPS}x{P.BLOCK_CHIPS} chip blocks, "
           f"{P.BLOCKS_PER_GRANULE}, seed {P.SPLIT_SEED}, buffer {P.SPLIT_BUFFER_M} m")

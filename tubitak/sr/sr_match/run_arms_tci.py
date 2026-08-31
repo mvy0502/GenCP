@@ -16,8 +16,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import pipeline as P
 
 DIV = 255.0                     # WP12 D31, not WP8's 10000
-CORPUS = "tubitak/data/sr_wald_corpus_tci"
-LIMIT = int(sys.argv[1]) if len(sys.argv) > 1 else 0
+MODEL = sys.argv[1] if len(sys.argv) > 1 else "tubitak/data/plugin_models/gencp_sr_tci_x4_b3_v2.onnx"
+OUT   = sys.argv[2] if len(sys.argv) > 2 else "tubitak/data/sr_match/wp13_arms_tci_v2.json"
+LIMIT = int(sys.argv[3]) if len(sys.argv) > 3 else 0
 
 sys.path.insert(0, "tubitak/sr")
 import os
@@ -27,8 +28,7 @@ from sr_train import data as D                                          # noqa: 
 chips, recs = D.load_split("heldout")
 N = LIMIT or chips.shape[0]
 so = ort.SessionOptions(); so.intra_op_num_threads = 4
-model = ort.InferenceSession("tubitak/data/plugin_models/gencp_sr_tci_x4_b3.onnx", so,
-                             providers=["CPUExecutionProvider"])
+model = ort.InferenceSession(MODEL, so, providers=["CPUExecutionProvider"])
 print(f"  {N} chips of the TCI heldout split (36SXJ), band index {P.BAND} (B04), "
       f"divisor {DIV:.0f}, seed {P.SEED}", flush=True)
 res = {a: [] for a in ("oracle", "bicubic", "tci_model")}
@@ -48,11 +48,11 @@ for i in range(N):
     if (i + 1) % 100 == 0 or i + 1 == N:
         el = time.perf_counter() - t0
         print(f"    {i+1}/{N}  {el:6.1f}s  {(i+1)/el:5.2f} chips/s", flush=True)
-out = Path("tubitak/data/sr_match/wp12_arms_tci.json")
+out = Path(OUT)
 out.parent.mkdir(parents=True, exist_ok=True)
 out.write_text(json.dumps(dict(
     n_chips=N, band="B04", band_index=P.BAND, seed=P.SEED, split="heldout", granule="36SXJ",
-    corpus="TCI", divisor=DIV, klt=P.KLT,
+    corpus="TCI", divisor=DIV, model=MODEL, klt=P.KLT,
     ransac=dict(thresh_px=P.RANSAC_THRESH_PX, iters=P.RANSAC_ITERS, confidence=P.RANSAC_CONF),
     wall_clock_s=time.perf_counter() - t0, results=res), indent=2))
 print(f"  wrote {out}")
