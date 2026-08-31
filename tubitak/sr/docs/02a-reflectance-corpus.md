@@ -6,7 +6,11 @@ chip cutting, no normalisation decision.
 **Date of work:** 2026-08-30. **Branch:** `tubitak-tr`. **Repository:** `mvy0502/GenCP`.
 
 **Purpose.** The five Sentinel-2 scenes inventoried in [`00-recon.md`](00-recon.md) are TCI —
-an 8-bit, gamma-stretched RGB visual composite. The SR model will be applied to real
+an 8-bit RGB visual composite. (**Corrected 2026-08-31 by measurement**, WP10
+`11-eox.md` §3.4: this line said *gamma-stretched*, and TCI is not. Against reflectance
+on a 36SXJ chip it fits linearly with R2 0.9968 / 0.9991 / 0.9982 and a fitted exponent
+of 0.989 / 0.994 / 0.982 - indistinguishable from 1. It is a linear scaling with
+clipping. No number in this document depends on the wrong word.) The SR model will be applied to real
 Sentinel-2 imagery and so must be trained on sensor reflectance. This package acquires the
 reflectance bands for exactly the same five granules and the same acquisition dates, so that
 the reflectance corpus and the TCI corpus cover the same ground and differ in one variable
