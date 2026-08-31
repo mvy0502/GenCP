@@ -12,17 +12,29 @@ Terim karşılıkları: [`tubitak/docs/terimler.md`](../docs/terimler.md).
 ## Gerekenler
 
 Dört dosya. **Hesap açmanız, veri kırpmanız ya da çıkarım aramanız gerekmez.** Toplam
-1,78 GB.
+yaklaşık 1,78 GB.
 
-| Dosya | Boyut | Nereden |
-|---|---|---|
-| `gencp_plugin.zip` | 89 KB | [sürüm sayfası](https://github.com/mvy0502/gencp-validation/releases/download/plugin-v0.2.0/gencp_plugin.zip) |
-| `gencp_C2_fp32.onnx` | 208 MB | [sürüm sayfası](https://github.com/mvy0502/gencp-validation/releases/download/plugin-v0.2.0/gencp_C2_fp32.onnx) |
-| `clcplus_2021_turkey_10m.tif` | 0,92 GB | [CLC+ Türkiye kırpması](https://github.com/mvy0502/gencp-validation/releases/download/clcplus-turkey-2026-08-30/clcplus_2021_turkey_10m.tif) |
-| Türkiye OSM verisi | 0,64 GB | **Eklentideki düğme indirir** — elle indirmeyin |
+> **İndirme adreslerinin ve dosya boyutlarının tek doğru kaynağı deponun kök `README.md`
+> dosyasındaki tablodur:**
+> <https://github.com/mvy0502/GenCP/blob/tubitak-tr/README.md>
+>
+> Bu belge zip'in içinde dağıtıldığı için o tabloyu kopyalamaz; kopyalanan bir tablo
+> güncelliğini yitirir. Aşağıda yalnızca, depoya erişimi olmayan birinin dosyalara
+> ulaşabilmesi için gereken iki sürüm etiketi verilmiştir.
 
-OSM dosyasını eklenti kendisi indirir: Gelişmiş bölümündeki **Türkiye verisini indir**
-düğmesi. Önce Geofabrik denenir, yanıt vermezse sabitlenmiş kopya kullanılır.
+- **Eklenti ve model:**
+  <https://github.com/mvy0502/gencp-validation/releases/tag/plugin-v0.2.0>
+  (`gencp_plugin.zip`, `gencp_C2_fp32.onnx`)
+- **Veri paketi:**
+  <https://github.com/mvy0502/gencp-validation/releases/tag/veri-turkiye-2026-08-31>
+  (`clcplus_2021_turkey_10m.tif`, `turkey-2026-08-19.osm.pbf`)
+
+Veri dosyaları ayrı bir etikettedir: eklenti sık sürüm alır, veri almaz. Bir diyalog
+düzeltmesi için 1,5 GB'ın yeniden yüklenmesi gerekmesin diye ayrılmıştır.
+
+OSM dosyasını eklenti kendisi de indirebilir: Gelişmiş bölümündeki **Türkiye verisini
+indir** düğmesi. Önce Geofabrik denenir, yanıt vermezse yukarıdaki sabitlenmiş kopya
+kullanılır.
 
 Ayrıca bir referans katman gerekir. Üretilecek alan ve KRS o katmandan okunur — çalışmak
 istediğiniz alanı kapsayan herhangi bir georeferanslı raster olur.

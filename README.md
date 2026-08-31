@@ -12,6 +12,43 @@ We made two minor changes:
 * demonstration notebooks for high resolution (HR) and very high resolution (VHR) GenCP images
 
 
+## Downloads — the only list you need (indirmeler)
+
+**This table is the single source of truth for download links.** Every URL is pinned to a
+release tag, not to `latest`, so it keeps resolving to the same bytes after the next release.
+Nobody needs to open the releases page or reason about which tag holds what.
+
+| File | Size (bytes) | What it is | Download |
+|---|---|---|---|
+| `gencp_plugin.zip` | 94,987 | **Project 1** QGIS plugin — synthetic reference from OSM + land cover | [indir](https://github.com/mvy0502/gencp-validation/releases/download/plugin-v0.2.0/gencp_plugin.zip) |
+| `gencp_C2_fp32.onnx` | 217,678,087 | Project 1 generator weights | [indir](https://github.com/mvy0502/gencp-validation/releases/download/plugin-v0.2.0/gencp_C2_fp32.onnx) |
+| `clcplus_2021_turkey_10m.tif` | 916,422,550 | CLC+ Backbone 2021, clipped to Türkiye — land-cover base | [indir](https://github.com/mvy0502/gencp-validation/releases/download/veri-turkiye-2026-08-31/clcplus_2021_turkey_10m.tif) |
+| `turkey-2026-08-19.osm.pbf` | 642,343,710 | OpenStreetMap extract, all of Türkiye | [indir](https://github.com/mvy0502/gencp-validation/releases/download/veri-turkiye-2026-08-31/turkey-2026-08-19.osm.pbf) |
+
+**Project 2 (super-resolution)** is a separate plugin and versions independently:
+
+| File | Size (bytes) | What it is | Download |
+|---|---|---|---|
+| `gencp_super_resolution.zip` | 49,379 | **Project 2** QGIS plugin — Sentinel-2 super-resolution | [indir](https://github.com/mvy0502/gencp-validation/releases/download/sr-plugin-v0.1.0/gencp_super_resolution.zip) |
+| `gencp_sr_x2_v1.onnx` | 1,964,122 | scale-2, 3-band (B02,B03,B04) model | [indir](https://github.com/mvy0502/gencp-validation/releases/download/sr-plugin-v0.1.0/gencp_sr_x2_v1.onnx) |
+| `gencp_sr_x4_b4.onnx` | 2,086,466 | scale-4, 4-band (B02,B03,B04,B08) model | [indir](https://github.com/mvy0502/gencp-validation/releases/download/sr-plugin-v0.1.0/gencp_sr_x4_b4.onnx) |
+
+The **wsx4** reference model is not ours and is not redistributed here. Download
+`wsx4_spatrad.onnx` **and** `wsx4_spatrad.yaml` from
+[Evoland-Land-Monitoring-Evolution/sentinel2_superresolution](https://github.com/Evoland-Land-Monitoring-Evolution/sentinel2_superresolution) and keep
+the two files **in the same directory** — the plugin reads the `.yaml` beside the model for
+the scale, normalisation and crop margin.
+
+Three release tags exist and each holds one kind of thing: **`plugin-v0.2.0`** (Project 1
+plugin and weights, marked *latest*), **`sr-plugin-v0.1.0`** (Project 2 plugin and models),
+and **`veri-turkiye-2026-08-31`** (the shared data pack, deliberately *not* latest so it
+cannot capture `releases/latest/download/...`). The data is on its own tag because the
+plugins change often and 1.5 GB of source data does not — a dialog fix must not mean
+re-uploading it.
+
+Step-by-step installation, in Turkish, including what each machine must already have:
+[`tubitak/sr/docs/10-kurulum.md`](tubitak/sr/docs/10-kurulum.md).
+
 ## TÜBİTAK work on this branch (`tubitak-tr`)
 
 **The measurement and validation study has moved to its own repository.** Its record -

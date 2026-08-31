@@ -5,7 +5,7 @@ decision can be made on the actual content. Publishing is Vedat's call.
 
 | | |
 |---|---|
-| **repository** | `mvy0502/gencp-validation` — the convention the existing `plugin-v0.2.0` and `clcplus-turkey-2026-08-30` releases already follow |
+| **repository** | `mvy0502/gencp-validation` — the convention the existing `plugin-v0.2.0` release already follows |
 | **tag** | **`sr-plugin-v0.1.0`** — `version=0.1.0` in `sr_plugin/metadata.txt`, prefixed `sr-` to keep it distinct from Project 1's `plugin-v*` |
 | **title** | GenCP Super-Resolution 0.1.0 — QGIS plugin and models |
 
@@ -86,7 +86,7 @@ super-resolving real imagery.
 The plugin can run the Evoland/CESBIO **wsx4** model, which is **not this project's work and is
 not attached here.**
 
-To use it, download from the upstream project — **https://github.com/IGNF/sentinel2_superresolution**
+To use it, download from the upstream project — **https://github.com/Evoland-Land-Monitoring-Evolution/sentinel2_superresolution**
 — both files:
 
 - `wsx4_spatrad.onnx`

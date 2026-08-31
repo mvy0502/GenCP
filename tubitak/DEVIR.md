@@ -352,7 +352,15 @@ Aşağıdaki her satır, ilgili varlığın **tam olarak nasıl yeniden üretile
 
 **1. Yansıtma (reflectance) bantları — B02, B03, B04, beş granül.**
 Kamuya açık `sentinel-cogs` S3 kovasından indirilir; kayıt gerekmez:
-`https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/36/<band>/<square>/<year>/<month>/<item-id>/<BAND>.tif`
+| | |
+|---|---|
+| S3 kovası | `sentinel-cogs`, bölge `us-west-2` |
+| Nesne anahtarı (key) | `sentinel-s2-l2a-cogs/36/<band>/<square>/<year>/<month>/<item-id>/<BAND>.tif` |
+
+Köşeli parantezli alanlar doldurulmalıdır; tam adres bu ikisinin birleşimidir.
+Kalıp bilerek tek parça bir adres olarak yazılmamıştır: bağlantı denetleyicisi
+(`tubitak/tests/check_links.py`) bir kalıbı gerçek bir bağlantıdan ayıramaz ve
+her koşuda yanlış bir ölü bağlantı bildirirdi.
 Beş ürünün kimlikleri (`item-id`) `docs/02a-reflectance-corpus.md` §1'de tam olarak
 yazılıdır ve indirilen dosyalar ETag ile doğrulanmıştır. `tubitak/data/s2_reflectance_l2a/`
 altına yerleştirilmelidir.
@@ -390,7 +398,7 @@ x2 modeli için `GENCP_SR_VARIANT` değişkeni verilmez; öntanımlı değer WP3
 yapılandırmasıdır.
 
 **7. wsx4 ağırlıkları.** Bu çalışmanın ürünü değildir ve **hiçbir sürüme eklenmez.**
-Üst kaynaktan alınmalıdır: `https://github.com/IGNF/sentinel2_superresolution`.
+Üst kaynaktan alınmalıdır: `https://github.com/Evoland-Land-Monitoring-Evolution/sentinel2_superresolution`.
 `wsx4_spatrad.onnx` ve yanındaki `wsx4_spatrad.yaml` birlikte indirilmeli ve aynı dizine
 konulmalıdır; eklenti `.yaml` dosyasını modelin yanında arar ve ölçek, normalleştirme ile
 kırpma kenarını oradan okur.
@@ -481,3 +489,44 @@ görülmeli, ancak ondan sonra "bulamadı" sonucuna güvenilmelidir.
   modelin ürettiği kullanılabilir kontrol noktası sayısı bikübiğin **3,8 katıdır**
   (çip başına 478,6 / 126,9 RANSAC iç nokta). Bu sayı eklentinin normal kullanımdaki
   10 m → 2,5 m dönüşümüne ait **değildir**; orada karşılaştırılacak bir gerçek referans yoktur.
+
+## P2.8 İndirme adresleri — hangi belge yetkilidir
+
+**Deponun kök `README.md` dosyasındaki indirme tablosu tek doğru kaynaktır.** Başka hiçbir
+belge bu tabloyu kopyalamamalıdır; kopyalanan tablo güncelliğini yitirir ve hangisinin doğru
+olduğu belirsizleşir. Bu, ölçülmüş bir sorundur: `QUICKSTART.md` tablonun ikinci bir kopyasını
+taşıyordu ve iki satırı (zip boyutu 89 KB, gerçekte 94.987 bayt; silinmiş bir sürüm etiketine
+bağlantı) yanlıştı.
+
+Diğer belgeler yalnızca **işaret eder**:
+
+| Belge | Ne içerir |
+|---|---|
+| kök `README.md` | **Tablo.** Dosya adı, bayt cinsinden boyut, ne işe yaradığı, sabitlenmiş (pinned) indirme adresi |
+| `tubitak/qgis_plugin/QUICKSTART.md` | Yalnızca iki sürüm etiketi adresi — zip'in içinden okunduğunda depoya erişimi olmayan biri dosyalara ulaşabilsin diye. Tabloyu kopyalamaz |
+| `tubitak/sr/docs/10-kurulum.md` | Kurulum adımları; dosya satırları README'den alınmıştır ve çelişki hâlinde README geçerlidir |
+
+### Sürüm etiketleri ve neden üç tanedir
+
+| Etiket | İçerik | Ne sıklıkla değişir |
+|---|---|---|
+| `plugin-v0.2.0` | Proje 1 eklentisi ve model ağırlıkları. **`latest` olarak işaretlidir** | Sık |
+| `sr-plugin-v0.1.0` | Proje 2 eklentisi ve iki modeli | Sık, Proje 1'den bağımsız |
+| `veri-turkiye-2026-08-31` | CLC+ Türkiye kırpması ve Türkiye OSM çıkarımı | Seyrek |
+
+İki eklenti bağımsız sürüm alır ve **birleştirilmemelidir**: birleştirilirse birinin her
+düzeltmesinde diğerinin dosyaları da yeniden yüklenir. Veri ayrı bir etikettedir çünkü her
+iki eklenti de onu kullanır ve bir diyalog düzeltmesi için 1,5 GB'ın yeniden yüklenmesi
+gerekmemelidir.
+
+Veri etiketi ve Proje 2 etiketi **bilerek `latest` değildir**; `releases/latest/download/...`
+adresleri Proje 1'in dosyalarına çözümlenmelidir.
+
+### `osm-turkey-2026-08-19` etiketi neden hâlâ duruyor
+
+Bu etiket bir uyumluluk kopyasıdır ve insanlar için değildir.
+`tubitak/gencp_core/geofabrik.py` içindeki `MIRRORS["turkey"]` tam olarak o adresi ve o
+dosyanın MD5'ini sabit olarak taşır; Geofabrik yanıt vermediğinde eklentinin indirme düğmesi
+oraya düşer. `gencp_core` dondurulmuş bir dizindir, bu yüzden adres koddan değiştirilmemiş,
+etiket yerinde bırakılmıştır. **Aynı dosya ayrıca `veri-turkiye-2026-08-31` etiketinde de
+bulunur ve ikisi birebir aynıdır.**

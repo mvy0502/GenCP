@@ -28,7 +28,8 @@ why that is unavoidable — **the only ground truth in this repository is real S
 ## 2. The release that was drafted, not published
 
 Tag **`sr-plugin-v0.1.0`** on `mvy0502/gencp-validation`, following the convention the existing
-`plugin-v0.2.0` and `clcplus-turkey-2026-08-30` releases already set.
+`plugin-v0.2.0` release already set. (The data tags were later consolidated into
+`veri-turkiye-2026-08-31`; see §8.)
 
 | attachment | size | sha256 |
 |---|---|---|
@@ -37,7 +38,7 @@ Tag **`sr-plugin-v0.1.0`** on `mvy0502/gencp-validation`, following the conventi
 | `gencp_sr_x4_b4.onnx` | 2,086,466 B | `f3f2ffbde52c…89f0ad4ba` |
 
 **wsx4's weights are not attached.** They are not this project's work. The draft links
-`https://github.com/IGNF/sentinel2_superresolution` and states that **both** `wsx4_spatrad.onnx`
+`https://github.com/Evoland-Land-Monitoring-Evolution/sentinel2_superresolution` and states that **both** `wsx4_spatrad.onnx`
 and `wsx4_spatrad.yaml` must be downloaded **into the same directory**, because the plugin
 reads the sidecar beside the model for the scale, normalisation and crop margin — the wsx4
 graph carries no embedded provenance.

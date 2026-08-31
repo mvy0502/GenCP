@@ -127,6 +127,9 @@ eklenti kurulur fakat listede görünmez; kullanıcı kurulumun başarısız old
 
 ## 3. Dosyalar tablosu
 
+> **İndirme adreslerinin tek doğru kaynağı deponun kök `README.md` dosyasındaki tablodur.**
+> Aşağıdaki satırlar oradan alınmıştır; bir çelişki olursa `README.md` geçerlidir.
+
 Eklentiler kurulduktan sonra, kullanılacak yönteme göre ek dosyalar gerekir. Hiçbiri zip'in
 içinde gelmez.
 
@@ -135,11 +138,11 @@ içinde gelmez.
 | **P2 — Bikübik** | *(ek dosya gerekmez)* | — | — |
 | **P2 — GenCP SR, 2x** | `gencp_sr_x2_v1.onnx` (1.964.122 bayt) | `https://github.com/mvy0502/gencp-validation/releases/download/sr-plugin-v0.1.0/gencp_sr_x2_v1.onnx` | Herhangi bir klasöre; yol eklentinin **Model** alanından seçilir |
 | **P2 — GenCP SR, 4x** | `gencp_sr_x4_b4.onnx` (2.086.466 bayt) | `https://github.com/mvy0502/gencp-validation/releases/download/sr-plugin-v0.1.0/gencp_sr_x4_b4.onnx` | Aynı şekilde |
-| **P2 — wsx4** | `wsx4_spatrad.onnx` **ve** `wsx4_spatrad.yaml` | `https://github.com/IGNF/sentinel2_superresolution` — bu projenin ürünü değildir, sürüm sayfasına eklenmemiştir | **İkisi aynı klasörde, yan yana durmalıdır.** Eklenti `.yaml` dosyasını modelin yanında arar; ölçek, normalleştirme ve kırpma kenarı oradan okunur |
+| **P2 — wsx4** | `wsx4_spatrad.onnx` **ve** `wsx4_spatrad.yaml` | `https://github.com/Evoland-Land-Monitoring-Evolution/sentinel2_superresolution` — bu projenin ürünü değildir, sürüm sayfasına eklenmemiştir | **İkisi aynı klasörde, yan yana durmalıdır.** Eklenti `.yaml` dosyasını modelin yanında arar; ölçek, normalleştirme ve kırpma kenarı oradan okunur |
 | **P2 — girdi** | Sentinel-2 rasteri, uint16 DN, 10 m | Kullanıcının kendi verisi | Herhangi bir klasör |
 | **P1 — model** | `gencp_C2_fp32.onnx` (217.678.087 bayt) | `https://github.com/mvy0502/gencp-validation/releases/download/plugin-v0.2.0/gencp_C2_fp32.onnx` | Herhangi bir klasöre; yol eklentinin model alanından seçilir |
-| **P1 — arazi örtüsü** | `clcplus_2021_turkey_10m.tif` (916.422.550 bayt) | `https://github.com/mvy0502/gencp-validation/releases/download/clcplus-turkey-2026-08-30/clcplus_2021_turkey_10m.tif` | Yolu `GENCP_CLC_PATH` ortam değişkeniyle veya eklentinin alanıyla verilir |
-| **P1 — OSM** | `.osm.pbf` çıkarımı | Geofabrik; ya da eklentinin kendi indirme düğmesi | Herhangi bir klasör |
+| **P1 — arazi örtüsü** | `clcplus_2021_turkey_10m.tif` (916.422.550 bayt) | `https://github.com/mvy0502/gencp-validation/releases/download/veri-turkiye-2026-08-31/clcplus_2021_turkey_10m.tif` | Yolu `GENCP_CLC_PATH` ortam değişkeniyle veya eklentinin alanıyla verilir |
+| **P1 — OSM** | `turkey-2026-08-19.osm.pbf` (642.343.710 bayt) | `https://github.com/mvy0502/gencp-validation/releases/download/veri-turkiye-2026-08-31/turkey-2026-08-19.osm.pbf` — ya da eklentinin kendi indirme düğmesi | Herhangi bir klasör |
 
 ---
 
