@@ -31,8 +31,8 @@ if __package__ in (None, ""):
 sys.path.insert(0, str(ROOT / "tubitak" / "tests"))
 from _guard import strict_argv                                          # noqa: E402
 
-strict_argv(known=("--out=", "--dry-run"), positional=0,
-            usage="build_corpus.py [--out=DIR] [--dry-run]")
+strict_argv(known=("--out=", "--dry-run", "--source="), positional=0,
+            usage="build_corpus.py [--out=DIR] [--dry-run] [--source=tci]")
 
 import numpy as np                                                      # noqa: E402
 import rasterio                                                         # noqa: E402
@@ -46,6 +46,41 @@ DATA = ROOT / "tubitak" / "data" / P.DATA_SUBDIR
 OUT_DEFAULT = ROOT / "tubitak" / "data" / P.CORPUS_SUBDIR
 
 
+#: WP12 D32: the TCI source. Everything about the cut is unchanged - same chip grid, same
+#: SCL, same clear classes, same nodata rejection - and ONLY where the pixels come from
+#: differs: one three-band uint8 raster per granule instead of three single-band uint16 ones.
+#: The SCL used is the reflectance directory's, which is byte-identical to the tiles
+#: directory's (verified by sha256), so screening cannot differ between the two corpora.
+SOURCE = "reflectance"
+
+
+def _open_bands(tile, meta):
+    """Return (dict-or-list of readers, profile, close_fn) for the configured source."""
+    if SOURCE == "tci":
+        f = ROOT / "tubitak" / "data" / f"tiles{tile}" / "TCI.tif"
+        if not f.is_file():
+            raise SystemExit(f"build_corpus: no TCI for {tile} at {f}")
+        src = rasterio.open(f)
+        if src.count != len(P.BANDS):
+            raise SystemExit(f"{f}: {src.count} bands, expected {len(P.BANDS)}")
+        return src, src.profile, src.close
+    srcs = {b: rasterio.open(ROOT / "tubitak" / "data" / P.DATA_SUBDIR /
+                             meta["dirname"] / f"{b}.tif") for b in P.BANDS}
+    prof0 = srcs[P.BANDS[0]].profile
+    for b in P.BANDS[1:]:
+        pb = srcs[b].profile
+        if (pb["transform"], pb["width"], pb["height"], pb["crs"]) != \
+                (prof0["transform"], prof0["width"], prof0["height"], prof0["crs"]):
+            raise ValueError(f"{tile}/{b} grid differs from {P.BANDS[0]}")
+    return srcs, prof0, lambda: [s.close() for s in srcs.values()]
+
+
+def _read_chip(srcs, win):
+    if SOURCE == "tci":
+        return srcs.read(window=win)
+    return np.stack([srcs[b].read(1, window=win) for b in P.BANDS])
+
+
 def screen_granule(tile, meta):
     """Return (accepted records, rejection counts) for one granule.
 
@@ -55,15 +90,9 @@ def screen_granule(tile, meta):
     d = DATA / meta["dirname"]
     with rasterio.open(d / "SCL.tif") as s:
         scl_prof, scl = s.profile, s.read(1)
-    srcs = {b: rasterio.open(d / f"{b}.tif") for b in P.BANDS}
+    srcs, prof0, _close = _open_bands(tile, meta)
     try:
-        prof0 = srcs[P.BANDS[0]].profile
         require_nested(prof0, scl_prof, who=f"{tile}")
-        for b in P.BANDS[1:]:
-            pb = srcs[b].profile
-            if (pb["transform"], pb["width"], pb["height"], pb["crs"]) != \
-                    (prof0["transform"], prof0["width"], prof0["height"], prof0["crs"]):
-                raise ValueError(f"{tile}/{b} grid differs from {P.BANDS[0]}")
         W, H, T, crs = prof0["width"], prof0["height"], prof0["transform"], prof0["crs"]
         nrow, ncol = H // P.CHIP_STRIDE_PX, W // P.CHIP_STRIDE_PX
         clear10 = expand_to_10m(clear_mask_20m(scl))
@@ -82,7 +111,7 @@ def screen_granule(tile, meta):
                     rej["not_all_clear"] += 1
                     continue
                 win = Window(c0, r0, n, n)
-                arr = np.stack([srcs[b].read(1, window=win) for b in P.BANDS])
+                arr = _read_chip(srcs, win)
                 if (arr == P.REJECT_CHIPS_CONTAINING_DN).any():
                     rej["has_nodata_dn"] += 1
                     continue
@@ -96,8 +125,7 @@ def screen_granule(tile, meta):
                 print(f"    [{tile}] chip row {cr + 1}/{nrow}", flush=True)
         return recs, rej, (nrow, ncol)
     finally:
-        for s in srcs.values():
-            s.close()
+        _close()
 
 
 def main():
@@ -105,6 +133,8 @@ def main():
     out = OUT_DEFAULT
     dry = False
     for a in sys.argv[1:]:
+        if a.startswith("--source="):
+            globals()["SOURCE"] = a.split("=", 1)[1]
         if a.startswith("--out="):
             out = Path(a.split("=", 1)[1])
         elif a == "--dry-run":
@@ -181,7 +211,10 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     for s in S.SPLITS:
         rs = [r for r in kept if r["split"] == s]
-        arr = np.zeros((len(rs), len(P.BANDS), P.CHIP_PX, P.CHIP_PX), np.uint16)
+        # WP12: TCI is uint8. Storing it as uint16 would double the corpus for nothing
+        # and would misdescribe the product. The source's own dtype is used.
+        _dt = np.uint8 if SOURCE == "tci" else np.uint16
+        arr = np.zeros((len(rs), len(P.BANDS), P.CHIP_PX, P.CHIP_PX), _dt)
         for i, r in enumerate(rs):
             arr[i] = r["_arr"]
         np.save(out / f"chips_{s}.npy", arr)
