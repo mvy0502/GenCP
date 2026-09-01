@@ -568,6 +568,11 @@ Path: `tubitak/sr/sr_data/checks/corpus_checks.py`, evidence
 `tubitak/data/sr_wald_corpus/evidence/corpus_checks.json`. Exit 0, **9 of 9 cases behaved as
 registered.**
 
+> **WP15, 1 September 2026.** Three of those nine known-false arms could not have failed —
+> they re-implemented the predicate or compared a function to itself. The arms were rewritten
+> and the count is now 11 of 11; the corpus numbers are unchanged. This section records the
+> run as it stood. See `15-kontroller.md` and `03a-corpus-registration.md` §12.1.
+
 | check | case | outcome |
 |---|---|---|
 | **C1** target exactly 2× the input | known-true | **PASS** — input (3, 128, 128) → target (3, 256, 256), ratio 2 in both axes |

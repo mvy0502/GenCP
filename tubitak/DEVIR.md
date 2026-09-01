@@ -491,6 +491,8 @@ görülmeli, ancak ondan sonra "bulamadı" sonucuna güvenilmelidir.
 | 9 | Qt5'te karanlık tema yakalama hatası teşhis edilmedi; açık hipotez ölçülüp **çürütüldü** | `12-qt5-uyumluluk.md` §2.2 |
 | 10 | EOX'un ton eğrisi sorusu **çözülmemiştir**; aynı tarihli bir Exploitation karosu gerekir | `11-eox.md` §14 |
 | 11 | Düzeltilmiş nodata kuralı hâlâ tek tek siyah pikselleri nodata sayıyor (36SXJ'de 54 çip) | `13-tci-model-v2.md` §10.4 |
+| 12 | Ölçek-4 çekirdeğinin ayrık MTF'si **ölçülmüştür (0,299975794)** ama hiçbir denetim bunu doğrulamaz. C4 yalnızca `C.SCALE`'deki çekirdeği sınar, denetimler de x4 varyantında corpus uyuşmazlığı nedeniyle çalışmayı reddeder | `15-kontroller.md` §10 madde 1 |
+| 13 | **C2 ve C3 ölçek-4 corpus'unda hiç çalıştırılmamıştır**: `sr_wald_corpus_x4` içinde `manifest.csv` yoktur. Bu corpus'un ayrım (split) yalıtımı tek başına **D18**'e dayanır — bulut/gölge taraması ve tampon mesafesi bağımsız olarak doğrulanmamıştır. **16 bitlik ürün geldiğinde ve `gencp_sr_x4_b4.onnx` gerçek kullanıma girdiğinde ilk yapılacak iş budur** | `15-kontroller.md` §10 madde 2 |
 
 ## P2.7 Elde tutulan üç model, ve sayıların kapsamı
 

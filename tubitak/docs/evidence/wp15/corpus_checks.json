@@ -1,0 +1,79 @@
+[
+  {
+    "check": "C1",
+    "name": "geometry",
+    "case": "known-true",
+    "ok": true,
+    "detail": "input (3, 128, 128) -> target (3, 256, 256); ratio 2 in both axes"
+  },
+  {
+    "check": "C1",
+    "name": "geometry",
+    "case": "known-false",
+    "ok": true,
+    "detail": "degradation replaced by one decimating 3x -> input (3, 85, 85) against target (3, 256, 256); correctly rejected"
+  },
+  {
+    "check": "C2",
+    "name": "clear",
+    "case": "known-true",
+    "ok": true,
+    "detail": "6056 chips re-read from source SCL; classes present [2, 4, 5, 6, 7] (declared clear [2, 4, 5, 6, 7]); 0 class violations, 0 off-raster footprints"
+  },
+  {
+    "check": "C2",
+    "name": "clear",
+    "case": "known-false",
+    "ok": true,
+    "detail": "class-9 pixel planted in the source SCL under real chip 36TVK (0,5) -> 1 violations reported; correctly rejected"
+  },
+  {
+    "check": "C2",
+    "name": "clear",
+    "case": "known-false-2",
+    "ok": true,
+    "detail": "chip planted at (47,47), past the (5490, 5490) raster -> window (0, 0), 1 off-raster reported (the pre-WP15 predicate returned clear=True for this window); correctly rejected"
+  },
+  {
+    "check": "C3",
+    "name": "splits",
+    "case": "known-true",
+    "ok": true,
+    "detail": "6056 chips, 0 appearing in more than one split, 0 within 2560 m of a different split of the same granule (cross-granule proximity is NOT asserted here - see D18, tubitak/sr/sr_train/leakage.py)"
+  },
+  {
+    "check": "C3",
+    "name": "splits",
+    "case": "known-false",
+    "ok": true,
+    "detail": "one train chip relabelled 'test' at 36TVK (0,5) -> 2 buffer violations correctly detected"
+  },
+  {
+    "check": "C4",
+    "name": "mtf",
+    "case": "known-true",
+    "ok": true,
+    "detail": "over 64 chips, max |MTF-degraded - area-average| = 1.21124339 normalised (6056.2170 DN); the filter does something"
+  },
+  {
+    "check": "C4",
+    "name": "mtf",
+    "case": "known-false",
+    "ok": true,
+    "detail": "degradation replaced by the 2x2 mean, run through the same measurement -> max difference 0.00000000; correctly identified as a no-op"
+  },
+  {
+    "check": "C4",
+    "name": "mtf",
+    "case": "value",
+    "ok": true,
+    "detail": "discrete MTF of the 8-tap kernel as built, at the 20 m Nyquist frequency = 0.299970210 (registered 0.3, deviation -2.98e-05, tolerance 1e-04 for 4-sigma truncation); Im(H) = +0.0e+00 (a kernel off the block centre would shift)"
+  },
+  {
+    "check": "C4",
+    "name": "mtf",
+    "case": "value-false",
+    "ok": true,
+    "detail": "kernel rebuilt from a sigma derived for MTF 0.4 -> discrete 0.399663252, 0.100 from the registered target; correctly rejected"
+  }
+]

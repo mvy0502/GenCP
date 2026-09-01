@@ -323,3 +323,79 @@ known-false case. A check that passes on both is not a check.
 C4 is the one that matters most: if the MTF filter did nothing, every number in this work
 package would still be produced, would still look reasonable, and would describe a corpus
 that is not the registered one.
+
+---
+
+## 12.1 Amendment, 1 September 2026 (WP15) — what C3 actually asserts, and three arms that could not fail
+
+Section 12 above is unchanged and is the registration as made. This section records where its
+text overstated what the code asserts, and where the known-false arms did not exercise the
+checks they were written for. No corpus number changes; every check still passes on the real
+corpus. What changes is whether a failure could have been detected.
+
+### C3 — the claim is narrower than §12 says
+
+§12 registers C3 as "no chip lies within 2560 m of a chip in a different split", without
+qualification. `splits.buffer_violations` compares chips **within a single granule**: it groups
+records by granule and never compares across them (`sr_data/splits.py`, `by_granule`). The
+corpus-wide property was therefore never asserted here, and that is the gap through which 47
+test chips leaked in WP3A.
+
+C3's claim is corrected to:
+
+> no chip is in more than one split, and none lies within `SPLIT_BUFFER_M` of a chip in a
+> different split **of the same granule**.
+
+The corpus-wide property — chips of different splits that are physically close across granule
+boundaries, where granules overlap by about 9.8 km — is asserted by **gate D18**, the
+cross-granule leakage check, `tubitak/sr/sr_train/leakage.py`. C3 is not extended to duplicate
+it. Two checks asserting the same property is how a gap gets missed twice.
+
+### C1, C2 and C4 — known-false arms that did not exercise the check
+
+| check | what its known-false actually tested | corrected to |
+|---|---|---|
+| C1 | re-evaluated the geometry predicate inline on a hand-built array | substitutes a degradation that decimates by `SCALE+1` and calls the same predicate the known-true calls |
+| C2 | called `np.isin` on a 128×128 array made in memory; never touched the manifest, the SCL raster or the footprint arithmetic | plants a class-9 pixel in the source SCL under a real chip footprint and re-runs the real scan |
+| C4 | compared `area_average(t)` with `area_average(t)` — unconditionally true | substitutes the area average **for** the degradation and requires the measurement to report no difference |
+| C4 (MTF) | composed `sigma_for_mtf` with `mtf_at`, two closed forms of the same Gaussian; returned the target by construction | takes the DTFT of the kernel **as built** and reads the modulation at the output Nyquist frequency |
+
+### C2 — a chip off the raster passed vacuously
+
+A slice past the array bound yields an empty array, and `np.isin(empty, CLEAR).all()` is
+`True`. A chip whose footprint fell outside the SCL raster was therefore certified clear on a
+window that was never read. The window's shape is now asserted before its contents are tested.
+No such chip exists in the real corpus (0 of 6056), so no registered number changes.
+
+### The MTF target, restated as a measurement rather than an identity
+
+The registered target stays `MTF_AT_NYQUIST = 0.3`. What C4 now measures is the discrete
+response of the truncated, renormalised kernel actually applied:
+
+| scale | taps | discrete MTF at the output Nyquist | deviation from 0.3 | Gaussian mass outside the 4σ window |
+|---|---|---|---|---|
+| 2 | 8, offsets −3..+4 | 0.299970210 | −2.98e−05 | 2.54e−05 |
+| 4 | 16, offsets −6..+9 | 0.299975794 | −2.42e−05 | 4.28e−05 |
+
+The scale-2 figure reproduces the one WP3A recorded in `03a-wald-corpus.md` §5.1 exactly. The
+scale-4 figure had not been measured before.
+
+The tolerance is **1e−4**, and it accommodates the truncation deliberately. The deviation is
+caused by cutting the Gaussian at `KERNEL_RADIUS_SIGMAS = 4.0` and renormalising the surviving
+taps; it is of the same order as the mass discarded. 1e−4 sits above both deviations with room
+and three orders of magnitude below any error that would matter — a σ derived for a target of
+0.4 instead of 0.3 lands 0.100 away. The tolerance is not tuned to make anything pass: widening
+the kernel would close the gap and would also change the corpus, so the truncation stays and
+the number is reported.
+
+C4's MTF arm gains its own known-false: a kernel rebuilt from a σ derived for MTF 0.4 must be
+rejected. It is.
+
+### Invariance — what must not change for this to keep meaning what it claims
+
+- `KERNEL_RADIUS_SIGMAS` stays 4.0. Changing it changes the discrete MTF and the corpus.
+- `MTF_TOL` stays a stated bound on truncation, not a fitted one. If a future kernel deviates
+  by more than 1e−4, the answer is to report it, not to widen the tolerance.
+- C3 stays within-granule and D18 stays the corpus-wide gate. If C3 is ever widened, D18's
+  role must be restated, not silently duplicated.
+- Every known-false arm stays routed through the same function its known-true calls.
