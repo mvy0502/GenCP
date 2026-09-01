@@ -441,6 +441,9 @@ Bu tek cümle bu projede **yedi kez** gerçekleşmiştir. Belgelenmiş örnekler
 | `corpus_checks.c4` | `mtf_at` ölçeksiz çağrıldı; ölçek 2 süzgeci ölçek 4 Nyquist frekansında değerlendirildi, kayıtlı 0,3 yerine 0,7401 çıktı | C4 denetimi düştü |
 | `gaussian_decimation_kernel` | Aday pencere blok merkezi yerine sıfır etrafında kuruldu; ölçek 4'te her bozundurulmuş girdiye **−0,0011 piksel** kayma gömüldü | X3 denetimi düştü |
 | `evaluate.CAVEAT`, ONNX `caveat`, `output_layout` | Ölçek 4 modelinin içinde "ikiye bölme", "5 m" ve "2x spatial" metinleri taşındı | çıktı okunarak |
+| `gencp_core/extent.py:65` | `from rasterio.crs import CRS` **modül düzeyinde**; rasterio'su olmayan bir QGIS'te diyalog hiç açılmadı, kullanıcı yığın izi gördü | kurumun QGIS 3.40 makinesinde, `12-qt5-uyumluluk.md` |
+| `build_corpus`'un nodata kuralı | "herhangi bir bant 0 ise reddet" uint16 için yazılmıştı; 8 bit TCI'de karanlık **araziyi** reddetti, 36SXJ'de 1008 çipin 954'ünü gereksiz yere | `13-tci-model-v2.md` |
+| `mtf_at`, `degrade_chip` ölçeksiz çağrıldı | ölçek 2 varsayılanıyla ölçek 4 işi yapıldı | `07-x4-registration.md` §11.1 |
 
 Sonuncusu en pahalısıdır: kapsam uyarısının sayıyla birlikte taşınması **kural olarak
 konulmuştu**, uyarı da taşındı — ancak sabit yazılmış (hard-coded) biçimde. O metin
@@ -459,8 +462,16 @@ Hiçbir şeye bakmadan "geçti" diyen bir denetim, denetimsizlikten kötüdür: 
 | Proje 1 doğrulayıcı denetimi | 23 doğrulayıcının **18'i** bozuk çağrılarda 0 ile çıktı |
 | X5 bant sırası denetimi | `assert_band_order` **tanımlanmış ama hiçbir yerden çağrılmamıştı** |
 | WP9 mutlak yol denetimi | `zsh` değişken bölmesi (word splitting) nedeniyle `grep` tek bir dosya adı aldı; denetim **hiçbir dosyaya bakmadan** "temiz" dedi |
+| `leakage.py`'nin KF2 vakası | Beklenen değer **47**, yansıma korpusunda ölçülmüş bir sabitti. Korpus değişince "bana ait değil" demek yerine **FAILED** dedi ve temiz bir bölünme için karar vermeyi reddetti | `13-tci-model-v2.md` §3.1 |
+| `check_links.py` | Adres **kalıbını** gerçek bağlantıdan ayıramaz; her koşuda yanlış bir ölü bağlantı bildirir | `09-devir.md` |
 
-Sonuncusu bu belgeyi yazan oturumda olmuştur ve yalnızca **bilinen-doğru vakasının da
+**Genel biçim, WP13'te kaydedilmiştir: çıplak bir sabit olarak yazılmış beklenen değer,
+korpus değiştiği anda sessizce sınanamaz hâle gelir.** Uygulanmadığını duyurmaz; başarısızlık
+bildirir - bu daha kötüdür, çünkü boş yere uyaran bir denetim, insanların atlamayı öğrendiği
+denetimdir. Çözüm: beklenen değer, ölçüldüğü korpusun kimliğiyle birlikte taşınır
+(`leakage.py`, `KF2_EXPECTED`).
+
+Sondan bir önceki vaka bu belgeyi yazan oturumda olmuştur ve yalnızca **bilinen-doğru vakasının da
 başarısız olması** sayesinde fark edilmiştir. Kural bu yüzden şudur: **bir denetim, düşen bir
 vakayla birlikte doğar.** Önce bulunması gereken bir şey aranmalı, denetimin onu bulduğu
 görülmeli, ancak ondan sonra "bulamadı" sonucuna güvenilmelidir.
@@ -469,26 +480,52 @@ görülmeli, ancak ondan sonra "bulamadı" sonucuna güvenilmelidir.
 
 | # | Madde | Kaynak |
 |---|---|---|
-| 1 | Eğitim süreci son `last.pt` yazımında **iki koşuda da** kilitlendi; teşhis edilmedi | `07-x4-model.md` §5.1 |
-| 2 | Sonda (probe) ile koşu arasındaki hız farkının nedeni ölçülmemiştir | `07-x4-model.md` §3 |
+| 1 | Eğitim süreci son `last.pt` yazımında **dört koşunun dördünde de** kilitlendi; teşhis edilmedi. `best.pt` her seferinde sağlam kaldı, sağlama toplamıyla doğrulandı | `07-x4-model.md` §5.1, `13-tci-model-v2.md` §5 |
+| 2 | Sonda (probe) sürdürülebilir hızı **dört koşuda da** olduğundan yüksek gösterdi (0,51 / 0,60 / 0,71 / 0,63). Marj kuralı işe yarıyor; sebep ölçülmedi | `11-zamanlama.md` §5 |
 | 3 | wsx4 çıktısının satır ekseninde **çeyrek piksel** kayması atfedilmemiştir | `08-eslestirme.md` §16.3 |
 | 4 | Eşleştirme tek bant (B04), tek dedektör (KLT), tek granül (36SXJ) ile ölçülmüştür | `08-eslestirme.md` §14 |
 | 5 | SSIM yalnızca kendi uç değerlerine karşı doğrulanmıştır | `03b-training.md` §7 |
-| 6 | QGIS 3.x ve Windows hiç çalıştırılmamıştır | `02b-plugin.md` |
-| 7 | wsx4 kendi alanında (10 m → 2,5 m) ölçülememiştir; bu depodaki tek gerçek referans 10 m Sentinel-2'dir | `08-eslestirme.md` §15.3 |
+| 6 | **QGIS 3.40 hiç çalıştırılamadı** — qgis.org'dan indirilemiyor. Sınanan: 4.2.1 ve 3.44.13, yalnızca macOS. **Windows ve Linux sınanmamıştır** | `12-qt5-uyumluluk.md` §5 |
+| 7 | Gömülü `onnxruntime`'ın Windows'ta yerel DLL'lerini yükleyip yükleyemediği **sınanmamıştır**; Katman 2'nin tamamı buna bağlıdır | `13-cevrimdisi-kurulum.md` §9 |
+| 8 | `coverage_block.py` çalıştırılamıyor: gerektirdiği üç OSM çıkarımı hiçbir belgede adlandırılmamış | `tubitak/docs/open-items.md` madde 27 |
+| 9 | Qt5'te karanlık tema yakalama hatası teşhis edilmedi; açık hipotez ölçülüp **çürütüldü** | `12-qt5-uyumluluk.md` §2.2 |
+| 10 | EOX'un ton eğrisi sorusu **çözülmemiştir**; aynı tarihli bir Exploitation karosu gerekir | `11-eox.md` §14 |
+| 11 | Düzeltilmiş nodata kuralı hâlâ tek tek siyah pikselleri nodata sayıyor (36SXJ'de 54 çip) | `13-tci-model-v2.md` §10.4 |
 
-## P2.7 Sayıların kapsamı
+## P2.7 Elde tutulan üç model, ve sayıların kapsamı
 
-**Kapsamı belirtilmemiş bir sayı bu belgeye girmez.** İki temel sonuç, kapsamlarıyla:
+**Kurum bugün 8 bit RGB görüntü tutmaktadır; 16 bit dört bantlı ürün sonra alınacaktır.**
+Her iki katman için birer model vardır.
 
-- **Piksel benzerliği:** ayrık tutulan (held-out) **36SXJ** granülünde, 1332 çipte, ölçek 4 /
-  dört bant / `DN/10000` alanında, kayıtlı bikübik kontrole karşı eşli (paired) fark
-  **+2,971 dB PSNR**. Ölçek 2 / üç bant / `DN/5000` alanındaki **+5,574 dB** ile
-  **karşılaştırılamaz**: farklı görev, farklı radyometrik alan.
-- **Eşleştirme:** aynı granülde, **40 m → 10 m** dönüşümünde, gerçek Sentinel-2'ye karşı,
-  modelin ürettiği kullanılabilir kontrol noktası sayısı bikübiğin **3,8 katıdır**
-  (çip başına 478,6 / 126,9 RANSAC iç nokta). Bu sayı eklentinin normal kullanımdaki
-  10 m → 2,5 m dönüşümüne ait **değildir**; orada karşılaştırılacak bir gerçek referans yoktur.
+| Model | Ölçek | Bant | Normalleştirme | Hangi katmana uyar |
+|---|---|---|---|---|
+| **`gencp_sr_tci_x4_b3_v2.onnx`** | ×4 | 3, `B02,B03,B04` | `DN/255` | **kurumun bugün tuttuğu 8 bit RGB** |
+| **`gencp_sr_x4_b4.onnx`** | ×4 | 4, `+B08` | `DN/10000` | **16 bit yansıma katmanı, geldiğinde** |
+| `gencp_sr_x2_v1.onnx` | ×2 | 3 | `DN/5000` | daha eski üç bantlı yansıma çalışması |
+
+**Kapsamı belirtilmemiş bir sayı bu belgeye girmez.** Projenin varlık nedeni olan sonuç:
+
+> Ayrık tutulan **36SXJ** granülünde, **1628 çipte**, **40 m → 10 m** dönüşümünde, gerçek
+> Sentinel-2'ye karşı ölçülmüş: 8 bit model, bikübiğin **3,94 katı** kullanılabilir kontrol
+> noktası üretir (çip başına 491,3 / 124,6 RANSAC iç noktası) ve eşleştirme hatasını
+> **%40** azaltır (0,592 / 0,984 piksel). **1628 çipin hepsinde** bikübikten iyidir.
+
+Piksel benzelirliği, aynı granül, kayıtlı bikübik kontrole karşı eşli fark: 8 bit model
+**+3,520 dB** (0/1628 çipte kötü), dört bantlı model **+2,971 dB** (1/1332).
+
+**Bu iki sayı birbiriyle karşılaştırılamaz**: farklı ürün, farklı bölen, farklı korpus.
+
+**Bu sayıların hiçbiri eklentinin normal kullanımdaki 10 m → 2,5 m dönüşümüne ait değildir**;
+orada karşılaştırılacak bir gerçek referans yoktur. Kendi uyguladığımız bir bulanıklığı geri
+çevirmekte bikübiği yenmek, gerçek görüntüyü süper çözünürlüklendirmekle aynı iddia değildir.
+
+### Kurulum
+
+Gereken her şey, kurulumun kurumun kendi verisi olmadan doğrulanabilmesi için iki örnek raster
+dâhil, tek sayfadadır — toplam **8,1 MB**, aktarım sonrası doğrulama için `SHA256SUMS.txt` ile:
+<https://github.com/mvy0502/gencp-validation/releases/tag/sr-plugin-v0.1.0>
+
+İnternetsiz makineler için adım adım: [`sr/docs/10-kurulum.md`](sr/docs/10-kurulum.md) §7.
 
 ## P2.8 İndirme adresleri — hangi belge yetkilidir
 

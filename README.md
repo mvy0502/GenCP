@@ -32,6 +32,10 @@ Nobody needs to open the releases page or reason about which tag holds what.
 | `gencp_super_resolution.zip` | 49,379 | **Project 2** QGIS plugin — Sentinel-2 super-resolution | [indir](https://github.com/mvy0502/gencp-validation/releases/download/sr-plugin-v0.1.0/gencp_super_resolution.zip) |
 | `gencp_sr_x2_v1.onnx` | 1,964,122 | scale-2, 3-band (B02,B03,B04) model | [indir](https://github.com/mvy0502/gencp-validation/releases/download/sr-plugin-v0.1.0/gencp_sr_x2_v1.onnx) |
 | `gencp_sr_x4_b4.onnx` | 2,086,466 | scale-4, 4-band (B02,B03,B04,B08) model | [indir](https://github.com/mvy0502/gencp-validation/releases/download/sr-plugin-v0.1.0/gencp_sr_x4_b4.onnx) |
+| `gencp_sr_tci_x4_b3_v2.onnx` | 2,047,228 | **scale-4, 3-band 8-bit model** — for 8-bit RGB imagery | [indir](https://github.com/mvy0502/gencp-validation/releases/download/sr-plugin-v0.1.0/gencp_sr_tci_x4_b3_v2.onnx) |
+| `SAMPLE_3band_TCI_uint8_10m_512px.tif` | 732,623 | sample input, 8-bit, to verify an install | [indir](https://github.com/mvy0502/gencp-validation/releases/download/sr-plugin-v0.1.0/SAMPLE_3band_TCI_uint8_10m_512px.tif) |
+| `SAMPLE_4band_B02-B03-B04-B08_uint16_10m_512px.tif` | 1,636,956 | sample input, 16-bit, to verify an install | [indir](https://github.com/mvy0502/gencp-validation/releases/download/sr-plugin-v0.1.0/SAMPLE_4band_B02-B03-B04-B08_uint16_10m_512px.tif) |
+| `SHA256SUMS.txt` | 577 | checksums — **verify after transfer, before installing** | [indir](https://github.com/mvy0502/gencp-validation/releases/download/sr-plugin-v0.1.0/SHA256SUMS.txt) |
 
 The **wsx4** reference model is not ours and is not redistributed here. Download
 `wsx4_spatrad.onnx` **and** `wsx4_spatrad.yaml` from
@@ -109,25 +113,44 @@ Output geometry is asserted, not assumed: **Gate S** requires the output CRS to 
 input's, the pixel size to be exactly the input's divided by the scale, the origin to be
 unchanged, and the source pixel centre to fall at the centre of its output block.
 
+### The three models, and which of the institute's data each matches
+
+The institute holds **8-bit RGB imagery today** and will acquire **16-bit four-band later**.
+There is a model for each, and one earlier model kept for continuity.
+
+| model | scale | bands | normalisation | matches |
+|---|---|---|---|---|
+| **`gencp_sr_tci_x4_b3_v2.onnx`** | ×4 | 3, `B02,B03,B04` | `DN/255` | **the 8-bit RGB tier the institute holds now** |
+| **`gencp_sr_x4_b4.onnx`** | ×4 | 4, `+B08` | `DN/10000` | **the 16-bit reflectance tier, when it arrives** |
+| `gencp_sr_x2_v1.onnx` | ×2 | 3 | `DN/5000` | earlier 3-band reflectance work; superseded for new use |
+
+Each carries its provenance inside the graph — band order, divisor, the registered schedule
+beside what actually ran, the seed, and its scope caveat. **A model whose step count differs
+from its registered schedule is a different model, not a noisier one**, and the graph says
+which it is.
+
 ### What has been measured
 
-**Pixel fidelity.** On the held-out granule **36SXJ** (1332 chips, never trained on), against
-a registered bicubic control, **at scale 4, four bands, in normalised reflectance `DN/10000`**:
-the model gains **+2.971 dB PSNR** (paired per chip, worse on 1 chip in 1332). The scale-2
-three-band model gains **+5.574 dB** on the same granule **in `DN/5000`** — the two are *not*
-comparable, because they are different tasks in different radiometric domains.
+**Matching is the number that matters**, because it is the only one that measures what a
+geometric reference is *for*. Real imagery was degraded to 40 m and restored, then matched
+against the real 10 m with this project's own KLT detector and the parameters Project 1
+already uses:
 
-**Matching — the reason the project exists.** Real 10 m Sentinel-2 was degraded to 40 m and
-brought back by four routes, then matched against the real 10 m with the KLT detector and
-parameters this project already uses for georeferencing:
+> **On the held-out granule 36SXJ (1628 chips, in no training set), measured 40 m → 10 m
+> against real Sentinel-2, the 8-bit model yields 3.94 times bicubic's usable control points**
+> — 491.3 against 124.6 RANSAC inliers per chip — **and cuts the correspondence error by 40 %**
+> (0.592 px against 0.984 px). It is better on **every one of the 1628 chips**.
 
-> **On the held-out granule 36SXJ, measured 40 m → 10 m against real Sentinel-2, our model
-> yields 3.8 times bicubic's usable control points** (478.6 against 126.9 RANSAC inliers per
-> chip, mean over 1332 chips), and halves the correspondence error (0.605 px against 0.972 px).
+Pixel fidelity, same granule, paired per chip against a registered bicubic control:
 
-That sentence carries its scope on purpose. It is one granule, one band (B04), one detector,
-and one transformation — **40 m → 10 m, not the 10 m → 2.5 m the plugin performs in normal
-use, where there is no ground truth to measure against at all.**
+| model | corpus | paired PSNR | chips worse |
+|---|---|---|---|
+| 8-bit ×4 | TCI, `DN/255` | **+3.520 dB** | 0 / 1628 |
+| 4-band ×4 | reflectance, `DN/10000` | **+2.971 dB** | 1 / 1332 |
+
+**These two rows may not be compared with each other.** Different products, different
+divisors, different corpora — an absolute PSNR is not comparable across normalisations, and
+these are different tasks.
 
 ### What has NOT been measured
 
@@ -152,6 +175,15 @@ the plugin loads and completes a job without it. `PyYAML` is needed only to read
 sidecar next to a model that carries no embedded provenance — checked lazily, so its absence
 never blocks the bicubic path.
 
+### Install
+
+Everything needed, including two sample rasters so an installation can be verified without
+any of your own data, is on one page — **8.1 MB in total**, with a `SHA256SUMS.txt` to check
+against after a file transfer:
+**https://github.com/mvy0502/gencp-validation/releases/tag/sr-plugin-v0.1.0**
+
+Offline, step by step, in Turkish: [`10-kurulum.md`](tubitak/sr/docs/10-kurulum.md) §7.
+
 ### Reports
 
 Every work package registers its predictions before measuring and reports failed predictions
@@ -160,6 +192,8 @@ rather than adjusting them. [`tubitak/sr/docs/`](tubitak/sr/docs/):
 [`02b-demo-tik-sirasi`](tubitak/sr/docs/02b-demo-tik-sirasi.md), a click-by-click walkthrough)
 - `03a`/`03b` (corpus, split-leak correction, training) - `04` (model in the plugin) -
 `05`/`06` (the reference tool, and hosting wsx4) - `07` (the scale-4 four-band model) -
+`11-eox` (what the EOX product is) - `12`/`13` (the 8-bit model, and the nodata
+correction that rebuilt it) -
 **`08-eslestirme`** (the matching experiment) - `09-devir` (handover and packaging).
 
 ## GenCP
