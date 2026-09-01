@@ -29,16 +29,100 @@ from sr_train.model import SRNet, charbonnier                           # noqa: 
 
 def versions():
     import numpy, torch as _t
-    v = dict(torch=_t.__version__, numpy=numpy.__version__, python=sys.version.split()[0])
+    # str() on every one of these. torch.__version__ is a TorchVersion, not a str, and a
+    # checkpoint containing one cannot be read back under torch's default
+    # weights_only=True - standing practice 9's version record was what made the record
+    # unreadable. WP16: this is a SEPARATE defect from the save hang; measured, a payload
+    # carrying TorchVersion objects saves without hanging.
+    v = dict(torch=str(_t.__version__), numpy=str(numpy.__version__),
+             python=sys.version.split()[0])
     try:
-        import onnxruntime; v["onnxruntime"] = onnxruntime.__version__
+        import onnxruntime; v["onnxruntime"] = str(onnxruntime.__version__)
     except Exception:
         v["onnxruntime"] = "absent"
     if _t.cuda.is_available():
-        v["cuda"] = _t.version.cuda
-        v["gpu"] = _t.cuda.get_device_name(0)
+        v["cuda"] = str(_t.version.cuda)
+        v["gpu"] = str(_t.cuda.get_device_name(0))
     v["mps"] = bool(getattr(_t.backends, "mps", None) and _t.backends.mps.is_available())
     return v
+
+
+
+def _sync(dev):
+    """Drain outstanding asynchronous work on `dev` before anything reads its memory.
+
+    WP16: `torch.save` hung on four training runs out of four, always at the final
+    checkpoint, always leaving `last.pt` truncated at 8192 bytes. The stack, captured with
+    faulthandler rather than inferred, was blocked in `torch/storage.py:264 in cpu` -
+    `torch.save` copying an MPS storage to the host from inside `_save`.
+
+    The trigger is not the dictionary's contents. It is an OUTSTANDING
+    `.to(device, non_blocking=True)` host-to-device copy that was never consumed. The
+    training loop leaves exactly one: after the last optimiser step, `batches()` yields one
+    more pair - two non-blocking transfers - and the loop then breaks without using them.
+    The periodic saves inside the loop never hit this because their batch had been consumed
+    by forward and backward, which synchronises.
+
+    Measured: with such a transfer outstanding, `torch.save({"t": torch.zeros(4,
+    device="mps")})` - four elements - hangs. With it consumed, or transferred blocking, or
+    after this synchronise, the full 5.9 MB checkpoint saves in 0.4 s. Dropping the Python
+    reference to the stray tensor does NOT help; the copy is queued in the device, not held
+    by the name.
+    """
+    if dev.type == "mps" and getattr(torch, "mps", None):
+        torch.mps.synchronize()
+    elif dev.type == "cuda":
+        torch.cuda.synchronize()
+
+
+def _to_cpu(obj):
+    """Recursively detach tensors onto the host, structure preserved.
+
+    A checkpoint holding MPS-resident storages can only be read back on a machine with
+    MPS. That makes the training record hostage to the hardware that produced it, which is
+    the opposite of what standing practice 9 is for. Saving from the host also keeps
+    `torch.save` off the internal device-to-host path entirely.
+    """
+    if torch.is_tensor(obj):
+        return obj.detach().to("cpu")
+    if isinstance(obj, str) and type(obj) is not str:
+        # A str SUBCLASS - torch.__version__ is a TorchVersion - pickles as its class, and
+        # weights_only=True refuses classes it does not know. The text is identical; only
+        # the type makes the record unreadable. Coerced here as well as in versions(), so a
+        # payload assembled anywhere else cannot reintroduce the defect.
+        return str(obj)
+    if isinstance(obj, dict):
+        return {k: _to_cpu(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return type(obj)(_to_cpu(v) for v in obj)
+    return obj
+
+
+def load_checkpoint(path, map_location="cpu"):
+    """Load a checkpoint, preferring torch's safe reader.
+
+    Pre-WP16 checkpoints store `TorchVersion` objects, which `weights_only=True` refuses.
+    Those files are our own, written by this script, so falling back is safe - but the
+    fallback is announced, because a silent `weights_only=False` everywhere is how the safe
+    default stops meaning anything.
+    """
+    try:
+        return torch.load(path, map_location=map_location, weights_only=True)
+    except Exception as e:
+        print(f"  note: {Path(path).name} is a pre-WP16 checkpoint (weights_only=True "
+              f"refused it: {type(e).__name__}); re-reading with weights_only=False",
+              flush=True)
+        return torch.load(path, map_location=map_location, weights_only=False)
+
+
+def save_checkpoint(payload, path, dev):
+    """The one place a checkpoint is written. Synchronise, move to host, then save.
+
+    `versions()` already returns plain strings (see its own note), so the result loads
+    under torch's default `weights_only=True`.
+    """
+    _sync(dev)
+    torch.save(_to_cpu(payload), path)
 
 
 def pick_device(want=None):
@@ -179,10 +263,9 @@ def main():
     opt = torch.optim.Adam(model.parameters(), lr=a.lr, betas=(0.9, 0.999))
     step0, best = 0, float("inf")
     if a.resume:
-        # weights_only=False: this checkpoint stores TorchVersion objects, because standing
-        # practice 9 records library versions in it. torch 2.6 defaults weights_only=True
-        # and refuses them. The file is our own, written by train.py in this repository.
-        ck = torch.load(a.resume, map_location=dev, weights_only=False)
+        # Safe reader first; pre-WP16 checkpoints store TorchVersion objects and need the
+        # announced fallback. See load_checkpoint.
+        ck = load_checkpoint(a.resume, map_location=dev)
         model.load_state_dict(ck["model"]); opt.load_state_dict(ck["opt"])
         step0, best = ck["step"], ck.get("best", float("inf"))
         rng = np.random.default_rng(C.TRAIN_SEED + step0)
@@ -219,16 +302,16 @@ def main():
                       flush=True)
                 if v < best:
                     best = v
-                    torch.save(dict(model=model.state_dict(), opt=opt.state_dict(),
+                    save_checkpoint(dict(model=model.state_dict(), opt=opt.state_dict(),
                                     step=step, best=best, train_device=str(dev),
                                     versions=versions(), config=dict(
                                         width=C.WIDTH, n_blocks=C.N_BLOCKS, scale=C.SCALE,
                                         norm_divisor_dn=C.NORM_DIVISOR_DN,
                                         bands=list(C.BANDS), variant=C.VARIANT)),
-                               run / "best.pt")
+                               run / "best.pt", dev)
             if step % C.CHECKPOINT_EVERY == 0:
-                torch.save(dict(model=model.state_dict(), opt=opt.state_dict(),
-                                step=step, best=best), run / "last.pt")
+                save_checkpoint(dict(model=model.state_dict(), opt=opt.state_dict(),
+                                     step=step, best=best), run / "last.pt", dev)
             if a.budget_min and (time.perf_counter() - t0) / 60.0 >= a.budget_min:
                 stop_reason = "budget"
                 break
@@ -256,8 +339,8 @@ def main():
                   f"= {tgt/rate/3600:5.2f} h")
     print(f"  wrote {run/name}")
     if not a.probe:
-        torch.save(dict(model=model.state_dict(), opt=opt.state_dict(), step=step,
-                        best=best), run / "last.pt")
+        save_checkpoint(dict(model=model.state_dict(), opt=opt.state_dict(), step=step,
+                             best=best), run / "last.pt", dev)
     return 0
 
 

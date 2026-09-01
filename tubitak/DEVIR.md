@@ -480,9 +480,11 @@ görülmeli, ancak ondan sonra "bulamadı" sonucuna güvenilmelidir.
 
 | # | Madde | Kaynak |
 |---|---|---|
-| 1 | Eğitim süreci son `last.pt` yazımında **dört koşunun dördünde de** kilitlendi; teşhis edilmedi. `best.pt` her seferinde sağlam kaldı, sağlama toplamıyla doğrulandı | `07-x4-model.md` §5.1, `13-tci-model-v2.md` §5 |
+| 1 | ~~Eğitim süreci son `last.pt` yazımında dört koşunun dördünde de kilitlendi~~ **KAPANDI (WP16).** Sebep: döngü kırılırken tüketilmeden kalan bir `.to(device, non_blocking=True)` kopyası askıda bırakılıyor; `torch.save` sonra MPS deposunu ana belleğe kopyalarken bloke oluyor. Çözüm: kaydetmeden önce `torch.mps.synchronize()`. Askıda kopya varken **dört elemanlı** bir MPS tensörünü kaydetmek bile kilitleniyor | `16-checkpoint.md` §2 |
 | 2 | Sonda (probe) sürdürülebilir hızı **dört koşuda da** olduğundan yüksek gösterdi (0,51 / 0,60 / 0,71 / 0,63). Marj kuralı işe yarıyor; sebep ölçülmedi | `11-zamanlama.md` §5 |
-| 3 | wsx4 çıktısının satır ekseninde **çeyrek piksel** kayması atfedilmemiştir | `08-eslestirme.md` §16.3 |
+| 3 | ~~wsx4 çıktısının çeyrek piksel kayması atfedilmemiştir~~ **KAPANDI — ATFEDİLDİ (WP16).** Kayma **modelin kendisine aittir.** Kendi araçları (`--l1c`), kendi ürünleri, kendi bicubic çıktıları üzerinde ölçüldü; bizim ızgaramız ile onlarınki **0,0015 piksel** içinde uyuşuyor. Ölçüm bizim 36SXJ granülümüzle **aynı datatake** (A009000) üzerinde yapıldı. Bizim dikişimiz aklandı | `17-wsx4-hizalama.md` §4 |
+| 3a | **Yeni açık soru — WP8'in "yalnızca y ekseni" okumasının yerine geçer.** Kendi doğal ölçeğinde kayma **her iki eksende** ve yaklaşık eşit (dx −0,2022, dy −0,2299); WP8 ise 40 m → 10 m denemesinde dx +0,032 ölçmüştü. İki deney **aynı anda birçok bakımdan** farklıdır (40 m → 10 m ile doğal 10 m → 2,5 m; L2A BOA ile L1C TOA; bizim dikişimiz ile onların döşemesi), bu yüzden **çelişkinin kendisi de atfedilebilir değildir** | `17-wsx4-hizalama.md` §5 |
+| 3b | **Kayıt: WP16 brifingindeki "iki arıza muhtemelen aynıdır" varsayımı ölçümle çürütülmüştür.** `TorchVersion` nesneleri taşıyan bir yük **kilitlenmeden kaydedilir**, ve kilitlenen dosya `last.pt`'nin içinde `versions` anahtarı hiç yoktur. İki bağımsız arızadır ve iki ayrı düzeltme gerektirmiştir. Bir sonraki okuyucu aynı varsayımı tekrarlamasın | `16-checkpoint.md` §giriş |
 | 4 | Eşleştirme tek bant (B04), tek dedektör (KLT), tek granül (36SXJ) ile ölçülmüştür | `08-eslestirme.md` §14 |
 | 5 | SSIM yalnızca kendi uç değerlerine karşı doğrulanmıştır | `03b-training.md` §7 |
 | 6 | **QGIS 3.40 hiç çalıştırılamadı** — qgis.org'dan indirilemiyor. Sınanan: 4.2.1 ve 3.44.13, yalnızca macOS. **Windows ve Linux sınanmamıştır** | `12-qt5-uyumluluk.md` §5 |

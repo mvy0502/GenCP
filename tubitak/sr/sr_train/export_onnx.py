@@ -44,6 +44,23 @@ def training_record(ck_path):
     return json.loads(f.read_text())
 
 
+def _load_checkpoint(path, map_location="cpu"):
+    """Load a checkpoint, preferring torch's safe reader.
+
+    Pre-WP16 checkpoints store `TorchVersion` objects (standing practice 9's version
+    record), which `weights_only=True` refuses. Those files are our own, written by
+    train.py in this repository, so falling back is safe - but the fallback is announced,
+    because a silent `weights_only=False` everywhere is how the safe default stops meaning
+    anything.
+    """
+    try:
+        return torch.load(path, map_location=map_location, weights_only=True)
+    except Exception as e:
+        print(f"  note: {Path(path).name} is a pre-WP16 checkpoint (weights_only=True "
+              f"refused it: {type(e).__name__}); re-reading with weights_only=False")
+        return torch.load(path, map_location=map_location, weights_only=False)
+
+
 def provenance(ck_path, ck, schedule_steps, rec):
     stop = rec.get("stop_reason", "unknown")
     return {
@@ -117,10 +134,11 @@ def main():
     out = Path(a.out or (C.data_root() / "sr_models" / "gencp_sr_x2_v1.onnx"))
     out.parent.mkdir(parents=True, exist_ok=True)
 
-    # weights_only=False: this checkpoint stores TorchVersion objects, because standing
-    # practice 9 records library versions in it. torch 2.6 defaults weights_only=True
-    # and refuses them. The file is our own, written by train.py in this repository.
-    ck = torch.load(ck_path, map_location="cpu", weights_only=False)
+    # WP16: checkpoints written from 1 September 2026 store versions as plain strings and
+    # host-resident tensors, so they load under torch's default weights_only=True. Older
+    # ones store TorchVersion objects and do not. Try the safe path first and fall back,
+    # saying so, rather than disabling the check for every file forever.
+    ck = _load_checkpoint(ck_path)
     rec = training_record(ck_path)
     model = SRNet(bands=C.N_BANDS, scale=C.SCALE)
     model.load_state_dict(ck["model"]); model.eval()
