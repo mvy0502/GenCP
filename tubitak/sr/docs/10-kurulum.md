@@ -232,3 +232,126 @@ indirilmesi 1,78 GB için **1,6 dakika** (20 MB/s bağlantıda ölçülmüştür
   eklentiden birebir alınmıştır, ancak ekrana geldikleri gözlenmemiştir.
 - Bu belgedeki hiçbir adım Türkçe arayüzlü bir QGIS'te denenmemiştir; sınama İngilizce
   arayüzde yapılmıştır. Menü adlarının Türkçe karşılıkları parantez içinde verilmiştir.
+
+---
+
+# 7. İnternet erişimi olmayan makineler için kurulum
+
+Kurum makinelerinde internet yoktur. Dosyalar internet erişimi olan başka bir bilgisayara
+indirilir, aktarım sistemi üzerinden taşınır ve orada kurulur. Bu bölüm o yolu anlatır.
+
+## 7.1 Nereden indirilir
+
+Tek adres, sürüm sayfası:
+<https://github.com/mvy0502/gencp-validation/releases/tag/sr-plugin-v0.1.0>
+
+**Toplam 8,1 MB.** Aktarım sisteminin boyut sınırı bu değerin altındaysa dosyalar tek tek
+taşınmalıdır; her dosyanın boyutu aşağıda ayrıca verilmiştir.
+
+| Dosya | Boyut | Ne için |
+|---|---:|---|
+| `gencp_super_resolution.zip` | 49.379 bayt | Eklentinin kendisi |
+| `gencp_sr_tci_x4_b3_v2.onnx` | 2.047.228 bayt | 8 bit RGB görüntü için model (4×) |
+| `gencp_sr_x4_b4.onnx` | 2.086.466 bayt | 16 bit dört bantlı görüntü için model (4×) |
+| `gencp_sr_x2_v1.onnx` | 1.964.122 bayt | 16 bit üç bantlı görüntü için model (2×) |
+| `SAMPLE_3band_TCI_uint8_10m_512px.tif` | 732.623 bayt | Kurulum doğrulaması için örnek girdi, 8 bit |
+| `SAMPLE_4band_B02-B03-B04-B08_uint16_10m_512px.tif` | 1.636.956 bayt | Kurulum doğrulaması için örnek girdi, 16 bit |
+| `SHA256SUMS.txt` | 577 bayt | Sağlama toplamları |
+
+**wsx4 ağırlıkları bu sürüme dâhil değildir.** Bu çalışmanın ürünü değildir. Gerekiyorsa üst
+kaynaktan **iki dosya birlikte** indirilmelidir — `wsx4_spatrad.onnx` ve `wsx4_spatrad.yaml` —
+ve **aynı klasöre yan yana** konulmalıdır. Eklenti `.yaml` dosyasını modelin yanında arar;
+ölçek, normalleştirme ve kırpma kenarı oradan okunur. Kaynak:
+<https://github.com/Evoland-Land-Monitoring-Evolution/sentinel2_superresolution>
+
+## 7.2 Aktarımdan SONRA, kurulumdan ÖNCE: sağlama toplamı doğrulanmalıdır
+
+**Bu adım atlanmamalıdır.** Aktarım sisteminden geçen bir dosya bozulmuş olarak varabilir ve
+**bozuk bir `.onnx` dosyası, taşıma hatası gibi değil model hatası gibi görünen bir biçimde
+başarısız olur.** Kaybedilen zaman, bu kontrolün süresinden kat kat fazladır.
+
+`SHA256SUMS.txt` diğer dosyalarla aynı klasöre konulur ve şu satır çalıştırılır:
+
+- **Windows**, her dosya için ayrı ayrı:
+  ```
+  certutil -hashfile gencp_super_resolution.zip SHA256
+  ```
+  Çıkan değer `SHA256SUMS.txt` içindeki satırla karşılaştırılmalıdır.
+- **macOS / Linux**, hepsi birden:
+  ```
+  shasum -a 256 -c SHA256SUMS.txt
+  ```
+
+Her satır **`OK`** demelidir. Bir satır `FAILED` diyorsa o dosya yeniden taşınmalıdır;
+kurulmamalıdır.
+
+## 7.3 Hangi dosya nereye konulur
+
+| Dosya | Nereye |
+|---|---|
+| `gencp_super_resolution.zip` | Herhangi bir klasöre; QGIS'in **ZIP'ten Kur** penceresinden seçilir. Kurulumdan sonra dosya silinebilir |
+| `.onnx` model dosyaları | Kalıcı bir klasöre, örneğin `C:\gencp\models\`. Yol eklentinin **Model** alanından seçilir; dosya taşınırsa yol yeniden verilmelidir |
+| `SAMPLE_*.tif` örnek girdiler | Herhangi bir klasöre; yalnızca doğrulama içindir |
+| `wsx4_spatrad.onnx` + `.yaml` | **İkisi aynı klasörde**, yan yana |
+
+Kurulum adımlarının kendisi §3'tedir. **Deneysel eklentileri de göster** kutusu §2.1'de
+anlatıldığı gibi işaretlenmeden eklenti listede görünmez.
+
+## 7.4 Kurulum yalnızca örnek dosyalarla doğrulanır
+
+Kurumun kendi verisine ihtiyaç duyulmaz. Örnek rasterler bunun içindir.
+
+1. `SAMPLE_3band_TCI_uint8_10m_512px.tif` QGIS'e eklenir.
+2. **Raster > GenCP Super-Resolution** açılır.
+3. Yöntem **Bikübik**, ölçek **2×** seçilir, bir çıktı yolu verilir ve çalıştırılır.
+
+**Beklenen sonuç:** 512 × 512 girdi → **1024 × 1024** çıktı, KRS **EPSG:32636 değişmeden**,
+piksel boyu 10 m'den **5 m**'ye, başlangıç noktası **değişmeden**. Bu dördü sağlanıyorsa
+eklenti çalışıyordur.
+
+Model yolu ayrıca sınanacaksa aynı dosya ile yöntem **GenCP SR**, model
+`gencp_sr_tci_x4_b3_v2.onnx`, ölçek **4×** seçilir; çıktı **2048 × 2048** ve piksel boyu
+**2,5 m** olmalıdır.
+
+Dört bantlı model ve wsx4 için `SAMPLE_4band_B02-B03-B04-B08_uint16_10m_512px.tif`
+kullanılmalıdır.
+
+## 7.5 Yalnızca bikübik çalışıyorsa
+
+**Bu beklenen bir durumdur ve arıza değildir.** Bikübik yöntemi `onnxruntime` paketini bilerek
+içe aktarmaz; böylece o paket olmayan bir makinede eklenti yüklenir ve iş tamamlar. Model
+yöntemleri ise o pakete bağlıdır.
+
+Yapılacak işlem sırasıyla:
+
+1. §2'deki ortam raporu çalıştırılır ve `onnxruntime` satırının **`YOK`** olduğu doğrulanır.
+2. `YOK` ise §3'teki çevrimdışı tekerlek kiti ile kurulur ve **QGIS yeniden başlatılır.**
+3. `VAR` göründüğü hâlde model yöntemi çalışmıyorsa, raporun gösterdiği dizin ile eklentinin
+   uyarısında adı geçen dizin karşılaştırılmalıdır: paket **yanlış Python ortamına** kurulmuş
+   olabilir. Makinede birden çok QGIS varsa her birinin Python ortamı ayrıdır.
+4. Model dosyasının sağlama toplamı §7.2'ye göre yeniden doğrulanmalıdır; bozuk bir model
+   dosyası model hatası gibi görünür.
+
+## 7.6 Çalışma sırasında internet gerekmez
+
+Ölçülmüştür: QGIS 4.2.1 ve QGIS 3.44.13 üzerinde, Python düzeyindeki ağ bağlantıları
+kapatılarak bikübik, model çıkarımı ve bir koordinat dönüşümü çalıştırılmış, **hiçbir ağ
+girişimi gözlenmemiştir.**
+
+PROJ'un CDN üzerinden datum ızgarası indirme özelliği **her iki sürümde de öntanımlı olarak
+kapalıdır** (`PROJ_NETWORK` ortam değişkeni tanımsız, `osr.GetPROJEnableNetwork()` ve
+`pyproj.network.is_network_enabled()` **False**).
+
+**Eklenti ayrıca hiçbir zaman yeniden projeksiyon yapmaz** — Gate S çıktının KRS'sinin girdinin
+KRS'sine eşit olmasını şart koşar — bu yüzden normal bir koşuda datum ızgarasına zaten ihtiyaç
+duyulmaz.
+
+Kurum politikası kesinlik istiyorsa, QGIS başlatılmadan önce ortam değişkeni
+`PROJ_NETWORK=OFF` yapılmalı ya da Python konsolunda şu satır çalıştırılmalıdır:
+
+```python
+from osgeo import gdal; gdal.SetConfigOption("PROJ_NETWORK", "NO")
+```
+
+`PROJ_NETWORK=ON` iken ağ erişimi olmadığında dahi dönüşümler tamamlanmıştır: PROJ, QGIS ile
+gelen yerel ızgaralara döner, hata vermez.
