@@ -6,13 +6,14 @@ Three repositories exist for this project. They are not copies of each other.
 
 | Repository | Role | Who writes |
 |---|---|---|
-| `mvy0502/GenCP` (this one), branch `tubitak-tr` | **Working repository.** Research record, gate registrations, results, code, QGIS plugin | All agent work happens here |
-| `mvy0502/gencp-validation` | **Handover copy** for whoever takes the project over | Destination only — see below |
+| `mvy0502/GenCP` (this one), branch `tubitak-tr` | **Working repository.** Research record, gate registrations, results, code, QGIS plugin | Project 1 agent work happens here |
+| `mvy0502/gencp-validation` | **The repository the institute has access to.** Holds both releases (`plugin-v0.2.0`, `sr-plugin-v0.1.0`) and the **canonical home of Project 2** (`tubitak/sr/`) | Project 2 work happens there; for Project 1 it is a destination only — see rule 2 |
 | `mvy0502/gencp-letter` | Paper (TeX) | Paper work only |
 
 ### Rules
 
-1. All work happens here, on `tubitak-tr`. This is where you push.
+1. Project 1 work happens here, on `tubitak-tr`; this is where Project 1 is pushed. Project 2
+   work happens in `gencp-validation` (rule 2).
 2. `gencp-validation` is a **destination, never a source, for Project 1.** Never work in
    it on Project 1. Never merge a branch into it. It is refreshed at milestones by copying
    the curated `tubitak/` tree. Merging `tubitak-tr` into it would propagate deletions and
