@@ -1,0 +1,1 @@
+> **Notice (2 September 2026):** the current copy of Project 2 now lives in **[mvy0502/gencp-validation](https://github.com/mvy0502/gencp-validation)** (`tubitak/sr/`, guide, releases). The copy in this repository is **frozen**.

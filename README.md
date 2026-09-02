@@ -93,6 +93,7 @@ weights and pipeline sections still apply, while its findings and analysis-scrip
 describe material that now lives in gencp-validation.
 
 ## Project 2 — Sentinel-2 super-resolution, and whether it helps matching (`tubitak/sr/`)
+> **Notice (2 September 2026):** the current copy of Project 2 now lives in **[mvy0502/gencp-validation](https://github.com/mvy0502/gencp-validation)** (`tubitak/sr/`, guide, releases). The copy in this repository is **frozen**.
 
 A second work stream on this branch, separate from the synthetic-reference plugin above. It
 adds a **QGIS plugin that super-resolves Sentinel-2 imagery**, and — the part that makes it
