@@ -13,10 +13,13 @@ Three repositories exist for this project. They are not copies of each other.
 ### Rules
 
 1. All work happens here, on `tubitak-tr`. This is where you push.
-2. `gencp-validation` is a **destination, never a source.** Never work in it. Never
-   merge a branch into it. It is refreshed at milestones by copying the curated
-   `tubitak/` tree. Merging `tubitak-tr` into it would propagate deletions and destroy
-   the research record — this has already nearly happened once.
+2. `gencp-validation` is a **destination, never a source, for Project 1.** Never work in
+   it on Project 1. Never merge a branch into it. It is refreshed at milestones by copying
+   the curated `tubitak/` tree. Merging `tubitak-tr` into it would propagate deletions and
+   destroy the research record — this has already nearly happened once.
+   **Project 2 is the exception (WP17, 2 September 2026):** its canonical copy is
+   `tubitak/sr/` in `gencp-validation`. `tubitak/sr/` in this repository is a **frozen
+   mirror and must not be edited** — work done here on Project 2 is work that will be lost.
 3. **The ownership boundary is a principle, not a list** — see below.
 4. All data lives under gitignored `tubitak/data/`.
 5. Institutional (TÜBİTAK) imagery must never enter the repository. Report summary
